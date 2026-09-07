@@ -365,7 +365,11 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
     klass->events = nullptr; // Creation is not supported
     klass->properties = nullptr; // Creation is not supported
     klass->nestedTypes = nullptr;
+#if UNITY_VER > 6003 || (UNITY_VER == 6003 && UNITY_PATCH_VER >= 3)
+    klass->init_data.rgctx_data = nullptr; // Required for generic
+#else
     klass->rgctx_data = nullptr; // Required for generic
+#endif
 
     klass->static_fields = nullptr; // Creation is not supported
     klass->static_fields_size = 0;

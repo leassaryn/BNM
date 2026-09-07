@@ -7,7 +7,13 @@ Requires C++20 minimum.
 ## Getting Started
 See documentation on [ByNameModding.github.io](https://bynamemodding.github.io/).
 
-## Supported Unity versions: 5.6.4f1, 2017.x - 6000.0.x
+## Supported Unity versions: 5.6.4f1, 2017.x - 6000.5.x
+
+Version selection is done in `include/BNM/UserSettings/GlobalSettings.hpp`:
+uncomment one `UNITY_VER` and, for 2022.x+ / Unity 6 (6000.x) games, set `UNITY_PATCH_VER`
+to the game's patch number (e.g. `2022.3.20f1` -> `20`).
+The full table of supported ranges, patch boundaries and the included header files
+is documented in that file and in `include/BNM/Il2CppHeaders.hpp`.
 
 ## Dependencies
 [UTF8-CPP](https://github.com/nemtrif/utfcpp) used by il2cpp and by BNM too.<br>

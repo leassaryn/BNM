@@ -6,7 +6,13 @@ ByNameModding - это библиотека для моддинга Unity-игр
 ## Начало работы:
 Смотри документацию на [ByNameModding.github.io](https://bynamemodding.github.io/).
 
-## Поддерживаемые версии Unity: 5.6.4f1, 2017.x - 6000.0.x
+## Поддерживаемые версии Unity: 5.6.4f1, 2017.x - 6000.5.x
+
+Выбор версии выполняется в `include/BNM/UserSettings/GlobalSettings.hpp`:
+раскомментируйте один `UNITY_VER`, а для игр на 2022.x+ / Unity 6 (6000.x)
+установите `UNITY_PATCH_VER` в номер патча игры (например: `2022.3.20f1` -> `20`).
+Полная таблица диапазонов, границ патчей и выбираемых файлов `Il2CppHeaders`
+описана в этом файле и в `include/BNM/Il2CppHeaders.hpp`.
 
 ## Зависимости
 [UTF8-CPP](https://github.com/nemtrif/utfcpp) используется в il2cpp и в BNM тоже.<br>

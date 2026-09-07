@@ -4,6 +4,64 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 
 #pragma once
 
+/**
+ * @brief Unity version selection (uncomment exactly one).
+ *
+ * 1. Uncomment the `#define UNITY_VER` matching your game's Unity version.
+ * 2. If your game is 2022.x or newer (including Unity 6 / 6000.x), set
+ *    `#define UNITY_PATCH_VER` to your game's patch number
+ *    (example: 2022.3.20f1 -> 20, 6000.0.25f1 -> 25).
+ *
+ * @note How the Il2Cpp header is chosen:
+ * - Unity < 2022: one header per minor version. All released f builds of that minor
+ *   share the same runtime layout, so `UNITY_PATCH_VER` is not needed
+ *   (only exception: 2021.1 - set `UNITY_PATCH_VER` to 24 for 2021.1.24f1 and above).
+ * - Unity >= 2022 and Unity 6 (6000.x): full per-patch headers. The runtime layout
+ *   changed in a few patches, so set `UNITY_PATCH_VER` to your game's patch.
+ *   The table below shows the covered range and which `Il2CppHeaders` file is included.
+ *
+ * | UNITY_VER | Supported range          | Header file (selected by `UNITY_PATCH_VER`)                                  |
+ * |-----------|--------------------------|-------------------------------------------------------------------------------|
+ * | 56        | 5.6.x (5.6.0f1 - 5.6.4f1) | 5.6.4f1.h                                                                    |
+ * | 171       | 2017.1.x                 | 2017.1.h                                                                      |
+ * | 172       | 2017.2.x - 2017.4.x      | 2017.4.h                                                                      |
+ * | 181       | 2018.1.x                 | 2018.1.h                                                                      |
+ * | 182       | 2018.2.x                 | 2018.2.h                                                                      |
+ * | 183       | 2018.3.x - 2018.4.x      | 2018.4.h                                                                      |
+ * | 191       | 2019.1.x - 2019.2.x      | 2019.2.h                                                                      |
+ * | 193       | 2019.3.x                 | 2019.3.h                                                                      |
+ * | 194       | 2019.4.x                 | 2019.4.h                                                                      |
+ * | 201       | 2020.1.x                 | 2020.1.h                                                                      |
+ * | 202       | 2020.2.x - 2020.3.19f1   | 2020.2.h                                                                      |
+ * | 203       | 2020.3.20f1 - 2020.3.x   | 2020.3.h                                                                      |
+ * | 211       | 2021.1.x                 | 2021.1.h (internal switch at patch 24: <24 / >=24)                            |
+ * | 212       | 2021.2.x                 | 2021.2.h                                                                      |
+ * | 213       | 2021.3.x                 | 2021.3.h                                                                      |
+ * | 221       | 2022.1.0f1 - 2022.1.25f1  | 2022.1.0f1.h (<8) or 2022.1.8f1.h (>=8)                                     |
+ * | 222       | 2022.2.0f1 - 2022.2.23f1  | 2022.2.0f1.h (<9) or 2022.2.9f1.h (>=9)                                     |
+ * | 223       | 2022.3.0f1 - 2022.3.76f1  | 2022.3.0f1.h (<8), 2022.3.8f1.h (8-32) or 2022.3.33f1.h (>=33)              |
+ * | 231       | 2023.1.0f1 - 2023.1.22f1  | 2023.1.0f1.h (<10) or 2023.1.10f1.h (>=10)                                  |
+ * | 232       | 2023.2.x                 | 2023.2.22f1.h                                                                 |
+ * | 6000      | 6000.0.0f1 - 6000.0.79f1  | 6000.0.0f1.h (<10), 6000.0.10f1.h (10-43), 6000.0.44f1.h (44-56) or 6000.0.57f1.h (>=57) |
+ * | 6001      | 6000.1.x                 | 6000.1.17f1.h                                                                 |
+ * | 6002      | 6000.2.0f1 - 6000.2.15f1  | 6000.2.0f1.h (<2) or 6000.2.2f1.h (>=2)                                     |
+ * | 6003      | 6000.3.0f1 - 6000.3.19f1  | 6000.3.0f1.h (<3) or 6000.3.3f1.h (>=3, `Il2CppClass` uses the `init_data` union) |
+ * | 6004      | 6000.4.x                 | 6000.4.12f1.h                                                                 |
+ * | 6005      | 6000.5.x                 | 6000.5.0f1.h (<1) or 6000.5.1f1.h (>=1)                                      |
+ *
+ * @note f2/f3 hotfix builds (e.g. 2022.3.62f2, 6000.0.58f2) use the same layout as the
+ *       f1 range they belong to - just set `UNITY_PATCH_VER` to their patch number.
+ * @note Unity 6 versions are 6000.x: `UNITY_VER` 6000 = 6000.0.x, 6001 = 6000.1.x, and so on.
+ * @note New Unity minor versions (6000.6+, ...) are not mapped yet - the build will fail
+ *       with `static_assert(false, "Setup UNITY_VER in GlobalSettings.hpp")`.
+ *
+ * Выбор версии Unity (раскомментируйте ровно один вариант):
+ * 1. Раскомментируйте `#define UNITY_VER`, соответствующий версии Unity в игре.
+ * 2. Если игра на 2022.x или новее (включая Unity 6 / 6000.x), установите
+ *    `#define UNITY_PATCH_VER` в номер патча игры (например: 2022.3.20f1 -> 20).
+ *
+ * Таблица диапазонов и выбираемых файлов `Il2CppHeaders` приведена выше.
+ */
 //#define UNITY_VER 56 // 5.6.4f1
 //#define UNITY_VER 171 // 2017.1.x
 //#define UNITY_VER 172 // 2017.2.x - 2017.4.x
@@ -19,10 +77,17 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 //#define UNITY_VER 211 // 2021.1.x (Need set UNITY_PATCH_VER to 24 if x (2021.1.x) >= 24)
 //#define UNITY_VER 212 // 2021.2.x
 //#define UNITY_VER 213 // 2021.3.x
-//#define UNITY_VER 221 // 2022.1.x
-#define UNITY_VER 222 // 2022.2.x - 2022.3.x
-//#define UNITY_VER 231 // 2023.1.x
-//#define UNITY_VER 232 // 2023.2.x+
+//#define UNITY_VER 221 // 2022.1.x (Need set UNITY_PATCH_VER to 8 if 2022.1.x >= 8)
+#define UNITY_VER 222 // 2022.2.x (Need set UNITY_PATCH_VER to 9 if 2022.2.x >= 9)
+//#define UNITY_VER 223 // 2022.3.x (Need set UNITY_PATCH_VER to 8 if 2022.3.x >= 8, or to 33 if 2022.3.x >= 33)
+//#define UNITY_VER 231 // 2023.1.x (Need set UNITY_PATCH_VER to 10 if 2023.1.x >= 10)
+//#define UNITY_VER 232 // 2023.2.x
+//#define UNITY_VER 6000 // 6000.0.x (Need set UNITY_PATCH_VER to 10 if 6000.0.x >= 10, or to 44 if >= 44, or to 57 if >= 57)
+//#define UNITY_VER 6001 // 6000.1.x
+//#define UNITY_VER 6002 // 6000.2.x (Need set UNITY_PATCH_VER to 2 if 6000.2.x >= 2)
+//#define UNITY_VER 6003 // 6000.3.x (Need set UNITY_PATCH_VER to 3 if 6000.3.x >= 3)
+//#define UNITY_VER 6004 // 6000.4.x
+//#define UNITY_VER 6005 // 6000.5.x (Need set UNITY_PATCH_VER to 1 if 6000.5.x >= 1)
 
 #define UNITY_PATCH_VER 32 // Для особых случаев (For special cases)
 
@@ -230,4 +295,4 @@ namespace BNM {
 #endif
 }
 
-#define BNM_VER "2.5.2"
+#define BNM_VER "2.5.3"
