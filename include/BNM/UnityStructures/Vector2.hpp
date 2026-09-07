@@ -18,32 +18,32 @@ namespace BNM::Structures::Unity {
         inline float& operator[](int i) { return data[i]; }
         inline const float& operator[](int i) const { return data[i]; }
 
-        inline static float Angle(Vector2 from, Vector2 to);
+        inline static constexpr float Angle(Vector2 from, Vector2 to);
         inline static Vector2 ClampMagnitude(Vector2 vector, float maxLength);
-        inline static float Component(Vector2 a, Vector2 b) { return Dot(a, b) / Magnitude(b); }
-        inline static float Distance(Vector2 a, Vector2 b) { return Magnitude(a - b); }
-        inline static float Dot(Vector2 lhs, Vector2 rhs) { return lhs.x * rhs.x + lhs.y * rhs.y; }
+        inline static constexpr float Component(Vector2 a, Vector2 b) { return Dot(a, b) / Magnitude(b); }
+        inline static constexpr float Distance(Vector2 a, Vector2 b) { return Magnitude(a - b); }
+        inline static constexpr float Dot(Vector2 lhs, Vector2 rhs) { return lhs.x * rhs.x + lhs.y * rhs.y; }
         inline static Vector2 FromPolar(float rad, float theta);
-        inline static Vector2 Lerp(Vector2 from, Vector2 to, float t) { return to * t + from * (1.0f - t); }
-        inline static Vector2 LerpUnclamped(Vector2 from, Vector2 to, float t) { return (to - from) * t + from; }
-        inline static float Magnitude(Vector2 vector) { return sqrtf(vector.x * vector.x + vector.y * vector.y); }
-        inline static Vector2 Max(Vector2 lhs, Vector2 rhs);
-        inline static Vector2 Min(Vector2 lhs, Vector2 rhs);
+        inline static constexpr Vector2 Lerp(Vector2 from, Vector2 to, float t) { return to * t + from * (1.0f - t); }
+        inline static constexpr Vector2 LerpUnclamped(Vector2 from, Vector2 to, float t) { return (to - from) * t + from; }
+        inline static constexpr float Magnitude(Vector2 vector) { return sqrtf(vector.x * vector.x + vector.y * vector.y); }
+        inline static constexpr Vector2 Max(Vector2 lhs, Vector2 rhs);
+        inline static constexpr Vector2 Min(Vector2 lhs, Vector2 rhs);
         inline static Vector2 MoveTowards(Vector2 current, Vector2 target, float maxDistanceDelta);
         inline void Normalize() { *this = Normalize(*this); }
         inline static Vector2 Normalize(Vector2 vector);
         inline static void OrthoNormalize(Vector2 &normal, Vector2 &tangent);
-        inline static Vector2 Perpendicular(Vector2 inDirection) { return {-inDirection.y, inDirection.x}; }
+        inline static constexpr Vector2 Perpendicular(Vector2 inDirection) { return {-inDirection.y, inDirection.x}; }
         inline static Vector2 Project(Vector2 a, Vector2 b);
         inline static Vector2 Reflect(Vector2 inDirection, Vector2 inNormal);
         inline static Vector2 Reject(Vector2 a, Vector2 b);
         inline static Vector2 RotateTowards(Vector2 current, Vector2 target, float maxRadiansDelta, float maxMagnitudeDelta);
-        inline void Scale(Vector2 scale) { scale * scale; }
-        inline static Vector2 Scale(Vector2 a, Vector2 b) { return a * b; }
+        inline void Scale(Vector2 scale) { *this = *this * scale; }
+        inline static constexpr Vector2 Scale(Vector2 a, Vector2 b) { return a * b; }
         inline static Vector2 Slerp(Vector2, Vector2, float);
         inline static Vector2 SlerpUnclamped(Vector2, Vector2, float);
         inline static Vector2 SmoothDamp(Vector2 current, Vector2 target, Vector2 &currentVelocity, float smoothTime, float maxSpeed, float deltaTime);
-        inline static float SqrMagnitude(Vector2 vector)  { return vector.x * vector.x + vector.y * vector.y; }
+        inline static constexpr float SqrMagnitude(Vector2 vector) { return vector.x * vector.x + vector.y * vector.y; }
         inline static void ToPolar(Vector2, float &, float &);
 
         inline float magnitude() { return Magnitude(*this); }
@@ -51,8 +51,8 @@ namespace BNM::Structures::Unity {
         inline Vector2 normalized() { return Normalize(*this); }
         inline std::string str() const { return std::to_string(x) + std::string(BNM_OBFUSCATE(", ")) + std::to_string(y); }
 
-        inline bool operator==(const Vector2 v) { return x == v.x && y == v.y; }
-        inline bool operator!=(const Vector2 v) { return x != v.x || y != v.y; }
+        inline bool operator==(const Vector2 v) const { return fabsf(x - v.x) < kEpsilon && fabsf(y - v.y) < kEpsilon; }
+        inline bool operator!=(const Vector2 v) const { return !(*this == v); }
         inline Vector2& operator+=(float rhs) { x += rhs; y += rhs; return *this; }
         inline Vector2& operator-=(float rhs) { x -= rhs; y -= rhs; return *this; }
         inline Vector2& operator*=(float rhs) { x *= rhs; y *= rhs; return *this; }
@@ -82,10 +82,12 @@ namespace BNM::Structures::Unity {
         static const Vector2 right;
         static const Vector2 up;
         static const Vector2 zero;
+
+        inline static constexpr const float kEpsilon = 1E-05f;
     };
 
 
-    float Vector2::Angle(Vector2 a, Vector2 b) {
+    constexpr float Vector2::Angle(Vector2 a, Vector2 b) {
         float v = Dot(a, b) / (Magnitude(a) * Magnitude(b));
         v = fmaxf(v, -1.f);
         v = fminf(v, 1.f);
@@ -105,13 +107,13 @@ namespace BNM::Structures::Unity {
         return v;
     }
 
-    Vector2 Vector2::Max(Vector2 a, Vector2 b) {
+    constexpr Vector2 Vector2::Max(Vector2 a, Vector2 b) {
         float x = a.x > b.x ? a.x : b.x;
         float y = a.y > b.y ? a.y : b.y;
         return {x, y};
     }
 
-    Vector2 Vector2::Min(Vector2 a, Vector2 b) {
+    constexpr Vector2 Vector2::Min(Vector2 a, Vector2 b) {
         float x = a.x > b.x ? b.x : a.x;
         float y = a.y > b.y ? b.y : a.y;
         return {x, y};

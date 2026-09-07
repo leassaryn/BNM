@@ -3,7 +3,7 @@
 namespace BNM::Structures::Unity {
     struct Matrix4x4;
 
-    inline static bool CompareApproximately(float f0, float f1, float epsilon = 0.000001f) {
+    inline static constexpr bool CompareApproximately(float f0, float f1, float epsilon = 0.000001f) {
         float dist = (f0 - f1);
         dist = abs(dist);
         return dist <= epsilon;
@@ -252,7 +252,8 @@ namespace BNM::Structures::Unity {
             vy = inVec[1];
             vz = inVec[2];
 
-#define M(row, col)  out[(row)*3 + col]
+            auto M = [&](int row, int col) -> float& { return out[row * 3 + col]; };
+
             xx = vx * vx;
             yy = vy * vy;
             zz = vz * vz;
@@ -275,7 +276,6 @@ namespace BNM::Structures::Unity {
             M(0, 2) = (one_c * zx) - ys;
             M(1, 2) = (one_c * yz) + xs;
             M(2, 2) = (one_c * zz) + c;
-#undef M
         }
         static void OrthoNormalize(Matrix3x3& matrix) {
             Vector3* c0 = (Vector3*)matrix.GetPtr() + 0;

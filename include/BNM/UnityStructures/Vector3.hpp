@@ -25,20 +25,20 @@ namespace BNM::Structures::Unity {
         inline float& operator[](int i) { return data[i]; }
         inline const float& operator[](int i) const { return data[i]; }
 
-        inline static float Angle(Vector3 from, Vector3 to);
-        inline static float AngleBetween(Vector3 from, Vector3 to);
+        inline static constexpr float Angle(Vector3 from, Vector3 to);
+        inline static constexpr float AngleBetween(Vector3 from, Vector3 to);
         inline static Vector3 ClampMagnitude(Vector3 vector, float maxLength);
-        inline static Vector3 Cross(Vector3 lhs, Vector3 rhs) { return {lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z, lhs.x * rhs.y - lhs.y * rhs.x}; }
-        inline static float Component(Vector3 a, Vector3 b) { return Dot(a, b) / Magnitude(b); }
-        inline static float Distance(Vector3 a, Vector3 b) { return Magnitude(a - b); }
-        inline static float Dot(Vector3 lhs, Vector3 rhs) { return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z; };
+        inline static constexpr Vector3 Cross(Vector3 lhs, Vector3 rhs) { return {lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z, lhs.x * rhs.y - lhs.y * rhs.x}; }
+        inline static constexpr float Component(Vector3 a, Vector3 b) { return Dot(a, b) / Magnitude(b); }
+        inline static constexpr float Distance(Vector3 a, Vector3 b) { return Magnitude(a - b); }
+        inline static constexpr float Dot(Vector3 lhs, Vector3 rhs) { return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z; };
         inline static Vector3 FromSpherical(float rad, float theta, float phi);
         inline static Vector3 FromString(const std::string &str);
-        inline static Vector3 Lerp(Vector3 from, Vector3 to, float t) { return to * t + from * (1.0f - t); }
-        inline static Vector3 LerpUnclamped(Vector3 from, Vector3 to, float t) { return (to - from) * t + from; }
-        inline static float Magnitude(Vector3 vector) { return sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z); }
-        inline static Vector3 Max(Vector3 lhs, Vector3 rhs);
-        inline static Vector3 Min(Vector3 lhs, Vector3 rhs);
+        inline static constexpr Vector3 Lerp(Vector3 from, Vector3 to, float t) { return to * t + from * (1.0f - t); }
+        inline static constexpr Vector3 LerpUnclamped(Vector3 from, Vector3 to, float t) { return (to - from) * t + from; }
+        inline static constexpr float Magnitude(Vector3 vector) { return sqrtf(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z); }
+        inline static constexpr Vector3 Max(Vector3 lhs, Vector3 rhs);
+        inline static constexpr Vector3 Min(Vector3 lhs, Vector3 rhs);
         inline static Vector3 MoveTowards(Vector3 current, Vector3 target, float maxDistanceDelta);
         inline void Normalize() { *this = Normalize(*this); }
         inline static float NormalizeAngle(float f, bool is180 = true);
@@ -54,12 +54,12 @@ namespace BNM::Structures::Unity {
         inline static Vector3 Reflect(Vector3 inDirection, Vector3 inNormal);
         inline static Vector3 RotateTowards(Vector3 current, Vector3 target, float maxRadiansDelta, float maxMagnitudeDelta);
         inline void Scale(Vector3 scale) { *this = *this * scale; }
-        inline static Vector3 Scale(Vector3 a, Vector3 b) { return a * b; }
+        inline static constexpr Vector3 Scale(Vector3 a, Vector3 b) { return a * b; }
         inline static float SignedAngle(Vector3 from, Vector3 to, Vector3 axis);
         inline static Vector3 Slerp(Vector3 a, Vector3 b, float t);
         inline static Vector3 SlerpUnclamped(Vector3 a, Vector3 b, float t);
         inline static Vector3 SmoothDamp(Vector3 current, Vector3 target, Vector3 &currentVelocity, float smoothTime, float maxSpeed, float deltaTime);
-        inline static float SqrMagnitude(Vector3 vector) { return vector.x * vector.x + vector.y * vector.y + vector.z * vector.z; }
+        inline static constexpr float SqrMagnitude(Vector3 vector) { return vector.x * vector.x + vector.y * vector.y + vector.z * vector.z; }
         inline static void ToSpherical(Vector3 vector, float &rad, float &theta, float &phi);
 
         inline std::string str() { return std::to_string(x) + std::string(BNM_OBFUSCATE(", ")) + std::to_string(y) + std::string(BNM_OBFUSCATE(", ")) + std::to_string(z); }
@@ -69,8 +69,8 @@ namespace BNM::Structures::Unity {
         inline float sqrMagnitude() const { return SqrMagnitude(*this); }
         inline Vector3 normalizedEuler(bool is180 = true) const { return NormalizeEuler(*this, is180); }
 
-        inline bool operator==(Vector3 v) const { return x == v.x && y == v.y && z == v.z; }
-        inline bool operator!=(Vector3 v) const { return x != v.x || y != v.y || z != v.z; }
+        inline bool operator==(Vector3 v) const { return fabsf(x - v.x) < kEpsilon && fabsf(y - v.y) < kEpsilon && fabsf(z - v.z) < kEpsilon; }
+        inline bool operator!=(Vector3 v) const { return !(*this == v); }
         inline Vector3& operator+=(Vector3 inV) { x += inV.x; y += inV.y; z += inV.z; return *this; }
         inline Vector3& operator-=(Vector3 inV) { x -= inV.x; y -= inV.y; z -= inV.z; return *this; }
         inline Vector3& operator*=(float s) { x *= s; y *= s; z *= s; return *this; }
@@ -105,14 +105,14 @@ namespace BNM::Structures::Unity {
     };
 
 
-    float Vector3::Angle(Vector3 from, Vector3 to) {
+    constexpr float Vector3::Angle(Vector3 from, Vector3 to) {
         float v = Dot(from, to) / (Magnitude(from) * Magnitude(to));
         v = fmaxf(v, -1.f);
         v = fminf(v, 1.f);
         return acosf(v);
     }
 
-    float Vector3::AngleBetween(Vector3 from, Vector3 to) {
+    constexpr float Vector3::AngleBetween(Vector3 from, Vector3 to) {
         float v = Dot(Normalize(from), Normalize(to));
         v = fmaxf(v, -1.f);
         v = fminf(v, 1.f);
@@ -150,14 +150,14 @@ namespace BNM::Structures::Unity {
         return {std::stof(args[0]), std::stof(args[1]), std::stof(args[2])};
     }
 
-    Vector3 Vector3::Max(Vector3 a, Vector3 b) {
+    constexpr Vector3 Vector3::Max(Vector3 a, Vector3 b) {
         float x = a.x > b.x ? a.x : b.x;
         float y = a.y > b.y ? a.y : b.y;
         float z = a.z > b.z ? a.z : b.z;
         return {x, y, z};
     }
 
-    Vector3 Vector3::Min(Vector3 a, Vector3 b) {
+    constexpr Vector3 Vector3::Min(Vector3 a, Vector3 b) {
         float x = a.x > b.x ? b.x : a.x;
         float y = a.y > b.y ? b.y : a.y;
         float z = a.z > b.z ? b.z : a.z;

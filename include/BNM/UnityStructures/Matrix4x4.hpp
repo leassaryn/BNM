@@ -5,9 +5,6 @@
 #include "Vector4.hpp"
 #include "Matrix3x3.hpp"
 
-#define MAT(m, r, c) (m)[(c)*4+(r)]
-#define RETURN_ZERO do { for (int i=0;i<16;i++) out[i] = 0.0F; return false; } while(0)
-
 namespace BNM::Structures::Unity {
 
     inline void QuaternionToMatrix(const Quaternion& q, struct Matrix4x4& m);
@@ -308,61 +305,66 @@ namespace BNM::Structures::Unity {
             float pos, neg, t;
             float det;
 
+            auto MAT = [&](int r, int c) -> float { return in.m_Data[c * 4 + r]; };
+            auto MAT_OUT = [&](int r, int c) -> float& { return out.m_Data[c * 4 + r]; };
+
             pos = neg = 0.0;
-            t = MAT(in, 0, 0) * MAT(in, 1, 1) * MAT(in, 2, 2);
+            t = MAT(0, 0) * MAT(1, 1) * MAT(2, 2);
             if (t >= 0.0) pos += t;
             else neg += t;
 
-            t = MAT(in, 1, 0) * MAT(in, 2, 1) * MAT(in, 0, 2);
+            t = MAT(1, 0) * MAT(2, 1) * MAT(0, 2);
             if (t >= 0.0) pos += t;
             else neg += t;
 
-            t = MAT(in, 2, 0) * MAT(in, 0, 1) * MAT(in, 1, 2);
+            t = MAT(2, 0) * MAT(0, 1) * MAT(1, 2);
             if (t >= 0.0) pos += t;
             else neg += t;
 
-            t = -MAT(in, 2, 0) * MAT(in, 1, 1) * MAT(in, 0, 2);
+            t = -MAT(2, 0) * MAT(1, 1) * MAT(0, 2);
             if (t >= 0.0) pos += t;
             else neg += t;
 
-            t = -MAT(in, 1, 0) * MAT(in, 0, 1) * MAT(in, 2, 2);
+            t = -MAT(1, 0) * MAT(0, 1) * MAT(2, 2);
             if (t >= 0.0) pos += t;
             else neg += t;
 
-            t = -MAT(in, 0, 0) * MAT(in, 2, 1) * MAT(in, 1, 2);
+            t = -MAT(0, 0) * MAT(2, 1) * MAT(1, 2);
             if (t >= 0.0) pos += t;
             else neg += t;
 
             det = pos + neg;
 
-            if (det * det < 1e-25)
-            RETURN_ZERO;
+            if (det * det < 1e-25) {
+                for (int i = 0; i < 16; i++) out.m_Data[i] = 0.0F;
+                return false;
+            }
 
             det = 1.0F / det;
-            MAT(out, 0, 0) = ((MAT(in, 1, 1) * MAT(in, 2, 2) - MAT(in, 2, 1) * MAT(in, 1, 2)) * det);
-            MAT(out, 0, 1) = (-(MAT(in, 0, 1) * MAT(in, 2, 2) - MAT(in, 2, 1) * MAT(in, 0, 2)) * det);
-            MAT(out, 0, 2) = ((MAT(in, 0, 1) * MAT(in, 1, 2) - MAT(in, 1, 1) * MAT(in, 0, 2)) * det);
-            MAT(out, 1, 0) = (-(MAT(in, 1, 0) * MAT(in, 2, 2) - MAT(in, 2, 0) * MAT(in, 1, 2)) * det);
-            MAT(out, 1, 1) = ((MAT(in, 0, 0) * MAT(in, 2, 2) - MAT(in, 2, 0) * MAT(in, 0, 2)) * det);
-            MAT(out, 1, 2) = (-(MAT(in, 0, 0) * MAT(in, 1, 2) - MAT(in, 1, 0) * MAT(in, 0, 2)) * det);
-            MAT(out, 2, 0) = ((MAT(in, 1, 0) * MAT(in, 2, 1) - MAT(in, 2, 0) * MAT(in, 1, 1)) * det);
-            MAT(out, 2, 1) = (-(MAT(in, 0, 0) * MAT(in, 2, 1) - MAT(in, 2, 0) * MAT(in, 0, 1)) * det);
-            MAT(out, 2, 2) = ((MAT(in, 0, 0) * MAT(in, 1, 1) - MAT(in, 1, 0) * MAT(in, 0, 1)) * det);
+            MAT_OUT(0, 0) = ((MAT(1, 1) * MAT(2, 2) - MAT(2, 1) * MAT(1, 2)) * det);
+            MAT_OUT(0, 1) = (-(MAT(0, 1) * MAT(2, 2) - MAT(2, 1) * MAT(0, 2)) * det);
+            MAT_OUT(0, 2) = ((MAT(0, 1) * MAT(1, 2) - MAT(1, 1) * MAT(0, 2)) * det);
+            MAT_OUT(1, 0) = (-(MAT(1, 0) * MAT(2, 2) - MAT(2, 0) * MAT(1, 2)) * det);
+            MAT_OUT(1, 1) = ((MAT(0, 0) * MAT(2, 2) - MAT(2, 0) * MAT(0, 2)) * det);
+            MAT_OUT(1, 2) = (-(MAT(0, 0) * MAT(1, 2) - MAT(1, 0) * MAT(0, 2)) * det);
+            MAT_OUT(2, 0) = ((MAT(1, 0) * MAT(2, 1) - MAT(2, 0) * MAT(1, 1)) * det);
+            MAT_OUT(2, 1) = (-(MAT(0, 0) * MAT(2, 1) - MAT(2, 0) * MAT(0, 1)) * det);
+            MAT_OUT(2, 2) = ((MAT(0, 0) * MAT(1, 1) - MAT(1, 0) * MAT(0, 1)) * det);
 
-            MAT(out, 0, 3) = -(MAT(in, 0, 3) * MAT(out, 0, 0) +
-                MAT(in, 1, 3) * MAT(out, 0, 1) +
-                MAT(in, 2, 3) * MAT(out, 0, 2));
-            MAT(out, 1, 3) = -(MAT(in, 0, 3) * MAT(out, 1, 0) +
-                MAT(in, 1, 3) * MAT(out, 1, 1) +
-                MAT(in, 2, 3) * MAT(out, 1, 2));
-            MAT(out, 2, 3) = -(MAT(in, 0, 3) * MAT(out, 2, 0) +
-                MAT(in, 1, 3) * MAT(out, 2, 1) +
-                MAT(in, 2, 3) * MAT(out, 2, 2));
+            MAT_OUT(0, 3) = -(MAT(0, 3) * MAT_OUT(0, 0) +
+                MAT(1, 3) * MAT_OUT(0, 1) +
+                MAT(2, 3) * MAT_OUT(0, 2));
+            MAT_OUT(1, 3) = -(MAT(0, 3) * MAT_OUT(1, 0) +
+                MAT(1, 3) * MAT_OUT(1, 1) +
+                MAT(2, 3) * MAT_OUT(1, 2));
+            MAT_OUT(2, 3) = -(MAT(0, 3) * MAT_OUT(2, 0) +
+                MAT(1, 3) * MAT_OUT(2, 1) +
+                MAT(2, 3) * MAT_OUT(2, 2));
 
-            MAT(out, 3, 0) = 0.0f;
-            MAT(out, 3, 1) = 0.0f;
-            MAT(out, 3, 2) = 0.0f;
-            MAT(out, 3, 3) = 1.0f;
+            MAT_OUT(3, 0) = 0.0f;
+            MAT_OUT(3, 1) = 0.0f;
+            MAT_OUT(3, 2) = 0.0f;
+            MAT_OUT(3, 3) = 1.0f;
 
             return true;
         }
@@ -741,28 +743,35 @@ namespace BNM::Structures::Unity {
         float m0, m1, m2, m3, s;
         float *r0, *r1, *r2, *r3;
 
+        auto MAT_REF = [&](const float* mat, int r, int c) -> float { return mat[c * 4 + r]; };
+        auto MAT_OUT = [&](int r, int c) -> float& { return out[c * 4 + r]; };
+        auto SWAP_ROWS = [](float*& a, float*& b) { float* tmp = a; a = b; b = tmp; };
+
         r0 = wtmp[0], r1 = wtmp[1], r2 = wtmp[2], r3 = wtmp[3];
 
-        r0[0] = MAT(m, 0, 0); r0[1] = MAT(m, 0, 1);
-        r0[2] = MAT(m, 0, 2); r0[3] = MAT(m, 0, 3);
+        r0[0] = MAT_REF(m, 0, 0); r0[1] = MAT_REF(m, 0, 1);
+        r0[2] = MAT_REF(m, 0, 2); r0[3] = MAT_REF(m, 0, 3);
         r0[4] = 1.0; r0[5] = r0[6] = r0[7] = 0.0;
 
-        r1[0] = MAT(m, 1, 0); r1[1] = MAT(m, 1, 1);
-        r1[2] = MAT(m, 1, 2); r1[3] = MAT(m, 1, 3);
+        r1[0] = MAT_REF(m, 1, 0); r1[1] = MAT_REF(m, 1, 1);
+        r1[2] = MAT_REF(m, 1, 2); r1[3] = MAT_REF(m, 1, 3);
         r1[5] = 1.0; r1[4] = r1[6] = r1[7] = 0.0;
 
-        r2[0] = MAT(m, 2, 0); r2[1] = MAT(m, 2, 1);
-        r2[2] = MAT(m, 2, 2); r2[3] = MAT(m, 2, 3);
+        r2[0] = MAT_REF(m, 2, 0); r2[1] = MAT_REF(m, 2, 1);
+        r2[2] = MAT_REF(m, 2, 2); r2[3] = MAT_REF(m, 2, 3);
         r2[6] = 1.0; r2[4] = r2[5] = r2[7] = 0.0;
 
-        r3[0] = MAT(m, 3, 0); r3[1] = MAT(m, 3, 1);
-        r3[2] = MAT(m, 3, 2); r3[3] = MAT(m, 3, 3);
+        r3[0] = MAT_REF(m, 3, 0); r3[1] = MAT_REF(m, 3, 1);
+        r3[2] = MAT_REF(m, 3, 2); r3[3] = MAT_REF(m, 3, 3);
         r3[7] = 1.0; r3[4] = r3[5] = r3[6] = 0.0;
 
         if (abs(r3[0]) > abs(r2[0])) SWAP_ROWS(r3, r2);
         if (abs(r2[0]) > abs(r1[0])) SWAP_ROWS(r2, r1);
         if (abs(r1[0]) > abs(r0[0])) SWAP_ROWS(r1, r0);
-        if (0.0F == r0[0]) RETURN_ZERO;
+        if (0.0F == r0[0]) {
+            for (int i = 0; i < 16; i++) out[i] = 0.0F;
+            return false;
+        }
 
         m1 = r1[0] / r0[0]; m2 = r2[0] / r0[0]; m3 = r3[0] / r0[0];
         s = r0[1]; r1[1] -= m1 * s; r2[1] -= m2 * s; r3[1] -= m3 * s;
@@ -774,7 +783,10 @@ namespace BNM::Structures::Unity {
         s = r0[7]; if (s != 0.0F) r1[7] -= m1 * s; r2[7] -= m2 * s; r3[7] -= m3 * s;
         if (abs(r3[1]) > abs(r2[1])) SWAP_ROWS(r3, r2);
         if (abs(r2[1]) > abs(r1[1])) SWAP_ROWS(r2, r1);
-        if (0.0F == r1[1]) RETURN_ZERO;
+        if (0.0F == r1[1]) {
+            for (int i = 0; i < 16; i++) out[i] = 0.0F;
+            return false;
+        }
         m2 = r2[1] / r1[1]; m3 = r3[1] / r1[1];
         r2[2] -= m2 * r1[2]; r3[2] -= m3 * r1[2];
         r2[3] -= m2 * r1[3]; r3[3] -= m3 * r1[3];
@@ -783,12 +795,18 @@ namespace BNM::Structures::Unity {
         s = r1[6]; if (0.0F != s) r2[6] -= m2 * s; r3[6] -= m3 * s;
         s = r1[7]; if (0.0F != s) r2[7] -= m2 * s; r3[7] -= m3 * s;
         if (abs(r3[2]) > abs(r2[2])) SWAP_ROWS(r3, r2);
-        if (0.0F == r2[2]) RETURN_ZERO;
+        if (0.0F == r2[2]) {
+            for (int i = 0; i < 16; i++) out[i] = 0.0F;
+            return false;
+        }
         m3 = r3[2] / r2[2];
         r3[3] -= m3 * r2[3]; r3[4] -= m3 * r2[4];
         r3[5] -= m3 * r2[5]; r3[6] -= m3 * r2[6];
         r3[7] -= m3 * r2[7];
-        if (0.0F == r3[3]) RETURN_ZERO;
+        if (0.0F == r3[3]) {
+            for (int i = 0; i < 16; i++) out[i] = 0.0F;
+            return false;
+        }
         s = 1.0F / r3[3];
         r3[4] *= s; r3[5] *= s; r3[6] *= s; r3[7] *= s;
         m2 = r2[3];
@@ -807,16 +825,12 @@ namespace BNM::Structures::Unity {
         m0 = r0[1];
         s  = 1.0F / r0[0];
         r0[4] = s * (r0[4] - r1[4] * m0); r0[5] = s * (r0[5] - r1[5] * m0), r0[6] = s * (r0[6] - r1[6] * m0); r0[7] = s * (r0[7] - r1[7] * m0);
-        MAT(out, 0, 0) = r0[4]; MAT(out, 0, 1) = r0[5], MAT(out, 0, 2) = r0[6]; MAT(out, 0, 3) = r0[7];
-        MAT(out, 1, 0) = r1[4]; MAT(out, 1, 1) = r1[5], MAT(out, 1, 2) = r1[6]; MAT(out, 1, 3) = r1[7];
-        MAT(out, 2, 0) = r2[4]; MAT(out, 2, 1) = r2[5], MAT(out, 2, 2) = r2[6]; MAT(out, 2, 3) = r2[7];
-        MAT(out, 3, 0) = r3[4]; MAT(out, 3, 1) = r3[5], MAT(out, 3, 2) = r3[6]; MAT(out, 3, 3) = r3[7];
+        MAT_OUT(0, 0) = r0[4]; MAT_OUT(0, 1) = r0[5], MAT_OUT(0, 2) = r0[6]; MAT_OUT(0, 3) = r0[7];
+        MAT_OUT(1, 0) = r1[4]; MAT_OUT(1, 1) = r1[5], MAT_OUT(1, 2) = r1[6]; MAT_OUT(1, 3) = r1[7];
+        MAT_OUT(2, 0) = r2[4]; MAT_OUT(2, 1) = r2[5], MAT_OUT(2, 2) = r2[6]; MAT_OUT(2, 3) = r2[7];
+        MAT_OUT(3, 0) = r3[4]; MAT_OUT(3, 1) = r3[5], MAT_OUT(3, 2) = r3[6]; MAT_OUT(3, 3) = r3[7];
         return true;
     }
-
-#undef SWAP_ROWS
-#undef MAT
-#undef RETURN_ZERO
 
     template<class T>
     inline T* Stride(T* p, size_t offset) { return reinterpret_cast<T*>((char*)p + offset); }
