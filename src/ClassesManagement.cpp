@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include <BNM/ClassesManagement.hpp>
 
 #ifdef BNM_CLASSES_MANAGEMENT

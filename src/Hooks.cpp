@@ -10,7 +10,11 @@ int Internal::BNM_il2cpp_init(const char *domain_name) {
 
     Unhook(BNM_il2cpp_init_origin);
 
-    Load();
+    // Use atomic flag to prevent multiple threads from calling Load() simultaneously
+    bool expected = false;
+    if (isLoading.compare_exchange_strong(expected, true)) {
+        Load();
+    }
 
     return ret;
 }
@@ -34,7 +38,11 @@ IL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectio
     Unhook(BNM_il2cpp_init_origin);
     Unhook(BNM_Class$$FromIl2CppType_origin);
 
-    Load();
+    // Use atomic flag to prevent multiple threads from calling Load() simultaneously
+    bool expected = false;
+    if (isLoading.compare_exchange_strong(expected, true)) {
+        Load();
+    }
 
     return klass;
 }

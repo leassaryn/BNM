@@ -590,6 +590,7 @@ namespace BNM {
             @brief Get BNM::Class from CompileTimeClass.
 
             Tries to get BNM::Class from information, that CompileTimeClass has.
+            This version can modify the CompileTimeClass for caching.
 
             @return BNM::Class
         */

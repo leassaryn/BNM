@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include <BNM/UserSettings/GlobalSettings.hpp>
 #include <BNM/UserSettings/Il2CppMethodNames.hpp>
 #include <BNM/Loading.hpp>

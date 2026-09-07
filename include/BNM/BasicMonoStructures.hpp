@@ -49,12 +49,12 @@ namespace BNM::Utils {
         }
         inline DataIterator &operator=(T t) {
             BNM_LOG_ERR_IF(!t, DBG_BNM_MSG_DataIterator_Error);
-            *this->value = *(T*)&t;
+            *this->value = t;
             return *this;
         }
         inline DataIterator &operator=(T t) const {
             BNM_LOG_ERR_IF(!t, DBG_BNM_MSG_DataIterator_Error);
-            *this->value = *(T*)&t;
+            *this->value = t;
             return *this;
         }
         /// @endcond
@@ -334,12 +334,22 @@ namespace BNM::Structures::Mono {
             int version{};
             T current{};
             constexpr Enumerator() = default;
-            explicit Enumerator(List<T> *list) : Enumerator() { this->list = list; }
+            explicit Enumerator(List<T> *list) : Enumerator() { 
+                this->list = list; 
+                if (list) {
+                    this->version = list->version;
+                    this->index = 0;
+                }
+            }
 
-            inline T* begin() { return &list->items[0]; }
-            inline T* end() { return &list->items->m_Items[list->size]; }
-            [[nodiscard]] inline T* begin() const { return &list->items[0]; }
-            [[nodiscard]] inline T* end() const { return &list->items->m_Items[list->size]; }
+            inline bool MoveNext() {
+                if (!list || index >= list->size) return false;
+                current = list->items->m_Items[index];
+                index++;
+                return true;
+            }
+            inline void Reset() { index = 0; }
+            [[nodiscard]] inline T& Current() { return current; }
         };
 
         Array<T> *items{};
@@ -437,6 +447,8 @@ namespace BNM::Structures::Mono {
             // Do not copy if the array is empty
             if (items->capacity > 0)
                 memcpy(&nItems->m_Items[0], &items->m_Items[0], items->capacity * sizeof(T));
+            // Free old array to prevent memory leak (only for BNM-created arrays)
+            if (!items->klass) items->Destroy();
             items = nItems;
             return true;
         }
@@ -564,7 +576,7 @@ namespace BNM::Structures::Mono {
         */
         void Shift(int start, int delta) {
             if (delta < 0) start -= delta;
-            if (start < size) memmove(items->m_Items + start + delta, items->m_Items + start, size - start);
+            if (start < size) memmove(items->m_Items + start + delta, items->m_Items + start, (size - start) * sizeof(T));
             size += delta;
             if (delta < 0) memset(items->m_Items + size + delta, 0, -delta * sizeof(T));
         }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <csetjmp>
+#include <csignal>
 
 #include <string_view>
 #include <type_traits>
@@ -30,13 +31,22 @@ namespace BNM {
 #ifdef BNM_ALLOW_SAFE_IS_ALLOCATED
         if (!x) return false;
 
-        static jmp_buf jump;
-        static sighandler_t handler = [](int) { longjmp(jump, 1); }; // NOLINT
+        // Use thread-local storage for signal safety
+        static thread_local jmp_buf jump;
+        static thread_local volatile sig_atomic_t jumpRequested = 0;
+
+        auto signalHandler = [](int) { jumpRequested = 1; longjmp(jump, 1); }; // NOLINT
+
         char c;
         bool ok = true;
-        sighandler_t old_handler = signal(SIGSEGV, handler);
-        if (!setjmp (jump)) c = *(char *) x; else ok = false; // NOLINT
-        (void)c;
+        sighandler_t old_handler = signal(SIGSEGV, signalHandler);
+        jumpRequested = 0;
+        if (!setjmp(jump)) { // NOLINT
+            c = *(volatile char *) x;
+            (void)c;
+        } else {
+            ok = false;
+        }
         signal(SIGSEGV, old_handler);
         return ok;
 #else
@@ -189,7 +199,8 @@ namespace BNM {
         inline ForwardList(const ForwardList& other) : lastElement(nullptr) {
             if (other.IsEmpty()) return;
 
-            auto currentOther = other.lastElement->next;
+            // Properly copy circular list: iterate from first element to last
+            auto currentOther = other.lastElement->next; // Start from first element
             do {
                 Add(currentOther->value);
                 currentOther = currentOther->next;
@@ -203,7 +214,8 @@ namespace BNM {
 
             if (other.IsEmpty()) return *this;
 
-            auto currentOther = other.lastElement->next;
+            // Properly copy circular list: iterate from first element to last
+            auto currentOther = other.lastElement->next; // Start from first element
             do {
                 Add(currentOther->value);
                 currentOther = currentOther->next;

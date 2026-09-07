@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <map>
+#include <atomic>
 
 #include <BNM/UserSettings/GlobalSettings.hpp>
 #include <BNM/Utils.hpp>
@@ -32,6 +33,7 @@ namespace BNM::Internal {
     extern void *il2cppLibraryHandle;
     extern Loading::MethodFinder currentFinderMethod;
     extern void *currentFinderData;
+    extern std::atomic<bool> isLoading;
 
     //! \internal
     // A list with variables from the il2cpp VM
@@ -171,13 +173,20 @@ namespace BNM::Internal {
             inline BNMClassesMap() {
                 _map = new (BNM_malloc(sizeof(std::map<BNM_PTR, std::vector<IL2CPP::Il2CppClass *>>))) std::map<BNM_PTR, std::vector<IL2CPP::Il2CppClass *>>();
             }
+            inline ~BNMClassesMap() {
+                if (_map) {
+                    _map->~map();
+                    BNM_free(_map);
+                    _map = nullptr;
+                }
+            }
             inline void AddClass(const IL2CPP::Il2CppImage *image, IL2CPP::Il2CppClass *cls) {
                 return AddClass((BNM_PTR)image, cls);
             }
 
             inline void AddClass(BNM_PTR image, IL2CPP::Il2CppClass *cls) {
 #ifdef BNM_ALLOW_MULTI_THREADING_SYNC
-                std::shared_lock lock(classesFindAccessMutex);
+                std::unique_lock lock(classesFindAccessMutex);
 #endif
                 (*_map)[image].emplace_back(cls);
             }
@@ -216,8 +225,11 @@ namespace BNM::Internal {
 #else
         if (!value) {
             auto nameWithoutDll = std::string_view(image->name);
-            nameWithoutDll.remove_suffix(4);
-            value = nameWithoutDll == name;
+            // Safety check: only remove suffix if name is long enough
+            if (nameWithoutDll.length() >= 4) {
+                nameWithoutDll.remove_suffix(4);
+                value = nameWithoutDll == name;
+            }
         }
 #endif
         return value;

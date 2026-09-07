@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include <BNM/UserSettings/GlobalSettings.hpp>
 #include <BNM/Utils.hpp>
 #include <BNM/Method.hpp>
@@ -32,30 +34,33 @@ bool BNM::InvokeHookImpl(IL2CPP::MethodInfo *info, void *newMet, void **oldMet) 
 
 bool BNM::VirtualHookImpl(Class targetClass, IL2CPP::MethodInfo *info, void *newMet, void **oldMet) {
     if (!info || !targetClass) return false;
-    uint16_t i = 0;
-    NEXT:
-    for (; i < targetClass._data->vtable_count; ++i) {
-        auto &vTable = targetClass._data->vtable[i];
-        auto count = vTable.method->parameters_count;
 
-        if (strcmp(vTable.method->name, info->name) != 0 || count != info->parameters_count) continue;
-
+    // Helper lambda to check if methods match
+    auto methodsMatch = [](const IL2CPP::MethodInfo *method1, const IL2CPP::MethodInfo *method2) -> bool {
+        if (strcmp(method1->name, method2->name) != 0 || method1->parameters_count != method2->parameters_count) return false;
+        
+        auto count = method1->parameters_count;
         for (uint8_t p = 0; p < count; ++p) {
 #if UNITY_VER < 212
-            auto type = (vTable.method->parameters + p)->parameter_type;
-            auto type2 = (info->parameters + p)->parameter_type;
+            auto type = (method1->parameters + p)->parameter_type;
+            auto type2 = (method2->parameters + p)->parameter_type;
 #else
-            auto type = vTable.method->parameters[p];
-            auto type2 = info->parameters[p];
+            auto type = method1->parameters[p];
+            auto type2 = method2->parameters[p];
 #endif
-            if (Class(type).GetClass() != Class(type2).GetClass()) goto NEXT;
-
+            if (Class(type).GetClass() != Class(type2).GetClass()) return false;
         }
+        return true;
+    };
+
+    for (uint16_t i = 0; i < targetClass._data->vtable_count; ++i) {
+        auto &vTable = targetClass._data->vtable[i];
+        
+        if (!methodsMatch(vTable.method, info)) continue;
 
         if (oldMet) *oldMet = (void *) vTable.methodPtr;
         vTable.methodPtr = (void(*)()) newMet;
         return true;
-
     }
     return false;
 }

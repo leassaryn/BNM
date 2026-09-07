@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include <BNM/Class.hpp>
 #include <BNM/FieldBase.hpp>
 #include <BNM/MethodBase.hpp>
@@ -520,7 +522,13 @@ Class CompileTimeClass::ToClass() {
     _loadedClass.TryInit();
     return _loadedClass;
 }
-Class CompileTimeClass::ToClass() const { return ((CompileTimeClass *)this)->ToClass(); }
+
+Class CompileTimeClass::ToClass() const {
+    // For const version, create a temporary copy and process it
+    // This avoids UB from casting away const
+    CompileTimeClass temp = *this;
+    return temp.ToClass();
+}
 CompileTimeClass::operator Class() const { return ToClass(); }
 
 IL2CPP::Il2CppType *CompileTimeClass::ToIl2CppType() const { return ToClass().GetIl2CppType(); }

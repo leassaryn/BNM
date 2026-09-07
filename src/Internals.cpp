@@ -3,6 +3,7 @@
 namespace BNM::Internal {
     States states{};
     void *il2cppLibraryHandle{};
+    std::atomic<bool> isLoading{false};
 
     void *BasicFinder(const char *name, void *userData) { return BNM_dlsym(*(void **)userData, name); }
 
