@@ -198,19 +198,22 @@ BNM memerlukan software hooking. Di `GlobalSettings.hpp`, bagian akhir file, ada
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
-    if ((void *) ptr != nullptr) DobbyHook((void *)ptr, (void *) newMethod, (void **) &oldBytes);
-    return (void *) ptr;
+    if (reinterpret_cast<void *>(ptr) != nullptr)
+        DobbyHook(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes));
+    return reinterpret_cast<void *>(ptr);
 }
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &&oldBytes) {
-    if ((void *) ptr != nullptr) DobbyHook((void *)ptr, (void *) newMethod, (void **) &oldBytes);
-    return (void *) ptr;
+    if (reinterpret_cast<void *>(ptr) != nullptr)
+        DobbyHook(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes));
+    return reinterpret_cast<void *>(ptr);
 }
 
 template<typename PTR_T>
 inline void Unhook(PTR_T ptr) {
-    if ((void *) ptr != nullptr) DobbyDestroy((void *)ptr);
+    if (reinterpret_cast<void *>(ptr) != nullptr)
+        DobbyDestroy(reinterpret_cast<void *>(ptr));
 }
 ```
 
@@ -220,19 +223,22 @@ inline void Unhook(PTR_T ptr) {
 // Shadowhook
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
-    if ((void *) ptr != nullptr) return shadowhook_hook_func_addr((void *)ptr, (void *) newMethod, (void **) &oldBytes);
+    if (reinterpret_cast<void *>(ptr) != nullptr)
+        return shadowhook_hook_func_addr(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes));
     return nullptr;
 }
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &&oldBytes) {
-    if ((void *) ptr != nullptr) return shadowhook_hook_func_addr((void *)ptr, (void *) newMethod, (void **) &oldBytes);
+    if (reinterpret_cast<void *>(ptr) != nullptr)
+        return shadowhook_hook_func_addr(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes));
     return nullptr;
 }
 
 template<typename PTR_T>
 inline void Unhook(PTR_T ptr) {
-    if ((void *) ptr != nullptr) shadowhook_unhook((void *)ptr);
+    if (reinterpret_cast<void *>(ptr) != nullptr)
+        shadowhook_unhook(reinterpret_cast<void *>(ptr));
 }
 ```
 
@@ -1140,7 +1146,7 @@ auto *enumerator = MyCoroutine().Get();
 
 // Membuat delegate
 BNM::MethodBase method = someClass.GetMethod("OnSomething", 0);
-BNM::Delegate<void> *delegate = (BNM::Delegate<void> *)BNM::Allocate(sizeof(BNM::Delegate<void>));
+auto *delegate = reinterpret_cast<BNM::Delegate<void> *>(BNM::Allocate(sizeof(BNM::Delegate<void>)));
 delegate->Create(method);
 
 // Invoke delegate
@@ -1152,7 +1158,7 @@ delegate->Invoke();
 ### 18.2 MulticastDelegate
 
 ```cpp
-BNM::MulticastDelegate<void> *multi = (BNM::MulticastDelegate<void> *)BNM::Allocate(sizeof(BNM::MulticastDelegate<void>));
+auto *multi = reinterpret_cast<BNM::MulticastDelegate<void> *>(BNM::Allocate(sizeof(BNM::MulticastDelegate<void>)));
 multi->Add(method1);
 multi->Add(method2);
 
@@ -1334,7 +1340,7 @@ Makro untuk enkripsi string (ganti dengan string encryptor Anda):
 
 ---
 
-## 22. Modern C++ Improvements (v2.5.0)
+## 22. Modern C++ Improvements (v2.5.3)
 
 ### 22.1 Build System (CMake & Android.mk)
 
@@ -1369,7 +1375,8 @@ Semua SFINAE `enable_if_t` diganti dengan `requires`:
 Semua C-style cast `((Type)expr)` diganti:
 - **Pointer reinterpretation**: `reinterpret_cast<Type *>(expr)` — untuk `this`, `Il2CppObject *`, address manipulation
 - **Inheritance upcast**: `static_cast<Base &>(expr)` — untuk delegate `cast()` methods
-- **Const removal**: `const_cast<IL2CPP::Il2CppImage *>(image)` — untuk constructor
+- **Const removal**: `const_cast<IL2CPP::Il2CppImage *>(image)` — untuk constructor il2cpp interop
+- **Member function ptr**: Menggunakan `memcpy` via `MemFnToVoidPtr()` helper (karena `reinterpret_cast` tidak bisa untuk tipe fungsi berbeda)
 
 Contoh:
 ```cpp
@@ -1408,21 +1415,11 @@ Semua wrapper sekarang support move operations:
 | `EventBase` | ✅ | ✅ |
 | `PropertyBase` | ✅ | ✅ |
 
-Contoh:
-```cpp
-// Move ForwardList
-BNM::ForwardList<int> list1;
-list1.Add(1);
-BNM::ForwardList<int> list2 = std::move(list1); // list1 sekarang kosong
-
-// Move Method
-BNM::Method<void> m1 = someClass.GetMethod("Foo");
-BNM::Method<void> m2 = std::move(m1); // m1 sekarang tidak valid
-```
+Copy constructor/assignment untuk `MethodBase`, `FieldBase`, `EventBase`, `PropertyBase` tetap tersedia (diperlukan untuk `std::vector` dan container lainnya).
 
 ### 22.6 RAII & Safety Improvements
 
-**BNMClassesMap** — sekarang memiliki copy/move semantics:
+**BNMClassesMap** — sekarang memiliki move semantics:
 ```cpp
 // Copy dihapus (deleted)
 BNMClassesMap map2 = map; // ERROR
@@ -1430,7 +1427,15 @@ BNMClassesMap map2 = map; // ERROR
 BNMClassesMap map2 = std::move(map); // OK
 ```
 
-**BasicMonoStructures** — Array::Create menggunakan `reinterpret_cast`:
+### 22.7 Type Aliases
+
+`typedef` lama diganti dengan `using` modern:
 ```cpp
-auto arr = reinterpret_cast<Array<int>*>(BNM_malloc(...));
+// Sebelum
+typedef unsigned char byte;
+typedef void (*MethodInvoker)(const Il2CppMethodPointer, ...);
+
+// Sesudah
+using byte = unsigned char;
+using MethodInvoker = void (*)(const Il2CppMethodPointer, ...);
 ```
