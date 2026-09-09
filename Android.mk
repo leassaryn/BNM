@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := BNM
 
-LOCAL_CPPFLAGS += -std=c++20 -Wall -Wextra -Wpedantic -Wshadow
+LOCAL_CPPFLAGS += -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wno-dollar-in-identifier-extension -Wno-zero-length-array
 
 INCLUDE_DIRS := $(BNM_LOCAL_PATH)/include \
                 $(BNM_LOCAL_PATH)/external/include \

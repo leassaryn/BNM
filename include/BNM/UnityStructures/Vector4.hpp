@@ -4,6 +4,10 @@
 
 #include "Vector3.hpp"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+
 namespace BNM::Structures::Unity {
     struct Vector4;
 
@@ -57,3 +61,5 @@ namespace BNM::Structures::Unity {
         inline static constexpr const float kEpsilon = 1E-05f;
     };
 }
+
+#pragma clang diagnostic pop

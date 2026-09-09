@@ -22,7 +22,7 @@ void *__Internal_Array::ArrayFromClass(IL2CPP::Il2CppClass *cls, IL2CPP::il2cpp_
 std::string String::str() {
     BNM_CHECK_SELF(DBG_BNM_MSG_String_str_Error);
     if (!length) return {};
-    return Utf16ToUtf8(chars, length);
+    return Utf16ToUtf8(chars, static_cast<size_t>(length));
 }
 
 unsigned int String::GetHash() const {

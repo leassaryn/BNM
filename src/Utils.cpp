@@ -123,7 +123,7 @@ void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
         auto info = current->value;
         auto index = static_cast<uint8_t>(info->_baseType);
         if (index >= static_cast<uint8_t>(CompileTimeClass::_BaseType::MaxCount)) {
-            BNM_LOG_ERR("\t" DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, static_cast<size_t>(index));
+            BNM_LOG_ERR("\t" DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (unsigned long) index);
             continue;
         }
         CompileTimeClassProcessors::processors[index](tmp, info);

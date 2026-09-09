@@ -1,6 +1,9 @@
 #include <BNM/Exceptions.hpp>
 #include <Internals.hpp>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
+
 BNM::Exception BNM::TryInvoke(const std::function<void()> &func) {
     BNM::IL2CPP::Il2CppType type;
     type.type = BNM::IL2CPP::IL2CPP_TYPE_VOID;
@@ -23,3 +26,5 @@ BNM::Exception BNM::TryInvoke(const std::function<void()> &func) {
     Internal::il2cppMethods.il2cpp_runtime_invoke(&info, nullptr, nullptr, &exception);
     return exception;
 }
+
+#pragma clang diagnostic pop

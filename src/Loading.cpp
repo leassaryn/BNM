@@ -155,7 +155,7 @@ namespace AssemblerUtils {
     }
 
     // Convert hexadecimal string to a value
-    static BNM_PTR HexStr2Value(const std::string &hex) { return strtoull(hex.c_str(), nullptr, 16); }
+    static BNM_PTR HexStr2Value(const std::string &hex) { return static_cast<BNM_PTR>(strtoull(hex.c_str(), nullptr, 16)); }
 
 #if defined(__ARM_ARCH_7A__)
 

@@ -4,6 +4,10 @@
 
 #include "Vector2.hpp"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+
 namespace BNM::Structures::Unity {
     struct Quaternion;
 
@@ -75,15 +79,15 @@ namespace BNM::Structures::Unity {
         inline Vector3& operator-=(Vector3 inV) { x -= inV.x; y -= inV.y; z -= inV.z; return *this; }
         inline Vector3& operator*=(float s) { x *= s; y *= s; z *= s; return *this; }
         inline Vector3& operator/=(float s)  { x /= s; y /= s; z /= s; return *this; }
-        inline Vector3& operator*=(int s) { x *= s; y *= s; z *= s; return *this; }
-        inline Vector3& operator/=(int s)  { x /= s; y /= s; z /= s; return *this; }
+        inline Vector3& operator*=(int s) { x *= static_cast<float>(s); y *= static_cast<float>(s); z *= static_cast<float>(s); return *this; }
+        inline Vector3& operator/=(int s)  { float fs = static_cast<float>(s); x /= fs; y /= fs; z /= fs; return *this; }
         inline Vector3& operator/=(Vector3 inV) { x /= inV.x; y /= inV.y; z /= inV.z; return *this; }
         inline friend Vector3 operator+(Vector3 lhs, Vector3 rhs) { return {lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z}; }
         inline friend Vector3 operator-(Vector3 lhs, Vector3 rhs) { return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z}; }
         inline friend Vector3 operator*(Vector3 v, float s) { return {v.x * s, v.y * s, v.z * s}; }
-        inline friend Vector3 operator*(Vector3 v, int s) { return {v.x * s, v.y * s, v.z * s}; }
+        inline friend Vector3 operator*(Vector3 v, int s) { float fs = static_cast<float>(s); return {v.x * fs, v.y * fs, v.z * fs}; }
         inline friend Vector3 operator*(float s, Vector3 v) { return {v.x * s, v.y * s, v.z * s}; }
-        inline friend Vector3 operator*(int s, Vector3 v) { return {v.x * s, v.y * s, v.z * s}; }
+        inline friend Vector3 operator*(int s, Vector3 v) { float fs = static_cast<float>(s); return {v.x * fs, v.y * fs, v.z * fs}; }
         inline friend Vector3 operator*(Vector3 lhs, Vector3 rhs) { return {lhs.x * rhs.x, lhs.y * rhs.y, lhs.z * rhs.z}; }
         inline friend Vector3 operator/(Vector3 v, float s) { Vector3 temp(v); temp /= s; return temp; }
         inline friend Vector3 operator/(Vector3 v, int s) { Vector3 temp(v); temp /= s; return temp; }
@@ -282,7 +286,7 @@ namespace BNM::Structures::Unity {
         else if (totalAngle >= M_PI) return -Normalize(target) * newMag;
         Vector3 axis = Cross(current, target);
         float magAxis = Magnitude(axis);
-        if (magAxis == 0) axis = Normalize(Cross(current, current + Vector3(3.95, 5.32, -4.24)));
+        if (magAxis == 0) axis = Normalize(Cross(current, current + Vector3(3.95f, 5.32f, -4.24f)));
         else axis /= magAxis;
         current = Normalize(current);
         Vector3 newVector = current * cosf(maxRadiansDelta) + Cross(axis, current) * sinf(maxRadiansDelta);
@@ -358,3 +362,5 @@ namespace BNM::Structures::Unity {
         };
     };
 }
+
+#pragma clang diagnostic pop

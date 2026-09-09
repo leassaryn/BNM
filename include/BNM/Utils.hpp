@@ -34,7 +34,7 @@ namespace BNM {
 
         // Use thread-local storage for signal safety
         static thread_local jmp_buf jump;
-        static thread_local volatile sig_atomic_t jumpRequested = 0;
+        [[maybe_unused]] static thread_local volatile sig_atomic_t jumpRequested = 0;
 
         auto signalHandler = [](int) { jumpRequested = 1; longjmp(jump, 1); }; // NOLINT
 

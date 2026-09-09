@@ -394,7 +394,7 @@ namespace BNM::Structures::Unity {
             return *this;
         }
         inline Matrix4x4& SetPerspective(float fovy, float aspect, float zNear, float zFar) {
-            constexpr float deg2Rad = M_PI / 180.f;
+            constexpr float deg2Rad = static_cast<float>(M_PI) / 180.f;
 
             float cotangent, deltaZ;
             float radians = deg2Rad * (fovy / 2.0f);
@@ -745,7 +745,7 @@ namespace BNM::Structures::Unity {
 
         auto MAT_REF = [&](const float* mat, int r, int c) -> float { return mat[c * 4 + r]; };
         auto MAT_OUT = [&](int r, int c) -> float& { return out[c * 4 + r]; };
-        auto SWAP_ROWS = [](float*& a, float*& b) { float* tmp = a; a = b; b = tmp; };
+        (void)sizeof(float*); // suppress unused lambda warning
 
         r0 = wtmp[0], r1 = wtmp[1], r2 = wtmp[2], r3 = wtmp[3];
 

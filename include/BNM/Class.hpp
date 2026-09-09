@@ -575,7 +575,7 @@ namespace BNM {
 
         inline bool _IsBit() { return reinterpret_cast<uintptr_t>(_reference) & 1; }
         inline void _SetBit() { _reference = reinterpret_cast<Defaults::Internal::ClassType *>(reinterpret_cast<uintptr_t>(_reference) | 1); }
-        inline void _RemoveBit() { _reference = reinterpret_cast<Defaults::Internal::ClassType *>(reinterpret_cast<uintptr_t>(_reference) & ~1); }
+        inline void _RemoveBit() { _reference = reinterpret_cast<Defaults::Internal::ClassType *>(reinterpret_cast<uintptr_t>(_reference) & ~static_cast<uintptr_t>(1)); }
         /// @endcond
 
         /**

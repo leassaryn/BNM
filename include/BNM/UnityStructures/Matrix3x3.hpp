@@ -13,7 +13,7 @@ namespace BNM::Structures::Unity {
         float m_Data[9]{};
         inline Matrix3x3() = default;
         inline Matrix3x3(float m00, float m01, float m02, float m10, float m11, float m12, float m20, float m21, float m22) { Get(0, 0) = m00; Get(1, 0) = m10; Get(2, 0) = m20; Get(0, 1) = m01; Get(1, 1) = m11; Get(2, 1) = m21; Get(0, 2) = m02; Get(1, 2) = m12; Get(2, 2) = m22; }
-        Matrix3x3(const class Matrix4x4& m);
+        Matrix3x3(const Matrix4x4& m);
 
         inline float& Get(int row, int column) { return m_Data[row + (column * 3)]; }
         [[nodiscard]] inline const float& Get(int row, int column) const { return m_Data[row + (column * 3)]; }
@@ -60,8 +60,8 @@ namespace BNM::Structures::Unity {
             return res;
         }
         [[nodiscard]] inline Vector3 MultiplyPoint3Transpose(const Vector3& inV) const { return MultiplyVector3Transpose(inV); }
-        Matrix3x3& operator=(const class Matrix4x4& m);
-        Matrix3x3& operator*=(const class Matrix4x4& inM);
+        Matrix3x3& operator=(const Matrix4x4& m);
+        Matrix3x3& operator*=(const Matrix4x4& inM);
         Matrix3x3& operator*=(const Matrix3x3& inM) {
             int i;
             for (i = 0; i < 3; i++) {

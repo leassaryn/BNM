@@ -1,5 +1,8 @@
 #pragma once
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wzero-length-array"
+
 #include <array>
 #include <vector>
 #include <string>
@@ -656,3 +659,5 @@ namespace BNM::Structures::Mono {
     /// @endcond
 }
 // NOLINTEND
+
+#pragma clang diagnostic pop

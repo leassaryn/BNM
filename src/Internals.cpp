@@ -80,9 +80,9 @@ IL2CPP::Il2CppClass *Internal::TryGetClassInImage(const IL2CPP::Il2CppImage *ima
     if (Internal::il2cppMethods.il2cpp_image_get_class) {
         size_t typeCount = image->typeCount;
 
-        for (size_t i = 0; i < typeCount; ++i) {
+        for (uint32_t i = 0; i < typeCount; ++i) {
             auto cls = il2cppMethods.il2cpp_image_get_class(image, i);
-            if (cls->declaringType || !cls->flags && strcmp(cls->name, BNM_OBFUSCATE("<Module>")) == 0) continue;
+            if (cls->declaringType || (!cls->flags && strcmp(cls->name, BNM_OBFUSCATE("<Module>")) == 0)) continue;
             if (_namespace == cls->namespaze && _name == cls->name) return cls;
         }
     } else {

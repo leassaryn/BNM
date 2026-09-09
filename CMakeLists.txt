@@ -58,6 +58,8 @@ target_compile_options(BNM PRIVATE
     -Wsign-conversion
     -Wnon-virtual-dtor
     -Woverloaded-virtual
+    -Wno-dollar-in-identifier-extension
+    -Wno-zero-length-array
 )
 
 # Sanitizer support — enable with -DBNM_SANITIZERS=ON

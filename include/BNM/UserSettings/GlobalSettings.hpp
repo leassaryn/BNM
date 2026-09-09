@@ -213,20 +213,17 @@ inline void Unhook(PTR_T ptr) {
 static_assert(false, "No hooking software!");
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
-inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
-    if (reinterpret_cast<void *>(ptr) != nullptr) ((void)0);
+inline void *BasicHook(PTR_T, NEW_T, T_OLD &) {
     return nullptr;
 }
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
-inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &&oldBytes) {
-    if (reinterpret_cast<void *>(ptr) != nullptr) ((void)0);
+inline void *BasicHook(PTR_T, NEW_T, T_OLD &&) {
     return nullptr;
 }
 
 template<typename PTR_T>
-inline void Unhook(PTR_T ptr) {
-    if (reinterpret_cast<void *>(ptr) != nullptr) ((void)0);
+inline void Unhook(PTR_T) {
 }
 
 #include <dlfcn.h>

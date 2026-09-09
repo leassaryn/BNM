@@ -58,7 +58,7 @@ namespace BNM {
              @brief Get classes count.
              @return Classes count if image is valid, otherwise zero.
          */
-        [[nodiscard]] inline uint32_t GetClassesCount() const { return _data ? _data->typeCount : -1; }
+        [[nodiscard]] inline uint32_t GetClassesCount() const { return _data ? _data->typeCount : 0u; }
 
         /**
             @brief Get Il2CppImage.

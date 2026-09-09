@@ -119,8 +119,8 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
             PRIVATE_INTERNAL::GetMethodClass(method->myInfo) = klass;
 
             if (!isHooked) methodsToAdd.push_back(method->myInfo);
-            BNM_LOG_DEBUG_IF(isHooked, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Hooked_Method, method->_isStatic == 1 ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), paramCount);
-            BNM_LOG_DEBUG_IF(!isHooked, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Added_Method, method->_isStatic == 1 ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), paramCount);
+            BNM_LOG_DEBUG_IF(isHooked, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Hooked_Method, method->_isStatic == 1 ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), (unsigned long) paramCount);
+            BNM_LOG_DEBUG_IF(!isHooked, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Added_Method, method->_isStatic == 1 ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), (unsigned long) paramCount);
             BNM_LOG_DEBUG_IF(method->_origin && method->_origin != method->myInfo, DBG_BNM_MSG_ClassesManagement_ModifyClasses_Overridden_Method, MethodBase(method->_origin).str().c_str());
         }
 
@@ -234,7 +234,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
         method->myInfo = ProcessCustomMethod(method, {});
 
 
-        BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Added_Method, method->_isStatic == 1 ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), method->_parameterTypes.size());
+        BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Added_Method, method->_isStatic == 1 ? DBG_BNM_MSG_ClassesManagement_Method_Static : "", method->_name.data(), (unsigned long) method->_parameterTypes.size());
         
         // Replacing non-static methods in the virtual methods table
         if (!method->_isStatic) for (uint16_t v = 0; v < newVtableSize; ++v) {
@@ -312,7 +312,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
     klass->klass = klass;
 #endif
 
-    klass->field_count = customClass->_fields.size();
+    klass->field_count = static_cast<uint16_t>(customClass->_fields.size());
     if (klass->field_count > 0) {
         // Create a list of fields
         auto fields = reinterpret_cast<IL2CPP::FieldInfo *>(BNM_malloc(klass->field_count * sizeof(IL2CPP::FieldInfo)));
@@ -333,7 +333,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
 
     // Add Interfaces
     if (!interfaces.empty()) {
-        klass->interfaces_count = interfaces.size();
+        klass->interfaces_count = static_cast<uint16_t>(interfaces.size());
         klass->implementedInterfaces = reinterpret_cast<IL2CPP::Il2CppClass **>(BNM_malloc(interfaces.size() * sizeof(IL2CPP::Il2CppClass *)));
         memcpy(klass->implementedInterfaces, interfaces.data(), interfaces.size() * sizeof(IL2CPP::Il2CppClass *));
     } else {
@@ -343,25 +343,25 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
 
     // Completing the creation of methods
     for (auto method : customClass->_methods) PRIVATE_INTERNAL::GetMethodClass(method->myInfo) = klass;
-    klass->method_count = customClass->_methods.size();
+    klass->method_count = static_cast<uint16_t>(customClass->_methods.size());
     klass->methods = methods;
     klass->has_finalize = hasFinalize;
 
     // Copy the parent flags, remove the ABSTRACT and INTERFACE flag if it exists and make type PUBLIC
     // TYPE_ATTRIBUTE_ABSTRACT, TYPE_ATTRIBUTE_INTERFACE, TYPE_ATTRIBUTE_PUBLIC
-    klass->flags = (klass->parent->flags & ~(0x00000080 | 0x00000020)) | 0x0000001;
+    klass->flags = static_cast<uint32_t>(static_cast<uint32_t>(klass->parent->flags) & ~(0x00000080u | 0x00000020u)) | 0x0000001u;
 
     // Initialize sizes
     klass->native_size = -1;
     klass->element_size = 0;
-    klass->instance_size = klass->actualSize = customClass->_size;
+    klass->instance_size = klass->actualSize = static_cast<uint32_t>(customClass->_size);
 
     // Install a table of virtual methods
-    klass->vtable_count = newVTable.size();
+    klass->vtable_count = static_cast<uint16_t>(newVTable.size());
     for (size_t i = 0; i < newVTable.size(); ++i) klass->vtable[i] = newVTable[i];
 
     // Set interface addresses
-    klass->interface_offsets_count = newInterOffsets.size();
+    klass->interface_offsets_count = static_cast<uint16_t>(newInterOffsets.size());
     klass->interfaceOffsets = reinterpret_cast<IL2CPP::Il2CppRuntimeInterfaceOffsetPair *>(BNM_malloc(newInterOffsets.size() * sizeof(IL2CPP::Il2CppRuntimeInterfaceOffsetPair)));
     memcpy(klass->interfaceOffsets, newInterOffsets.data(), newInterOffsets.size() * sizeof(IL2CPP::Il2CppRuntimeInterfaceOffsetPair));
 
@@ -727,7 +727,7 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
     auto *myInfo = BNM_I2C_NEW(MethodInfo);
     myInfo->methodPointer = reinterpret_cast<decltype(myInfo->methodPointer)>(method->_address);
     myInfo->invoker_method = reinterpret_cast<decltype(myInfo->invoker_method)>(method->_invoker);
-    myInfo->parameters_count = method->_parameterTypes.size();
+    myInfo->parameters_count = static_cast<uint8_t>(method->_parameterTypes.size());
 
 #if UNITY_VER >= 212
     myInfo->virtualMethodPointer = reinterpret_cast<decltype(myInfo->virtualMethodPointer)>(method->_address);

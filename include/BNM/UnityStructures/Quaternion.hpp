@@ -2,6 +2,10 @@
 
 #include "Vector3.hpp"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+
 namespace BNM::Structures::Unity {
     struct Quaternion {
         union {
@@ -136,7 +140,7 @@ namespace BNM::Structures::Unity {
     }
 
     Quaternion Quaternion::FromEuler(float yaw, float pitch, float roll, bool fromDeg) {
-        constexpr float deg2Rad = M_PI / 180.f;
+        constexpr float deg2Rad = static_cast<float>(M_PI) / 180.f;
 
         if (fromDeg) {
             roll *= static_cast<float>(deg2Rad);
@@ -190,7 +194,7 @@ namespace BNM::Structures::Unity {
             rot.z = 0;
         }
 
-        constexpr float rad2deg = 180.f / M_PI;
+        constexpr float rad2deg = 180.f / static_cast<float>(M_PI);
         if (toDeg) rot *= static_cast<float>(rad2deg);
 
         return rot;
@@ -341,3 +345,5 @@ namespace BNM::Structures::Unity {
         return res;
     }
 }
+
+#pragma clang diagnostic pop

@@ -263,7 +263,7 @@ namespace BNM::UnityEngine {
                         method = targetType.GetMethod(methodName, {Defaults::Get<bool>()});
                         break;
                 }
-                if (!method.IsValid() || !method._isStatic && !persistentCall->m_Target) continue;
+                if (!method.IsValid() || (!method._isStatic && !persistentCall->m_Target)) continue;
 
                 if (!method._isStatic) method.SetInstance(persistentCall->m_Target);
 

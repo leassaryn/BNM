@@ -6,6 +6,10 @@
 #include <algorithm>
 #include <cmath>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+
 namespace BNM::Structures::Unity {
     struct Vector4;
 
@@ -76,3 +80,5 @@ namespace BNM::Structures::Unity {
         };
     };
 }
+
+#pragma clang diagnostic pop

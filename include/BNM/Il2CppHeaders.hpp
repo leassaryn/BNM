@@ -1,5 +1,8 @@
 #pragma once
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wzero-length-array"
+
 /**
  * @brief Il2Cpp structure headers.
  *
@@ -137,3 +140,5 @@ static_assert(false, "Setup UNITY_VER in GlobalSettings.hpp");
     */
     using MonoType = IL2CPP::Il2CppReflectionType;
 }
+
+#pragma clang diagnostic pop
