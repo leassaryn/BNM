@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 namespace BNM::Structures::Unity {
     struct Vector2;
     struct Vector3;
