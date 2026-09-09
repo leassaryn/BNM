@@ -58,7 +58,7 @@ namespace BNM::Structures::Unity {
         static const Vector4 zero;
         static const Vector4 one;
 
-        inline static constexpr const float kEpsilon = 1E-05f;
+        inline static constexpr float kEpsilon = 1E-05f;
     };
 }
 

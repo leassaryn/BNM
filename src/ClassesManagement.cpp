@@ -170,7 +170,7 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
         klass->flags |= BNM_CLASS_ALLOCATED_FIELDS_FLAG;
 
         klass->actualSize = currentAddress;
-        klass->fields = newField;
+        klass->fields = newFields;
     }
 
     customClass->myClass = klass;
@@ -182,12 +182,15 @@ static const char *baseImageName = BNM_OBFUSCATE("Assembly-CSharp.dll");
 static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const CustomClassInfo &classInfo) {
     Image image{};
     if (classInfo._imageName) {
-        auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
-        for (auto assembly: assemblies) {
-            auto currentImage = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);
-            if (!Internal::CompareImageName(currentImage, classInfo._imageName)) continue;
-            image = currentImage;
-            break;
+        auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+        if (assembliesPtr) {
+            auto &assemblies = *assembliesPtr;
+            for (auto assembly: assemblies) {
+                auto currentImage = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);
+                if (!Internal::CompareImageName(currentImage, classInfo._imageName)) continue;
+                image = currentImage;
+                break;
+            }
         }
     } else image = Image(baseImageName);
     if (!image) image = MakeImage(classInfo._imageName);
@@ -239,15 +242,12 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
         // Replacing non-static methods in the virtual methods table
         if (!method->_isStatic) for (uint16_t v = 0; v < newVtableSize; ++v) {
             auto &vTable = newVTable[v];
+            if (!vTable.method) continue;
             auto count = vTable.method->parameters_count;
 
             if (!strcmp(vTable.method->name, method->myInfo->name) && count == method->myInfo->parameters_count && method->_parameterTypes.size() == count) {
                 if (!method->_skipTypeMatch) for (uint8_t p = 0; p < count; ++p) {
-#if UNITY_VER < 212
-                    auto type = (vTable.method->parameters + p)->parameter_type;
-#else
-                    auto type = vTable.method->parameters[p];
-#endif
+                    auto type = BNM::PRIVATE_INTERNAL::GetMethodParam(vTable.method, p);
                     if (Class(type).GetClass() != method->_parameterTypes[p].ToIl2CppClass()) goto NEXT;
                 }
 
@@ -465,7 +465,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
 
 namespace CompileTimeClassProcessors {
     typedef void (*ProcessorType)(CompileTimeClass &target, CompileTimeClass::_BaseInfo *info);
-    extern ProcessorType processors[static_cast<uint8_t>(CompileTimeClass::_BaseType::MaxCount)];
+    extern ProcessorType processors[BNM::to_underlying(CompileTimeClass::_BaseType::MaxCount)];
 }
 
 static CustomClassInfo GetClassInfo(const CompileTimeClass &compileTimeClass) {
@@ -478,10 +478,10 @@ static CustomClassInfo GetClassInfo(const CompileTimeClass &compileTimeClass) {
     do {
         auto info = current->value;
 
-        auto index = static_cast<uint8_t>(info->_baseType);
+        auto index = BNM::to_underlying(info->_baseType);
 
         // Protection from other types. We are not interested in Generic, Modifier, and other things that do not relate to the class hierarchy.
-        if (index != static_cast<uint8_t>(CompileTimeClass::_BaseType::Class)) {
+        if (index != BNM::to_underlying(CompileTimeClass::_BaseType::Class)) {
             current = current->next;
             continue;
         }
@@ -605,7 +605,8 @@ static IL2CPP::Il2CppImage *MakeImage(std::string_view imageName) {
     newImg->nameToClassHashTable = reinterpret_cast<decltype(newImg->nameToClassHashTable)>(-0x424e4d);
 
     // Add an assembly to the list
-    Internal::il2cppMethods.Assembly$$GetAllAssemblies()->push_back(newAsm);
+    auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+    if (assembliesPtr) assembliesPtr->push_back(newAsm);
 
     BNM_LOG_INFO(DBG_BNM_MSG_ClassesManagement_MakeImage_Added_Image, imageName.data());
 
@@ -635,6 +636,10 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
         }
     } _ClearMethod{method}; // NOLINT
 
+    if (method->_parameterTypes.size() > 255) {
+        BNM_LOG_ERR("ProcessCustomMethod: parameter count %zu exceeds uint8_t max (255)", method->_parameterTypes.size());
+        return nullptr;
+    }
     auto parameters = static_cast<uint8_t>(method->_parameterTypes.size());
 
     auto originalMethod = Internal::IterateMethods(target, [method, parameters](IL2CPP::MethodInfo *klassMethod) {
@@ -642,12 +647,7 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
         if (method->_skipTypeMatch) return true;
 
         for (uint8_t i = 0; i < parameters; ++i) {
-#if UNITY_VER < 212
-            auto param = (klassMethod->parameters + i)->parameter_type;
-#else
-            auto param = klassMethod->parameters[i];
-#endif
-
+            auto param = BNM::PRIVATE_INTERNAL::GetMethodParam(klassMethod, i);
             if (Class(param).GetClass() != method->_parameterTypes[i].ToIl2CppClass()) return false;
         }
         return true;
@@ -724,6 +724,10 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
 }
 
 static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *method) {
+    if (method->_parameterTypes.size() > 255) {
+        BNM_LOG_ERR("CreateMethod: parameter count %zu exceeds uint8_t max (255)", method->_parameterTypes.size());
+        return nullptr;
+    }
     auto *myInfo = BNM_I2C_NEW(MethodInfo);
     myInfo->methodPointer = reinterpret_cast<decltype(myInfo->methodPointer)>(method->_address);
     myInfo->invoker_method = reinterpret_cast<decltype(myInfo->invoker_method)>(method->_invoker);

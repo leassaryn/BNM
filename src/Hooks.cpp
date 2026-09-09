@@ -132,7 +132,10 @@ IL2CPP::Il2CppImage *Internal::ClassesManagement::new_GetImageFromIndex(IL2CPP::
 // In Unity 2017 and below, the names are stored as a number in the metadata, so we can't use them
 // But we can check the name by images
 IL2CPP::Il2CppAssembly *Internal::ClassesManagement::Assembly$$Load(const char *name) {
-    auto &assemblies = *il2cppMethods.Assembly$$GetAllAssemblies();
+    auto assembliesPtr = il2cppMethods.Assembly$$GetAllAssemblies();
+    if (!assembliesPtr) return nullptr;
+
+    auto &assemblies = *assembliesPtr;
 
     for (auto assembly : assemblies) {
 

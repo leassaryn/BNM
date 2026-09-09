@@ -6,6 +6,24 @@
 #include <string_view>
 #include <type_traits>
 
+#ifdef __has_include
+#  if __has_include(<version>)
+#    include <version>
+#  endif
+#endif
+
+// std::to_underlying is C++23; provide a fallback for C++20
+#if __cplusplus < 202302L
+namespace BNM {
+    template<typename E>
+    constexpr auto to_underlying(E e) noexcept -> std::underlying_type_t<E> {
+        return static_cast<std::underlying_type_t<E>>(e);
+    }
+} // namespace BNM
+#else
+using std::to_underlying;
+#endif
+
 #include "UserSettings/GlobalSettings.hpp"
 #include "Il2CppHeaders.hpp"
 
@@ -166,12 +184,27 @@ namespace BNM {
 
         inline IL2CPP::Il2CppClass *&GetMethodClass(IL2CPP::MethodInfo *methodInfo) {
 #if UNITY_VER > 174
-#define kls klass
+            return methodInfo->klass;
 #else
-#define kls declaring_type
+            return methodInfo->declaring_type;
 #endif
-            return methodInfo->kls;
-#undef kls
+        }
+
+        // Parameter type access: Unity < 212 uses ParameterInfo struct, >= 212 uses Il2CppType* array
+        inline const IL2CPP::Il2CppType *GetMethodParam(const IL2CPP::MethodInfo *method, uint8_t index) {
+#if UNITY_VER < 212
+            return &(method->parameters + index)->parameter_type;
+#else
+            return method->parameters[index];
+#endif
+        }
+
+        inline const IL2CPP::Il2CppType *GetPropertySetParam(const IL2CPP::PropertyInfo *prop) {
+#if UNITY_VER < 212
+            return &prop->set->parameters->parameter_type;
+#else
+            return prop->set->parameters[0];
+#endif
         }
     }
     /// @endcond

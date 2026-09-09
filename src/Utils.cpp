@@ -41,13 +41,8 @@ bool BNM::VirtualHookImpl(Class targetClass, IL2CPP::MethodInfo *info, void *new
         
         auto count = method1->parameters_count;
         for (uint8_t p = 0; p < count; ++p) {
-#if UNITY_VER < 212
-            auto type = (method1->parameters + p)->parameter_type;
-            auto type2 = (method2->parameters + p)->parameter_type;
-#else
-            auto type = method1->parameters[p];
-            auto type2 = method2->parameters[p];
-#endif
+            auto type = BNM::PRIVATE_INTERNAL::GetMethodParam(method1, p);
+            auto type2 = BNM::PRIVATE_INTERNAL::GetMethodParam(method2, p);
             if (Class(type).GetClass() != Class(type2).GetClass()) return false;
         }
         return true;
@@ -94,7 +89,7 @@ static void LogCompileTimeClassInfo(CompileTimeClass::_BaseInfo *info, const Com
             BNM_LOG_ERR("\tClass( name: \"%s\") - %s", innerInfo->_name, tmp._loadedClass.str().data());
         } break;
         case CompileTimeClass::_BaseType::Modifier: {
-            BNM_LOG_ERR("\tModifier(\"%s\") - %s", CompileTimeClassModifiers[static_cast<uint8_t>(static_cast<CompileTimeClass::_ModifierInfo *>(info)->_modifierType)], tmp._loadedClass.str().data());
+            BNM_LOG_ERR("\tModifier(\"%s\") - %s", CompileTimeClassModifiers[BNM::to_underlying(static_cast<CompileTimeClass::_ModifierInfo *>(info)->_modifierType)], tmp._loadedClass.str().data());
         } break;
         case CompileTimeClass::_BaseType::Generic: {
             auto genericInfo = static_cast<CompileTimeClass::_GenericInfo *>(info);
@@ -108,7 +103,7 @@ static void LogCompileTimeClassInfo(CompileTimeClass::_BaseInfo *info, const Com
 
 namespace CompileTimeClassProcessors {
     typedef void (*ProcessorType)(CompileTimeClass &target, CompileTimeClass::_BaseInfo *info);
-    extern ProcessorType processors[static_cast<uint8_t>(CompileTimeClass::_BaseType::MaxCount)];
+    extern ProcessorType processors[BNM::to_underlying(CompileTimeClass::_BaseType::MaxCount)];
 }
 
 void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
@@ -121,8 +116,8 @@ void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
     auto current = lastElement->next;
     do {
         auto info = current->value;
-        auto index = static_cast<uint8_t>(info->_baseType);
-        if (index >= static_cast<uint8_t>(CompileTimeClass::_BaseType::MaxCount)) {
+        auto index = BNM::to_underlying(info->_baseType);
+        if (index >= BNM::to_underlying(CompileTimeClass::_BaseType::MaxCount)) {
             BNM_LOG_ERR("\t" DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (unsigned long) index);
             continue;
         }

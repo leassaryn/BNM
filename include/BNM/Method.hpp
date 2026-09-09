@@ -129,6 +129,7 @@ namespace BNM {
         TryInit();
         auto name = BNM_OBFUSCATE(".ctor");
         auto method = GetMethod(name, sizeof...(Parameters));
+        if (!method.IsValid()) { BNM_LOG_ERR("CreateNewObjectParameters: .ctor with %zu params not found", sizeof...(Parameters)); return nullptr; }
         auto instance = CreateNewInstance();
         method.template cast<void>()[instance](parameters...);
         return instance;
@@ -140,6 +141,7 @@ namespace BNM {
         TryInit();
         auto name = BNM_OBFUSCATE(".ctor");
         auto method = GetMethod(name, parameterNames);
+        if (!method.IsValid()) { BNM_LOG_ERR("CreateNewObjectTypes: .ctor with matching params not found"); return nullptr; }
         auto instance = CreateNewInstance();
         method.template cast<void>()[instance](parameters...);
         return instance;

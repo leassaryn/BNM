@@ -104,7 +104,7 @@ namespace BNM::Structures::Mono {
 
             @return Converted string if it's valid, otherwise "ERROR: Mono::String dead".
         */
-        std::string str();
+        [[nodiscard]] std::string str();
 
         /**
             @brief Calculate string hash.
@@ -122,7 +122,7 @@ namespace BNM::Structures::Mono {
 
             @return Empty string if it's found, otherwise null.
         */
-        static String *Empty();
+        [[nodiscard]] static String *Empty();
 
 #ifdef BNM_ALLOW_SELF_CHECKS
         /**
@@ -180,7 +180,7 @@ namespace BNM::Structures::Mono {
             @brief Get array data pointer.
             @return Array data pointer if array is valid, otherwise null.
         */
-        [[nodiscard]] inline T *GetData() const { BNM_CHECK_SELF(nullptr); return const_cast<T *const>(&m_Items[0]); }
+        [[nodiscard]] inline T *GetData() const { BNM_CHECK_SELF(nullptr); return &m_Items[0]; }
 
         /**
             @brief Convert array to std::vector.

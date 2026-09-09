@@ -83,9 +83,13 @@ bool Loading::TryLoadByJNI(JNIEnv *env, jobject context) {
 
     if (context == nullptr) {
         jclass activityThread = env->FindClass(BNM_OBFUSCATE_TMP("android/app/ActivityThread"));
+        if (!activityThread) return result;
         auto currentActivityThread = env->CallStaticObjectMethod(activityThread, env->GetStaticMethodID(activityThread, BNM_OBFUSCATE_TMP("currentActivityThread"), BNM_OBFUSCATE_TMP("()Landroid/app/ActivityThread;")));
-        context = env->CallObjectMethod(currentActivityThread, env->GetMethodID(activityThread, BNM_OBFUSCATE_TMP("getApplication"), BNM_OBFUSCATE_TMP("()Landroid/app/Application;")));
+        env->DeleteLocalRef(activityThread);
+        if (!currentActivityThread) return result;
+        context = env->CallObjectMethod(currentActivityThread, env->GetMethodID(env->GetObjectClass(currentActivityThread), BNM_OBFUSCATE_TMP("getApplication"), BNM_OBFUSCATE_TMP("()Landroid/app/Application;")));
         env->DeleteLocalRef(currentActivityThread);
+        if (!context) return result;
     }
 
     auto applicationInfo = env->CallObjectMethod(context, env->GetMethodID(env->GetObjectClass(context), BNM_OBFUSCATE_TMP("getApplicationInfo"), BNM_OBFUSCATE_TMP("()Landroid/content/pm/ApplicationInfo;")));
@@ -112,9 +116,11 @@ bool Loading::TryLoadByJNI(JNIEnv *env, jobject context) {
     file.clear();
 
     // Full path to library in split_config.architecture.apk /data/app/.../package name-.../split_config.architecture.apk!/lib/architecture/libil2cpp.so
-    file = std::string(cDir).substr(0, cDir.length() - 8) + BNM_OBFUSCATE_TMP("split_config." CURRENT_ARCH ".apk!/lib/" CURRENT_ARCH "/libil2cpp.so");
-    handle = BNM_dlopen(file.c_str(), RTLD_LAZY);
-    if (!(result = CheckHandle(handle))) BNM_LOG_ERR(DBG_BNM_MSG_TryLoadByJNI_Fail);
+    if (cDir.length() >= 8) {
+        file = std::string(cDir).substr(0, cDir.length() - 8) + BNM_OBFUSCATE_TMP("split_config." CURRENT_ARCH ".apk!/lib/" CURRENT_ARCH "/libil2cpp.so");
+        handle = BNM_dlopen(file.c_str(), RTLD_LAZY);
+        if (!(result = CheckHandle(handle))) BNM_LOG_ERR(DBG_BNM_MSG_TryLoadByJNI_Fail);
+    }
 
     FINISH:
     env->ReleaseStringUTFChars(jDir, cDir.data()); env->DeleteLocalRef(jDir);
@@ -478,7 +484,7 @@ void Internal::SetupBNM() {
             newMethods[i] = newConstructor;
             continue;
         }
-        newMethods[i] = reinterpret_cast<IL2CPP::MethodInfo *>(const_cast<IL2CPP::MethodInfo *>(listClass._data->methods[i]));
+        newMethods[i] = const_cast<IL2CPP::MethodInfo *>(listClass._data->methods[i]);
     }
     listClass._data->methods = const_cast<const IL2CPP::MethodInfo **>(newMethods);
     customListTemplateClass = listClass;

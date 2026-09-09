@@ -94,8 +94,8 @@ namespace BNM::Structures::Unity {
         inline friend Vector3 operator/(Vector3 lhs, Vector3 rhs) { return {lhs.x / rhs.x, lhs.y / rhs.y, lhs.z / rhs.z}; }
         inline Vector3 operator-() const { return {-x, -y, -z}; }
 
-        inline static constexpr const float kEpsilon = 1E-05f;
-        inline static constexpr const float kEpsilonNormalSqrt = 1E-15f;
+        inline static constexpr float kEpsilon = 1E-05f;
+        inline static constexpr float kEpsilonNormalSqrt = 1E-15f;
         static const Vector3 positiveInfinity;
         static const Vector3 negativeInfinity;
         static const Vector3 back;

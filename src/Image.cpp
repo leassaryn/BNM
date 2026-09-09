@@ -57,9 +57,13 @@ std::vector<BNM::Class> BNM::Image::GetClasses(bool includeInner) const {
 }
 
 std::vector<BNM::Image> BNM::Image::GetImages() {
-    auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+    auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+    if (!assembliesPtr) return {};
 
-    std::vector<Image> ret{assemblies.size()};
+    auto &assemblies = *assembliesPtr;
+
+    std::vector<Image> ret{};
+    ret.reserve(assemblies.size());
 
     for (auto assembly : assemblies) ret.emplace_back(Internal::il2cppMethods.il2cpp_assembly_get_image(assembly));
 

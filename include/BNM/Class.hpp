@@ -400,7 +400,7 @@ namespace BNM {
             @return New array
         */
         template<typename T>
-        BNM::Structures::Mono::Array<T> *NewArray(IL2CPP::il2cpp_array_size_t size = 0) const {
+        [[nodiscard]] BNM::Structures::Mono::Array<T> *NewArray(IL2CPP::il2cpp_array_size_t size = 0) const {
             BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
             if (!_data) return nullptr;
             TryInit();
@@ -417,7 +417,7 @@ namespace BNM {
             @return New list
         */
         template<typename T>
-        Structures::Mono::List<T> *NewList() const;
+        [[nodiscard]] Structures::Mono::List<T> *NewList() const;
 
         /**
             @brief Create list of this type.
@@ -430,7 +430,7 @@ namespace BNM {
             @return New list
         */
         template<typename T>
-        Structures::Mono::List<T> *NewListBNM() const {
+        [[nodiscard]] Structures::Mono::List<T> *NewListBNM() const {
             BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
             if (!_data) return nullptr;
             TryInit();
@@ -474,7 +474,7 @@ namespace BNM {
             @return New instance
         */
         template<typename ...Parameters>
-        BNM::IL2CPP::Il2CppObject *CreateNewObjectParameters(Parameters ...parameters) const;
+        [[nodiscard]] BNM::IL2CPP::Il2CppObject *CreateNewObjectParameters(Parameters ...parameters) const;
 
         /**
             @brief Create class instance.
@@ -487,7 +487,7 @@ namespace BNM {
             @return New instance
         */
         template<typename ...Parameters>
-        BNM::IL2CPP::Il2CppObject *CreateNewObjectTypes(const std::initializer_list<std::string_view> &parameterNames, Parameters ...parameters) const;
+        [[nodiscard]] BNM::IL2CPP::Il2CppObject *CreateNewObjectTypes(const std::initializer_list<std::string_view> &parameterNames, Parameters ...parameters) const;
 
         /**
             @brief Check if class is valid.

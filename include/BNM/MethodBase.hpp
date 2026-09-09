@@ -64,13 +64,13 @@ namespace BNM {
 
             @return Typed method if method is valid and generic, otherwise empty method.
         */
-        MethodBase GetGeneric(const std::initializer_list<CompileTimeClass> &templateTypes) const;
+        [[nodiscard]] MethodBase GetGeneric(const std::initializer_list<CompileTimeClass> &templateTypes) const;
 
         /**
             @brief Get overridden method of current virtual method.
             @return Overridden method if method is valid and virtual, otherwise empty method.
         */
-        MethodBase GetOverride() const;
+        [[nodiscard]] MethodBase GetOverride() const;
 
         /**
             @brief Get return type of method.

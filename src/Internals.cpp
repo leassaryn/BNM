@@ -58,7 +58,10 @@ namespace BNM::Internal {
 using namespace BNM;
 
 IL2CPP::Il2CppImage *Internal::TryGetImage(const std::string_view &_name) {
-    auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+    auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+    if (!assembliesPtr) return nullptr;
+
+    auto &assemblies = *assembliesPtr;
 
     for (auto assembly : assemblies) {
         auto currentImage = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);

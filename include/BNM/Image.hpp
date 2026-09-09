@@ -90,7 +90,7 @@ namespace BNM {
              @brief Get all images.
              @return Vector of all images
          */
-        static std::vector<BNM::Image> GetImages();
+        [[nodiscard]] static std::vector<BNM::Image> GetImages();
 
         BNM::IL2CPP::Il2CppImage *_data{};
     };

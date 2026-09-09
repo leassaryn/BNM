@@ -33,14 +33,14 @@ namespace BNM {
             @brief Get method of delegate.
             @return MethodBase if delegate isn't null, otherwise empty MethodBase.
         */
-        BNM::MethodBase GetMethod() const;
+        [[nodiscard]] BNM::MethodBase GetMethod() const;
 
         /**
             @brief Create delegate from method.
             @param method Method that will be used in new delegate
             @return New DelegateBase
         */
-        DelegateBase *Create(BNM::MethodBase method);
+        [[nodiscard]] DelegateBase *Create(BNM::MethodBase method);
 
         /**
             @brief Check if delegate is valid.
@@ -143,6 +143,7 @@ namespace BNM {
             auto delegates = reinterpret_cast<Structures::Mono::Array<DelegateBase *> *>(this->delegates);
             if (!delegates) return static_cast<Delegate<Ret> *>(this)->Invoke(parameters...);
 
+            if (delegates->capacity == 0) return BNM::PRIVATE_INTERNAL::ReturnEmpty<Ret>();
             for (IL2CPP::il2cpp_array_size_t i = 0; i < delegates->capacity - 1; ++i) delegates->At(i)->GetMethod().template cast<Ret>().Call(parameters...);
             return delegates->At(delegates->capacity - 1)->GetMethod().template cast<Ret>().Call(parameters...);
         }

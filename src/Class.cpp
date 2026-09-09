@@ -28,7 +28,10 @@ Class::Class(const MonoType *type) {
 Class::Class(const CompileTimeClass &compileTimeClass) { _data = compileTimeClass; }
 
 static IL2CPP::Il2CppClass *TryGetClassWithoutImage(const std::string_view &_namespace, const std::string_view &_name) {
-    auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+    auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+    if (!assembliesPtr) return nullptr;
+
+    auto &assemblies = *assembliesPtr;
 
     for (auto assembly : assemblies) {
         auto image = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);
@@ -158,6 +161,7 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
     if (!_data) return {};
     TryInit();
 
+    if (parameterNames.size() > 255) { BNM_LOG_ERR("GetMethod: parameter count %zu exceeds uint8_t max", parameterNames.size()); return {}; }
     auto parameters = static_cast<uint8_t>(parameterNames.size());
 
     auto method = Internal::IterateMethods(*this, [&name, &parameters, &parameterNames](IL2CPP::MethodInfo *method) {
@@ -176,17 +180,13 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
+    if (parameterTypes.size() > 255) { BNM_LOG_ERR("GetMethod: parameter count %zu exceeds uint8_t max", parameterTypes.size()); return {}; }
     auto parameters = static_cast<uint8_t>(parameterTypes.size());
 
     auto method = Internal::IterateMethods(*this, [&name, parameters, &parameterTypes](IL2CPP::MethodInfo *method) {
         if (name != method->name || method->parameters_count != parameters) return false;
         for (uint8_t i = 0; i < parameters; ++i) {
-#if UNITY_VER < 212
-            auto param = (method->parameters + i)->parameter_type;
-#else
-            auto param = method->parameters[i];
-#endif
-
+            auto param = BNM::PRIVATE_INTERNAL::GetMethodParam(method, i);
             if (Class(param).GetClass() != parameterTypes.begin()[i].ToIl2CppClass()) return false;
         }
         return true;
@@ -411,12 +411,15 @@ namespace CompileTimeClassProcessors {
 
         BNM::Image image{};
 
-        auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
-        for (auto assembly: assemblies) {
-            auto currentImage = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);
-            if (!Internal::CompareImageName(currentImage, classInfo->_imageName)) continue;
-            image = currentImage;
-            break;
+        auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+        if (assembliesPtr) {
+            auto &assemblies = *assembliesPtr;
+            for (auto assembly: assemblies) {
+                auto currentImage = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);
+                if (!Internal::CompareImageName(currentImage, classInfo->_imageName)) continue;
+                image = currentImage;
+                break;
+            }
         }
 
         target._loadedClass = Internal::TryGetClassInImage(image, _namespace, classInfo->_name);

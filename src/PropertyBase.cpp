@@ -27,12 +27,9 @@ PropertyBase &PropertyBase::SetInstance(IL2CPP::Il2CppObject *val) {
 
 BNM::Class PropertyBase::GetType() const {
     if (!_data) return {};
-    return _data->get ? _data->get->return_type :
-#if UNITY_VER < 212
-            _data->set->parameters->parameter_type;
-#else
-            _data->set->parameters[0];
-#endif
+    if (_data->get) return _data->get->return_type;
+    if (_data->set) return BNM::PRIVATE_INTERNAL::GetPropertySetParam(_data);
+    return {};
 }
 
 BNM::Class PropertyBase::GetParentClass() const {

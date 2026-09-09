@@ -28,6 +28,8 @@
 19. [Hooking — Cara Hook Method](#19-hooking--cara-hook-method)
 20. [Utilitas Tambahan](#20-utilitas-tambahan)
 21. [Trouble Shooting](#21-trouble-shooting)
+22. [Modern C++ Improvements (v2.5.3)](#22-modern-c-improvements-v253)
+23. [Refined Improvements (post-v2.5.3 bugfixes)](#23-refined-improvements-post-v253-bugfixes)
 
 ---
 
@@ -1439,3 +1441,107 @@ typedef void (*MethodInvoker)(const Il2CppMethodPointer, ...);
 using byte = unsigned char;
 using MethodInvoker = void (*)(const Il2CppMethodPointer, ...);
 ```
+
+---
+
+## 23. Refined Improvements (post-v2.5.3 bugfixes)
+
+### 23.1 C++20 Compatibility Helpers
+
+**`BNM::to_underlying`** — fallback untuk C++20 yang belum memiliki `std::to_underlying` (C++23). Otomatis memakai `std::to_underlying` jika tersedia, atau menggunakan implementasi internal:
+
+```cpp
+// Digunakan di berbagai place untuk enum → integer conversion
+auto index = BNM::to_underlying(info->_baseType);
+extern ProcessorType processors[BNM::to_underlying(CompileTimeClass::_BaseType::MaxCount)];
+```
+
+**`PRIVATE_INTERNAL::GetMethodParam` / `GetPropertySetParam`** — helper untuk mengakses tipe parameter method/property secara uniform, menghilangkan duplikasi `#if UNITY_VER < 212` di 4 file `.cpp`:
+
+```cpp
+// Unity < 212: ParameterInfo[] struct, >= 212: Il2CppType* array
+const IL2CPP::Il2CppType *param = BNM::PRIVATE_INTERNAL::GetMethodParam(method, index);
+const IL2CPP::Il2CppType *setParam = BNM::PRIVATE_INTERNAL::GetPropertySetParam(prop);
+```
+
+### 23.2 [[nodiscard]] pada Public API
+
+Metode-metode yang mengembalikan nilai ditambahkan `[[nodiscard]]` agar caller tidak lupa memeriksa return value:
+
+| Header | Method |
+|--------|--------|
+| `Delegates.hpp` | `DelegateBase::GetMethod()`, `DelegateBase::Create()` |
+| `BasicMonoStructures.hpp` | `String::str()`, `String::Empty()`, `Array::GetData()`, `Array::ToVector()`, dll |
+| `MethodBase.hpp` | `MethodBase::GetGeneric()`, `MethodBase::GetOverride()` |
+| `Image.hpp` | `Image::GetClasses()`, `Image::GetImages()` |
+| `Class.hpp` | `Class::NewArray<T>()`, `Class::NewList<T>()`, `Class::NewListBNM<T>()`, `Class::CreateNewObjectParameters()`, `Class::CreateNewObjectTypes()` |
+
+Contoh efeknya — compiler akan warning jika return value diabaikan:
+```cpp
+auto *arr = cls.NewArray<int>(10);      // OK
+cls.NewArray<int>(10);                  // ⚠️ unused result
+```
+
+### 23.3 Redundant Casts Removed
+
+| Lokasi | Perubahan |
+|--------|-----------|
+| `BasicMonoStructures.hpp:183` | `const_cast<T *const>(&m_Items[0])` → `&m_Items[0]` (redundan karena `GetData()` sudah non-const) |
+| `Loading.cpp:487` | `reinterpret_cast<IL2CPP::MethodInfo *>(const_cast<...>(listClass._data->methods[i]))` → `const_cast<IL2CPP::MethodInfo *>(...)` (satu cast saja cukup) |
+| `ClassesManagement.cpp:259` | Hapus `const_cast` pada assignment `vTable.method = method->myInfo` (type sama) |
+| `UnityStructures/Vector{2,3,4}.hpp` | `inline static constexpr const float` → `inline static constexpr float` (redudant `const`) |
+
+### 23.4 Null-Safety Fixes
+
+Beberapa panggilan `il2cppMethods.Assembly$$GetAllAssemblies()` sebelumnya dereference tanpa check null. Sekarang semua tempat menambahkan guard:
+
+```cpp
+// Sebelum (potential null-deref)
+auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+
+// Sesudah
+auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+if (!assembliesPtr) return nullptr;
+auto &assemblies = *assembliesPtr;
+```
+
+Berlaku di: `Class.cpp`, `ClassesManagement.cpp`, `Hooks.cpp`, `Image.cpp`, `Internals.cpp`, `Loading.cpp`.
+
+### 23.5 JNI Resource Cleanup
+
+`TryLoadByJNI` di `Loading.cpp` sekarang memanggil `DeleteLocalRef` sebelum pengecekan null, menghindari leak reference JNA:
+
+```cpp
+auto activityThread = env->CallStaticObjectMethod(...);
+env->DeleteLocalRef(activityThread);   // dipindah ke awal, sebelum check null
+if (!activityThread) return result;
+```
+
+### 23.6 Parameter Count Guard
+
+`ProcessCustomMethod` dan `CreateMethod` di `ClassesManagement.cpp` sekarang memvalidasi `> 255` sebelum casting ke `uint8_t`:
+
+```cpp
+if (method->_parameterTypes.size() > 255) {
+    BNM_LOG_ERR("ProcessCustomMethod: parameter count %zu exceeds uint8_t max (255)", method->_parameterTypes.size());
+    return nullptr;
+}
+```
+
+Sama berlaku di `Class.cpp:GetMethod` dan `ClassesManagement.cpp:CreateMethod`.
+
+### 23.7 Vtable Null Guard
+
+Loop override method di `CreateClass` sekarang melewatkan vtable entry yang null:
+
+```cpp
+for (uint16_t v = 0; v < newVtableSize; ++v) {
+    auto &vTable = newVTable[v];
+    if (!vTable.method) continue;   // ← guard baru
+    // ... proses override
+}
+```
+
+### 23.8 Duplicate ShadowHook Block Removed
+
+`GlobalSettings.hpp` sebelumnya memiliki dua blok ShadowHook (satu di section atas, satu lagi di bawah Dobby). Versi sekarang hanya menyisakan satu blok ShadowHook di dalam komentar (legacy) dan Dobby sebagai backend aktif.
