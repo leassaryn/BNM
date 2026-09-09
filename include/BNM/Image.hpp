@@ -26,7 +26,7 @@ namespace BNM {
             @brief Create image from il2cpp image.
             @param image Il2cpp image
         */
-        inline Image(const BNM::IL2CPP::Il2CppImage *image) : _data((BNM::IL2CPP::Il2CppImage *) image) {}
+        inline Image(const BNM::IL2CPP::Il2CppImage *image) : _data(const_cast<BNM::IL2CPP::Il2CppImage *>(image)) {}
 
         /**
             @brief Create image from name.
@@ -71,9 +71,9 @@ namespace BNM {
             @brief Check if image is valid.
             @return State of image
         */
-        [[nodiscard]] inline bool IsValid() const { return _data != nullptr; }
+        [[nodiscard]] inline constexpr bool IsValid() const { return _data != nullptr; }
 
-        inline operator bool() const { return IsValid(); }
+        inline constexpr operator bool() const { return IsValid(); }
 
 #ifdef BNM_ALLOW_STR_METHODS
 

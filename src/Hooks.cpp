@@ -25,15 +25,15 @@ IL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectio
     if (states.state) return klass;
 
     if (!Internal::il2cppMethods.il2cpp_domain_get) {
-        Internal::il2cppMethods.il2cpp_domain_get = (decltype(Internal::il2cppMethods.il2cpp_domain_get)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get));
-        Internal::il2cppMethods.il2cpp_thread_current = (decltype(Internal::il2cppMethods.il2cpp_thread_current)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_thread_current));
+        Internal::il2cppMethods.il2cpp_domain_get = reinterpret_cast<decltype(Internal::il2cppMethods.il2cpp_domain_get)>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get)));
+        Internal::il2cppMethods.il2cpp_thread_current = reinterpret_cast<decltype(Internal::il2cppMethods.il2cpp_thread_current)>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_thread_current)));
     }
 
     auto domain = Internal::il2cppMethods.il2cpp_domain_get();
     auto thread = Internal::il2cppMethods.il2cpp_thread_current(domain);
 
     // Will be true after il2cpp_init
-    if (!thread || !thread->internal_thread || (void *) domain->default_context != (void *) thread->internal_thread->current_appcontext) return klass;
+    if (!thread || !thread->internal_thread || reinterpret_cast<void *>(domain->default_context) != reinterpret_cast<void *>(thread->internal_thread->current_appcontext)) return klass;
 
     Unhook(BNM_il2cpp_init_origin);
     Unhook(BNM_Class$$FromIl2CppType_origin);
@@ -49,7 +49,7 @@ IL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectio
 
 void Internal::Image$$GetTypes(const IL2CPP::Il2CppImage *image, bool, std::vector<BNM::IL2CPP::Il2CppClass *> *target) {
     // Get non-BNM classes
-    if (image->nameToClassHashTable != (decltype(image->nameToClassHashTable))-0x424e4d)
+    if (image->nameToClassHashTable != reinterpret_cast<decltype(image->nameToClassHashTable)>(-0x424e4d))
         il2cppMethods.orig_Image$$GetTypes(image, false, target);
 
 #ifdef BNM_CLASSES_MANAGEMENT
@@ -68,7 +68,7 @@ IL2CPP::Il2CppClass *Internal::ClassesManagement::Class$$FromIl2CppType(IL2CPP::
     if (!type) return nullptr;
 
     // Check if type is BNM created
-    if (type->num_mods == 31) return (IL2CPP::Il2CppClass *)type->data.dummy;
+    if (type->num_mods == 31) return reinterpret_cast<IL2CPP::Il2CppClass *>(type->data.dummy);
 
     return old_Class$$FromIl2CppType(type);
 }
@@ -78,7 +78,7 @@ IL2CPP::Il2CppClass *Internal::ClassesManagement::Type$$GetClassOrElementClass(I
     if (!type) return nullptr;
 
     // Check if type is BNM created
-    if (type->num_mods == 31) return (IL2CPP::Il2CppClass *)type->data.dummy;
+    if (type->num_mods == 31) return reinterpret_cast<IL2CPP::Il2CppClass *>(type->data.dummy);
 
     return old_Type$$GetClassOrElementClass(type);
 }
@@ -90,7 +90,7 @@ IL2CPP::Il2CppClass *Internal::ClassesManagement::Class$$FromName(IL2CPP::Il2Cpp
     IL2CPP::Il2CppClass *ret = nullptr;
 
     // Check if image is BNM created
-    if (image->nameToClassHashTable != (decltype(image->nameToClassHashTable)) -0x424e4d)
+    if (image->nameToClassHashTable != reinterpret_cast<decltype(image->nameToClassHashTable)>(-0x424e4d))
         ret = old_Class$$FromName(image, namespace_, name);
 
     // If through BNM, we are looking for a class

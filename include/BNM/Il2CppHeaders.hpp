@@ -135,5 +135,5 @@ static_assert(false, "Setup UNITY_VER in GlobalSettings.hpp");
     /**
         @brief Redefinition of Il2CppReflectionType for shorter code
     */
-    typedef IL2CPP::Il2CppReflectionType MonoType;
+    using MonoType = IL2CPP::Il2CppReflectionType;
 }

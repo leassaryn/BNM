@@ -26,7 +26,8 @@ namespace BNM {
         @brief Macro function for checking if pointer points to valid address.
         @return True if address is valid.
     */
-    template <typename T, typename = std::enable_if<std::is_pointer_v<T>>>
+    template <typename T>
+        requires std::is_pointer_v<T>
     inline bool IsAllocated(T x) {
 #ifdef BNM_ALLOW_SAFE_IS_ALLOCATED
         if (!x) return false;
@@ -85,10 +86,11 @@ namespace BNM {
         @return Unboxed object of passed type
     */
     template<typename T>
-    inline T UnboxObject(T obj) { return (T)(void *)(((char *)obj) + sizeof(BNM::IL2CPP::Il2CppObject)); }
+    inline T UnboxObject(T obj) { return reinterpret_cast<T>(reinterpret_cast<void *>(reinterpret_cast<char *>(obj) + sizeof(BNM::IL2CPP::Il2CppObject))); }
 
 #ifdef BNM_DEPRECATED
-    template <typename T, typename = std::enable_if<std::is_pointer<T>::value>>
+    template <typename T>
+        requires std::is_pointer_v<T>
     inline T CheckObj(T obj) {
         if (obj && IsAllocated(obj)) return obj;
         return nullptr;
@@ -96,7 +98,7 @@ namespace BNM {
 
     template<typename MET_T, typename PTR_T>
     inline void InitFunc(MET_T& method, PTR_T ptr) {
-        *(void **)&method = (void *)ptr;
+        *reinterpret_cast<void **>(&method) = reinterpret_cast<void *>(ptr);
     }
 #endif
 
@@ -153,7 +155,7 @@ namespace BNM {
         @return Unmarshaled unity object
     */
     inline BNM_INT_PTR UnmarshalUnityObject(BNM_INT_PTR gcHandlePtr) {
-        return *(BNM_INT_PTR *)(gcHandlePtr & ~(BNM_INT_PTR)1);
+        return *reinterpret_cast<BNM_INT_PTR *>(gcHandlePtr & ~static_cast<BNM_INT_PTR>(1));
     }
 #endif
 
@@ -224,10 +226,23 @@ namespace BNM {
             return *this;
         }
 
+        inline ForwardList(ForwardList&& other) noexcept : lastElement(other.lastElement) {
+            other.lastElement = nullptr;
+        }
+
+        inline ForwardList& operator=(ForwardList&& other) noexcept {
+            if (this != &other) {
+                Clear();
+                lastElement = other.lastElement;
+                other.lastElement = nullptr;
+            }
+            return *this;
+        }
+
         [[nodiscard]] inline bool IsEmpty() const { return !lastElement; }
 
         inline void Add(T value) {
-            auto newElement = (Element *) BNM_malloc(sizeof(Element));
+            auto newElement = reinterpret_cast<Element *>(BNM_malloc(sizeof(Element)));
             newElement->next = nullptr;
             newElement->value = value;
 

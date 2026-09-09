@@ -6,7 +6,7 @@ using namespace BNM;
 PropertyBase::PropertyBase(const IL2CPP::PropertyInfo *info) {
     if (!info) return;
 
-    _data = (IL2CPP::PropertyInfo *) info;
+    _data = const_cast<IL2CPP::PropertyInfo *>(info);
 
     if (info->get && info->get->methodPointer) {
         _hasGetter = true;

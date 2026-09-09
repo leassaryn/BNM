@@ -26,8 +26,8 @@ namespace BNM::Structures::Unity {
 
             float h_to_floor = H * 6.0f;
 
-            int tmp = (int) floor(h_to_floor);
-            float F = h_to_floor - (float) tmp;
+            int tmp = static_cast<int>(std::floor(h_to_floor));
+            float F = h_to_floor - static_cast<float>(tmp);
 
             float P = (V) * (1 - S);
             float Q = V * (1 - S * F);

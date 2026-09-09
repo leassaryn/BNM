@@ -57,7 +57,7 @@ namespace BNM {
             @brief Get method offset.
             @return Method offset if method is valid, otherwise zero.
         */
-        inline BNM_PTR GetOffset() const { return _data ? (BNM_PTR) _data->methodPointer : 0; }
+        inline BNM_PTR GetOffset() const { return _data ? reinterpret_cast<BNM_PTR>(_data->methodPointer) : 0; }
 
         /**
             @brief Get typed version of current generic method.
@@ -89,7 +89,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current MethodBase
         */
-        inline MethodBase &operator[](void *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline MethodBase &operator[](void *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Operator for setting instance.
@@ -103,13 +103,13 @@ namespace BNM {
             @param instance Instance
             @return Reference to current MethodBase
         */
-        inline MethodBase &operator[](UnityEngine::Object *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline MethodBase &operator[](UnityEngine::Object *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Check if method is valid.
             @return State of method
         */
-        [[nodiscard]] inline bool IsValid() const noexcept { return _data; }
+        [[nodiscard]] inline constexpr bool IsValid() const noexcept { return _data != nullptr; }
 
 #ifdef BNM_ALLOW_STR_METHODS
 
@@ -133,11 +133,34 @@ namespace BNM {
         /**
            @brief Cast method to be able to call it.
         */
-        template<typename NewType> inline Method<NewType> &cast() const { return (Method<NewType> &)*this; }
+        template<typename NewType> inline Method<NewType> &cast() const { return const_cast<Method<NewType> &>(static_cast<const Method<NewType> &>(*this)); }
 
         IL2CPP::MethodInfo *_data{};
         IL2CPP::Il2CppObject *_instance{};
         uint8_t _isStatic : 1 = false, _isVirtual : 1 = false;
+
+        constexpr MethodBase(MethodBase &&other) noexcept
+            : _data(other._data), _instance(other._instance),
+              _isStatic(other._isStatic), _isVirtual(other._isVirtual) {
+            other._data = nullptr;
+            other._instance = nullptr;
+            other._isStatic = false;
+            other._isVirtual = false;
+        }
+
+        constexpr MethodBase &operator=(MethodBase &&other) noexcept {
+            if (this != &other) {
+                _data = other._data;
+                _instance = other._instance;
+                _isStatic = other._isStatic;
+                _isVirtual = other._isVirtual;
+                other._data = nullptr;
+                other._instance = nullptr;
+                other._isStatic = false;
+                other._isVirtual = false;
+            }
+            return *this;
+        }
     };
 
 #pragma pack(pop)
@@ -170,7 +193,7 @@ namespace BNM {
     */
     template<typename T_NEW, typename T_OLD>
     bool InvokeHook(const BNM::MethodBase &targetMethod, T_NEW newMet, T_OLD &oldMet) {
-        if (targetMethod.IsValid()) return InvokeHookImpl(targetMethod._data, (void *)newMet, (void **)&oldMet);
+        if (targetMethod.IsValid()) return InvokeHookImpl(targetMethod._data, reinterpret_cast<void *>(newMet), reinterpret_cast<void **>(&oldMet));
         return false;
     }
 
@@ -187,7 +210,7 @@ namespace BNM {
     */
     template<typename T_NEW, typename T_OLD>
     bool InvokeHook(const BNM::MethodBase &targetMethod, T_NEW newMet, T_OLD &&oldMet) {
-        if (targetMethod.IsValid()) return InvokeHookImpl(targetMethod._data, (void *)newMet, (void **)&oldMet);
+        if (targetMethod.IsValid()) return InvokeHookImpl(targetMethod._data, reinterpret_cast<void *>(newMet), reinterpret_cast<void **>(&oldMet));
         return false;
     }
 
@@ -197,13 +220,13 @@ namespace BNM {
         Alias for BNM::InvokeHookImpl
 
         @param info Target method info
-        @param newMet Replacement method
+        @param newMet Pointer to replacement method
         @param oldMet Pointer where original method pointer will be stored. Can be null
 
         @return True if method valid
     */
     template<typename T_NEW, typename T_OLD>
-    bool InvokeHook(IL2CPP::MethodInfo *info, T_NEW newMet, T_OLD &oldMet) { return InvokeHookImpl(info, (void *)newMet, (void **)&oldMet); }
+    bool InvokeHook(IL2CPP::MethodInfo *info, T_NEW newMet, T_OLD &oldMet) { return InvokeHookImpl(info, reinterpret_cast<void *>(newMet), reinterpret_cast<void **>(&oldMet)); }
 
     /**
         @brief Hook method by changing MethodInfo
@@ -211,13 +234,13 @@ namespace BNM {
         Alias for BNM::InvokeHookImpl
 
         @param info Target method info
-        @param newMet Replacement method
+        @param newMet Pointer to replacement method
         @param oldMet Pointer where original method pointer will be stored. Can be null
 
         @return True if method valid
     */
     template<typename T_NEW, typename T_OLD>
-    bool InvokeHook(IL2CPP::MethodInfo *info, T_NEW newMet, T_OLD &&oldMet) { return InvokeHookImpl(info, (void *)newMet, (void **)&oldMet); }
+    bool InvokeHook(IL2CPP::MethodInfo *info, T_NEW newMet, T_OLD &&oldMet) { return InvokeHookImpl(info, reinterpret_cast<void *>(newMet), reinterpret_cast<void **>(&oldMet)); }
 
     /**
         @brief Hook method by changing class virtual table
@@ -248,7 +271,7 @@ namespace BNM {
     */
     template<typename T_NEW, typename T_OLD>
     bool VirtualHook(BNM::Class targetClass, const BNM::MethodBase &targetMethod, T_NEW newMet, T_OLD &oldMet) {
-        if (targetClass && targetMethod.IsValid()) return VirtualHookImpl(targetClass, targetMethod._data, (void *)newMet, (void **)&oldMet);
+        if (targetClass && targetMethod.IsValid()) return VirtualHookImpl(targetClass, targetMethod._data, reinterpret_cast<void *>(newMet), reinterpret_cast<void **>(&oldMet));
         return false;
     }
 
@@ -266,7 +289,7 @@ namespace BNM {
     */
     template<typename T_NEW, typename T_OLD>
     bool VirtualHook(BNM::Class targetClass, const BNM::MethodBase &targetMethod, T_NEW newMet, T_OLD &&oldMet) {
-        if (targetClass && targetMethod.IsValid()) return VirtualHookImpl(targetClass, targetMethod._data, (void *)newMet, (void **)&oldMet);
+        if (targetClass && targetMethod.IsValid()) return VirtualHookImpl(targetClass, targetMethod._data, reinterpret_cast<void *>(newMet), reinterpret_cast<void **>(&oldMet));
         return false;
     }
 
@@ -284,7 +307,7 @@ namespace BNM {
     */
     template<typename T_NEW, typename T_OLD>
     bool VirtualHook(BNM::Class targetClass, IL2CPP::MethodInfo *info, T_NEW newMet, T_OLD &oldMet) {
-        return VirtualHookImpl(targetClass, info, (void *)newMet, (void **)&oldMet);
+        return VirtualHookImpl(targetClass, info, reinterpret_cast<void *>(newMet), reinterpret_cast<void **>(&oldMet));
     }
 
     /**
@@ -301,7 +324,7 @@ namespace BNM {
     */
     template<typename T_NEW, typename T_OLD>
     bool VirtualHook(BNM::Class targetClass, IL2CPP::MethodInfo *info, T_NEW newMet, T_OLD &&oldMet) {
-        return VirtualHookImpl(targetClass, info, (void *)newMet, (void **)&oldMet);
+        return VirtualHookImpl(targetClass, info, reinterpret_cast<void *>(newMet), reinterpret_cast<void **>(&oldMet));
     }
 
     /**
@@ -317,7 +340,7 @@ namespace BNM {
     */
     template<typename NEW_T, typename T_OLD>
     void BasicHook(const BNM::MethodBase &targetMethod, NEW_T newMethod, T_OLD &oldBytes) {
-        if (targetMethod.IsValid()) ::BasicHook((void *) targetMethod._data->methodPointer, newMethod, oldBytes);
+        if (targetMethod.IsValid()) ::BasicHook(reinterpret_cast<void *>(targetMethod._data->methodPointer), newMethod, oldBytes);
     }
 
     /**
@@ -333,7 +356,7 @@ namespace BNM {
     */
     template<typename NEW_T, typename T_OLD>
     void BasicHook(const BNM::MethodBase &targetMethod, NEW_T newMethod, T_OLD &&oldBytes) {
-        if (targetMethod.IsValid()) ::BasicHook((void *) targetMethod._data->methodPointer, newMethod, oldBytes);
+        if (targetMethod.IsValid()) ::BasicHook(reinterpret_cast<void *>(targetMethod._data->methodPointer), newMethod, oldBytes);
     }
 }
 // NOLINTEND

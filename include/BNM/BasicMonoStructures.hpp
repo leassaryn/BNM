@@ -177,7 +177,7 @@ namespace BNM::Structures::Mono {
             @brief Get array data pointer.
             @return Array data pointer if array is valid, otherwise null.
         */
-        [[nodiscard]] inline T *GetData() const { BNM_CHECK_SELF(nullptr); return (T *const) &m_Items[0]; }
+        [[nodiscard]] inline T *GetData() const { BNM_CHECK_SELF(nullptr); return const_cast<T *const>(&m_Items[0]); }
 
         /**
             @brief Convert array to std::vector.
@@ -241,9 +241,9 @@ namespace BNM::Structures::Mono {
         static Array<T> *Create(size_t capacity, bool _forceUseAlloc = false) {
             auto cls = _forceUseAlloc ? BNM::Defaults::DefaultTypeRef{} : BNM::Defaults::Get<T>();
 #ifndef  BNM_USE_IL2CPP_ALLOCATOR
-            auto monoArr = (Array<T> *) (cls.IsValid() ? __Internal_Array::ArrayFromClass(cls, capacity) : BNM_malloc(sizeof(Array) + sizeof(T) * capacity));
+            auto monoArr = reinterpret_cast<Array<T> *>(cls.IsValid() ? __Internal_Array::ArrayFromClass(cls, capacity) : BNM_malloc(sizeof(Array) + sizeof(T) * capacity));
 #else
-            auto monoArr = (Array<T> *) (cls.IsValid() ? __Internal_Array::ArrayFromClass(cls, capacity) : BNM::Allocate(sizeof(Array) + sizeof(T) * capacity));
+            auto monoArr = reinterpret_cast<Array<T> *>(cls.IsValid() ? __Internal_Array::ArrayFromClass(cls, capacity) : BNM::Allocate(sizeof(Array) + sizeof(T) * capacity));
 #endif
             memset(monoArr, 0, sizeof(Array) + sizeof(T) * capacity);
             if (!cls.IsValid()) monoArr->klass = nullptr;
@@ -468,7 +468,7 @@ namespace BNM::Structures::Mono {
             @param vec Source vector
             @return True if vector size is the same or less than array's size.
         */
-        inline bool CopyFrom(const std::vector<T> &vec) { return CopyFrom((T *)vec.data(), (int)vec.size()); }
+        inline bool CopyFrom(const std::vector<T> &vec) { return CopyFrom(const_cast<T *>(vec.data()), static_cast<int>(vec.size())); }
 
         /**
             @brief Copy data from pointer to current list.
@@ -641,14 +641,14 @@ namespace BNM::Structures::Mono {
             constexpr auto Contains = &List<Type>::Contains; constexpr auto CopyTo = &List<Type>::CopyTo; constexpr auto Remove = &List<Type>::Remove;
             constexpr auto GetEnumerator = &List<Type>::GetEnumerator; constexpr auto get_SyncRoot = &List<Type>::get_SyncRoot;
             static std::array<MethodData, 16> namesMap = {
-                    MethodData{BNM_OBFUSCATE("RemoveAt"), *(void **)&RemoveAt}, MethodData{BNM_OBFUSCATE("get_Count"), *(void **)&GetSize},
-                    MethodData{BNM_OBFUSCATE("Clear"), *(void **)&Clear}, MethodData{BNM_OBFUSCATE("get_Item"), *(void **)&get_Item},
-                    MethodData{BNM_OBFUSCATE("set_Item"), *(void **)&set_Item}, MethodData{BNM_OBFUSCATE("IndexOf"), *(void **)&IndexOf},
-                    MethodData{BNM_OBFUSCATE("Insert"), *(void **)&Insert}, MethodData{BNM_OBFUSCATE("get_IsReadOnly"), *(void **)&get_false},
-                    MethodData{BNM_OBFUSCATE("get_IsFixedSize"), *(void **)&get_false}, MethodData{BNM_OBFUSCATE("get_IsSynchronized"), *(void **)&get_false},
-                    MethodData{BNM_OBFUSCATE("Add"), *(void **)&Add}, MethodData{BNM_OBFUSCATE("Contains"), *(void **)&Contains},
-                    MethodData{BNM_OBFUSCATE("CopyTo"), *(void **)&CopyTo}, MethodData{BNM_OBFUSCATE("Remove"), *(void **)&Remove},
-                    MethodData{BNM_OBFUSCATE("GetEnumerator"), *(void **)&GetEnumerator}, MethodData{BNM_OBFUSCATE("get_SyncRoot"), *(void **)&get_SyncRoot}
+                    MethodData{BNM_OBFUSCATE("RemoveAt"), *reinterpret_cast<void **>(&RemoveAt)}, MethodData{BNM_OBFUSCATE("get_Count"), *reinterpret_cast<void **>(&GetSize)},
+                    MethodData{BNM_OBFUSCATE("Clear"), *reinterpret_cast<void **>(&Clear)}, MethodData{BNM_OBFUSCATE("get_Item"), *reinterpret_cast<void **>(&get_Item)},
+                    MethodData{BNM_OBFUSCATE("set_Item"), *reinterpret_cast<void **>(&set_Item)}, MethodData{BNM_OBFUSCATE("IndexOf"), *reinterpret_cast<void **>(&IndexOf)},
+                    MethodData{BNM_OBFUSCATE("Insert"), *reinterpret_cast<void **>(&Insert)}, MethodData{BNM_OBFUSCATE("get_IsReadOnly"), *reinterpret_cast<void **>(&get_false)},
+                    MethodData{BNM_OBFUSCATE("get_IsFixedSize"), *reinterpret_cast<void **>(&get_false)}, MethodData{BNM_OBFUSCATE("get_IsSynchronized"), *reinterpret_cast<void **>(&get_false)},
+                    MethodData{BNM_OBFUSCATE("Add"), *reinterpret_cast<void **>(&Add)}, MethodData{BNM_OBFUSCATE("Contains"), *reinterpret_cast<void **>(&Contains)},
+                    MethodData{BNM_OBFUSCATE("CopyTo"), *reinterpret_cast<void **>(&CopyTo)}, MethodData{BNM_OBFUSCATE("Remove"), *reinterpret_cast<void **>(&Remove)},
+                    MethodData{BNM_OBFUSCATE("GetEnumerator"), *reinterpret_cast<void **>(&GetEnumerator)}, MethodData{BNM_OBFUSCATE("get_SyncRoot"), *reinterpret_cast<void **>(&get_SyncRoot)}
             };
             list->klass = TryGetMonoListClass(HashedTypeName<Type>(), namesMap);
         }

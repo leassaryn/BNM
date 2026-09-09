@@ -139,47 +139,47 @@ namespace BNM::Structures::Mono {
             @param value Out value
             @return True if value is found by key.
         */
-        bool TryGet(TKey key, TValue *value) const { return Class((IL2CPP::Il2CppObject *)this).GetMethod(BNM_OBFUSCATE("TryGetValue"), 2).template cast<bool>()[(void *)this](key, value); }
+        bool TryGet(TKey key, TValue *value) const { return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(this)).GetMethod(BNM_OBFUSCATE("TryGetValue"), 2).template cast<bool>()[reinterpret_cast<void *>(this)](key, value); }
 
         /**
             @brief Add value.
             @param key Target key
             @param value Target value
         */
-        void Add(TKey key, TValue value) { return Class((IL2CPP::Il2CppObject *)this).GetMethod(BNM_OBFUSCATE("Add"), 2).template cast<void>()[(void *)this](key, value); }
+        void Add(TKey key, TValue value) { return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(this)).GetMethod(BNM_OBFUSCATE("Add"), 2).template cast<void>()[reinterpret_cast<void *>(this)](key, value); }
 
         /**
             @brief Insert value.
             @param key Target key
             @param value Target value
         */
-        void Insert(TKey key, TValue value) { return Class((IL2CPP::Il2CppObject *)this).GetMethod(BNM_OBFUSCATE("set_Item"), 2).template cast<void>()[(void *)this](key, value); }
+        void Insert(TKey key, TValue value) { return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(this)).GetMethod(BNM_OBFUSCATE("set_Item"), 2).template cast<void>()[reinterpret_cast<void *>(this)](key, value); }
 
         /**
             @brief Remove value.
             @param key Target key
             @return True if value was removed
         */
-        bool Remove(TKey key) { return Class((IL2CPP::Il2CppObject *)this).GetMethod(BNM_OBFUSCATE("Remove"), 1).template cast<bool>()[(void *)this](key); }
+        bool Remove(TKey key) { return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(this)).GetMethod(BNM_OBFUSCATE("Remove"), 1).template cast<bool>()[reinterpret_cast<void *>(this)](key); }
 
         /**
             @brief Check if key exists.
             @param key Target key
             @return True if key exists.
         */
-        bool ContainsKey(TKey key) const { return Class((IL2CPP::Il2CppObject *)this).GetMethod(BNM_OBFUSCATE("ContainsKey"), 1).template cast<bool>()[(void *)this](key); }
+        bool ContainsKey(TKey key) const { return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(this)).GetMethod(BNM_OBFUSCATE("ContainsKey"), 1).template cast<bool>()[reinterpret_cast<void *>(this)](key); }
 
         /**
             @brief Check if value exists.
             @param value Target value
             @return True if value exists.
         */
-        bool ContainsValue(TValue value) const { return Class((IL2CPP::Il2CppObject *)this).GetMethod(BNM_OBFUSCATE("ContainsValue"), 1).template cast<bool>()[(void *)this](value); }
+        bool ContainsValue(TValue value) const { return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(this)).GetMethod(BNM_OBFUSCATE("ContainsValue"), 1).template cast<bool>()[reinterpret_cast<void *>(this)](value); }
 
         /**
             @brief Clear dictionary.
         */
-        void Clear() { return Class((IL2CPP::Il2CppObject *)this).GetMethod(BNM_OBFUSCATE("Clear"), 0).template cast<void>()[(void *)this](); }
+        void Clear() { return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(this)).GetMethod(BNM_OBFUSCATE("Clear"), 0).template cast<void>()[reinterpret_cast<void *>(this)](); }
 
         /**
             @brief Get value by key.

@@ -127,7 +127,7 @@ namespace BNM::Internal {
         do {
             for (uint16_t i = 0; i < curClass->method_count; ++i) {
                 auto method = curClass->methods[i];
-                if (compare((IL2CPP::MethodInfo *)method)) return (IL2CPP::MethodInfo *) method;
+                if (compare(const_cast<IL2CPP::MethodInfo *>(method))) return const_cast<IL2CPP::MethodInfo *>(method);
             }
             curClass = curClass->parent;
         } while (curClass);
@@ -180,8 +180,24 @@ namespace BNM::Internal {
                     _map = nullptr;
                 }
             }
+            inline BNMClassesMap(const BNMClassesMap &) = delete;
+            inline BNMClassesMap &operator=(const BNMClassesMap &) = delete;
+            inline BNMClassesMap(BNMClassesMap &&other) noexcept : _map(other._map) {
+                other._map = nullptr;
+            }
+            inline BNMClassesMap &operator=(BNMClassesMap &&other) noexcept {
+                if (this != &other) {
+                    if (_map) {
+                        _map->~map();
+                        BNM_free(_map);
+                    }
+                    _map = other._map;
+                    other._map = nullptr;
+                }
+                return *this;
+            }
             inline void AddClass(const IL2CPP::Il2CppImage *image, IL2CPP::Il2CppClass *cls) {
-                return AddClass((BNM_PTR)image, cls);
+                return AddClass(reinterpret_cast<BNM_PTR>(image), cls);
             }
 
             inline void AddClass(BNM_PTR image, IL2CPP::Il2CppClass *cls) {
@@ -193,7 +209,7 @@ namespace BNM::Internal {
 
             template <class IterateMethod>
             inline void ForEachByImage(const IL2CPP::Il2CppImage *image, IterateMethod func) {
-                return ForEachByImage((BNM_PTR)image, func);
+                return ForEachByImage(reinterpret_cast<BNM_PTR>(image), func);
             }
 
             template <class IterateMethod>
@@ -209,7 +225,7 @@ namespace BNM::Internal {
 #ifdef BNM_ALLOW_MULTI_THREADING_SYNC
                 std::shared_lock lock(classesFindAccessMutex);
 #endif
-                for (auto &[img, classes] : (*_map)) if (func((IL2CPP::Il2CppImage *)img, classes)) break;
+                for (auto &[img, classes] : (*_map)) if (func(reinterpret_cast<IL2CPP::Il2CppImage *>(img), classes)) break;
             }
         private:
             std::map<BNM_PTR, std::vector<IL2CPP::Il2CppClass *>> *_map{};

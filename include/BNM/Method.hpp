@@ -55,7 +55,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current Method
         */
-        inline Method<Ret> &operator[](void *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline Method<Ret> &operator[](void *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Operator for setting instance.
@@ -69,7 +69,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current Method
         */
-        inline Method<Ret> &operator[](UnityEngine::Object *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline Method<Ret> &operator[](UnityEngine::Object *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Call method.

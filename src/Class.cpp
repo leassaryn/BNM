@@ -158,7 +158,7 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
     if (!_data) return {};
     TryInit();
 
-    auto parameters = (uint8_t) parameterNames.size();
+    auto parameters = static_cast<uint8_t>(parameterNames.size());
 
     auto method = Internal::IterateMethods(*this, [&name, &parameters, &parameterNames](IL2CPP::MethodInfo *method) {
         if (name != method->name || method->parameters_count != parameters) return false;
@@ -176,7 +176,7 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
-    auto parameters = (uint8_t) parameterTypes.size();
+    auto parameters = static_cast<uint8_t>(parameterTypes.size());
 
     auto method = Internal::IterateMethods(*this, [&name, parameters, &parameterTypes](IL2CPP::MethodInfo *method) {
         if (name != method->name || method->parameters_count != parameters) return false;
@@ -329,9 +329,9 @@ IL2CPP::Il2CppType *Class::GetIl2CppType() const {
     if (!_data) return nullptr;
     TryInit();
 #if UNITY_VER > 174
-    return (IL2CPP::Il2CppType *)&_data->byval_arg;
+    return reinterpret_cast<IL2CPP::Il2CppType *>(&_data->byval_arg);
 #else
-    return (IL2CPP::Il2CppType *)_data->byval_arg;
+    return reinterpret_cast<IL2CPP::Il2CppType *>(_data->byval_arg);
 #endif
 }
 
@@ -339,7 +339,7 @@ MonoType *Class::GetMonoType() const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
-    return (MonoType *) Internal::il2cppMethods.il2cpp_type_get_object(GetIl2CppType());
+    return reinterpret_cast<MonoType *>(Internal::il2cppMethods.il2cpp_type_get_object(GetIl2CppType()));
 }
 
 CompileTimeClass Class::GetCompileTimeClass() const {
@@ -368,7 +368,7 @@ IL2CPP::Il2CppObject *Class::CreateNewInstance() const {
         BNM_LOG_WARN(DBG_BNM_MSG_Class_CreateNewInstance_Abstract_Warn, str().c_str());
 
     auto obj = Internal::il2cppMethods.il2cpp_object_new(_data);
-    if (obj) memset((char*)obj + sizeof(IL2CPP::Il2CppObject), 0, _data->instance_size - sizeof(IL2CPP::Il2CppObject));
+    if (obj) memset(reinterpret_cast<char *>(obj) + sizeof(IL2CPP::Il2CppObject), 0, _data->instance_size - sizeof(IL2CPP::Il2CppObject));
     return obj;
 }
 
@@ -400,7 +400,7 @@ namespace CompileTimeClassProcessors {
     
     // _ClassInfo
     static void ProcessClassInfo(CompileTimeClass &target, CompileTimeClass::_BaseInfo *info) {
-        auto classInfo = (CompileTimeClass::_ClassInfo *) info;
+        auto classInfo = static_cast<CompileTimeClass::_ClassInfo *>(info);
 
         auto _namespace = classInfo->_namespace ? classInfo->_namespace : std::string_view{};
 
@@ -429,7 +429,7 @@ namespace CompileTimeClassProcessors {
             return;
         }
 
-        auto innerInfo = (CompileTimeClass::_InnerInfo *) info;
+        auto innerInfo = static_cast<CompileTimeClass::_InnerInfo *>(info);
 
         if (!target._loadedClass) return;
         target._loadedClass = target._loadedClass.GetInnerClass(innerInfo->_name);
@@ -442,7 +442,7 @@ namespace CompileTimeClassProcessors {
             return;
         }
         
-        auto modifierInfo = (CompileTimeClass::_ModifierInfo *) info;
+        auto modifierInfo = static_cast<CompileTimeClass::_ModifierInfo *>(info);
         
         switch (modifierInfo->_modifierType) {
             case CompileTimeClass::ModifierType::Pointer: {
@@ -465,10 +465,10 @@ namespace CompileTimeClassProcessors {
             return;
         }
         
-        auto genericInfo = (CompileTimeClass::_GenericInfo *) info;
+        auto genericInfo = static_cast<CompileTimeClass::_GenericInfo *>(info);
 
         // Save memory, even if the user does not want to
-        for (auto &type : genericInfo->_types) if (!type._stack.IsEmpty()) ((BNM::CompileTimeClass &)type)._SetBit();
+        for (auto &type : genericInfo->_types) if (!type._stack.IsEmpty()) static_cast<BNM::CompileTimeClass &>(type)._SetBit();
         target._loadedClass = Internal::TryMakeGenericClass(target._loadedClass, genericInfo->_types);
         genericInfo->_types.clear();
         genericInfo->_types.shrink_to_fit();
@@ -487,7 +487,7 @@ Class CompileTimeClass::ToClass() {
     // No reference or autoFree
     if (!_IsBit()) {
         if (_loadedClass) return _loadedClass;
-        if (_stack.IsEmpty()) return {(IL2CPP::Il2CppClass *) nullptr};
+        if (_stack.IsEmpty()) return {static_cast<IL2CPP::Il2CppClass *>(nullptr)};
     }
 
     // If stack is empty, but bit is set - we have reference
@@ -512,7 +512,7 @@ Class CompileTimeClass::ToClass() {
             BNM_LOG_WARN(DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (size_t) index);
             continue;
         }
-        CompileTimeClassProcessors::processors[index](*this, (_BaseInfo *) info);
+        CompileTimeClassProcessors::processors[index](*this, static_cast<_BaseInfo *>(info));
 
         current = current->next;
     } while (current != lastElement->next);
@@ -540,6 +540,6 @@ void CompileTimeClass::Free() {
     if (_stack.IsEmpty()) return;
 
     _stack.Clear([](_BaseInfo *info) {
-        BNM_free((void *) info);
+        BNM_free(reinterpret_cast<void *>(info));
     });
 }

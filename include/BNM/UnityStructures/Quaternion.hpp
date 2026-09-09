@@ -139,9 +139,9 @@ namespace BNM::Structures::Unity {
         constexpr float deg2Rad = M_PI / 180.f;
 
         if (fromDeg) {
-            roll *= (float) deg2Rad;
-            pitch *= (float) deg2Rad;
-            yaw *= (float) deg2Rad;
+            roll *= static_cast<float>(deg2Rad);
+            pitch *= static_cast<float>(deg2Rad);
+            yaw *= static_cast<float>(deg2Rad);
         }
         float cY(cosf(yaw / 2.0f));
         float sY(sinf(yaw / 2.0f));
@@ -191,7 +191,7 @@ namespace BNM::Structures::Unity {
         }
 
         constexpr float rad2deg = 180.f / M_PI;
-        if (toDeg) rot *= (float) rad2deg;
+        if (toDeg) rot *= static_cast<float>(rad2deg);
 
         return rot;
     }
@@ -280,7 +280,7 @@ namespace BNM::Structures::Unity {
     Quaternion Quaternion::RotateTowards(Quaternion from, Quaternion to, float maxRadiansDelta) {
         float angle = Angle(from, to);
         if (angle == 0) return to;
-        maxRadiansDelta = fmaxf(maxRadiansDelta, angle - (float) M_PI);
+        maxRadiansDelta = fmaxf(maxRadiansDelta, angle - static_cast<float>(M_PI));
         float t = fminf(1, maxRadiansDelta / angle);
         return SlerpUnclamped(from, to, t);
     }

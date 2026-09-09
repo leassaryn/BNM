@@ -58,7 +58,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current PropertyBase
         */
-        inline PropertyBase &operator[](void *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline PropertyBase &operator[](void *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Operator for setting instance.
@@ -72,13 +72,13 @@ namespace BNM {
             @param instance Instance
             @return Reference to current PropertyBase
         */
-        inline PropertyBase &operator[](UnityEngine::Object *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline PropertyBase &operator[](UnityEngine::Object *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Check if property is valid.
             @return State of property
         */
-        inline bool IsValid() const noexcept { return _hasGetter || _hasSetter; }
+        inline constexpr bool IsValid() const noexcept { return _hasGetter || _hasSetter; }
 
 #ifdef BNM_ALLOW_STR_METHODS
 
@@ -105,11 +105,33 @@ namespace BNM {
         /**
            @brief Cast event to be able to get and set it.
         */
-        template<typename NewRet> inline Property<NewRet> &cast() const { return (Property<NewRet> &)*this; }
+        template<typename NewRet> inline Property<NewRet> &cast() const { return static_cast<Property<NewRet> &>(*this); }
 
         IL2CPP::PropertyInfo *_data{};
         MethodBase _getter{}, _setter{};
         uint8_t _hasGetter : 1 = false, _hasSetter : 1 = false;
+
+        constexpr PropertyBase(PropertyBase &&other) noexcept
+            : _data(other._data), _getter(std::move(other._getter)), _setter(std::move(other._setter)),
+              _hasGetter(other._hasGetter), _hasSetter(other._hasSetter) {
+            other._data = nullptr;
+            other._hasGetter = false;
+            other._hasSetter = false;
+        }
+
+        constexpr PropertyBase &operator=(PropertyBase &&other) noexcept {
+            if (this != &other) {
+                _data = other._data;
+                _getter = std::move(other._getter);
+                _setter = std::move(other._setter);
+                _hasGetter = other._hasGetter;
+                _hasSetter = other._hasSetter;
+                other._data = nullptr;
+                other._hasGetter = false;
+                other._hasSetter = false;
+            }
+            return *this;
+        }
     };
 
 #pragma pack(pop)

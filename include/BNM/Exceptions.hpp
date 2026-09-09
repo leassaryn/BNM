@@ -29,13 +29,13 @@ namespace BNM {
             @brief Get class name of exception.
             @return Class name of exception
         */
-        [[nodiscard]] inline std::string ClassName() const { return ((BNM::Structures::Mono::String *)_data->className)->str(); }
+        [[nodiscard]] inline std::string ClassName() const { return reinterpret_cast<BNM::Structures::Mono::String *>(_data->className)->str(); }
 
         /**
             @brief Get message of exception.
             @return Message of exception
         */
-        [[nodiscard]] inline std::string Message() const { return ((BNM::Structures::Mono::String *)_data->message)->str(); }
+        [[nodiscard]] inline std::string Message() const { return reinterpret_cast<BNM::Structures::Mono::String *>(_data->message)->str(); }
 
         /**
             @brief Get data of exception.
@@ -53,7 +53,7 @@ namespace BNM {
             @brief Check if exception is valid.
             @return State of exception
         */
-        [[nodiscard]] inline bool IsValid() const { return _data; }
+        [[nodiscard]] inline constexpr bool IsValid() const { return _data; }
 
         BNM::IL2CPP::Il2CppException *_data{};
     };

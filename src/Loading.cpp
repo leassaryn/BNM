@@ -94,7 +94,7 @@ bool Loading::TryLoadByJNI(JNIEnv *env, jobject context) {
     auto flags = env->GetIntField(applicationInfo, env->GetFieldID(applicationInfoClass, BNM_OBFUSCATE_TMP("flags"), BNM_OBFUSCATE_TMP("I")));
     bool isLibrariesExtracted = (flags & 0x10000000) == 0x10000000; // ApplicationInfo.FLAG_EXTRACT_NATIVE_LIBS
 
-    auto jDir = (jstring) env->GetObjectField(applicationInfo, env->GetFieldID(applicationInfoClass, isLibrariesExtracted ? BNM_OBFUSCATE_TMP("nativeLibraryDir") : BNM_OBFUSCATE_TMP("sourceDir"), BNM_OBFUSCATE_TMP("Ljava/lang/String;")));
+    auto jDir = reinterpret_cast<jstring>(env->GetObjectField(applicationInfo, env->GetFieldID(applicationInfoClass, isLibrariesExtracted ? BNM_OBFUSCATE_TMP("nativeLibraryDir") : BNM_OBFUSCATE_TMP("sourceDir"), BNM_OBFUSCATE_TMP("Ljava/lang/String;"))));
 
     auto cDir = std::string_view(env->GetStringUTFChars(jDir, nullptr));
     env->DeleteLocalRef(applicationInfo); env->DeleteLocalRef(applicationInfoClass);
@@ -189,9 +189,9 @@ namespace AssemblerUtils {
     static std::string ReadMemory(BNM_PTR address) {
         char temp[len]; memset(temp, 0, len);
         std::string ret{};
-        if (memcpy(temp, (void *)address, len) == nullptr) return ret;
+        if (memcpy(temp, reinterpret_cast<void *>(address), len) == nullptr) return ret;
         ret.resize(len * 2, 0);
-        auto buf = (char *)ret.data();
+        auto buf = reinterpret_cast<char *>(ret.data());
         for (size_t i = 0; i < len; ++i) {
             *buf++ = hexChars[temp[i] >> 4];
             *buf++ = hexChars[temp[i] & 0x0F];
@@ -209,7 +209,7 @@ namespace AssemblerUtils {
         uint8_t add = 8;
 #endif
         // This line is based on the capstone code
-        outOffset = ((int32_t)(((((HexStr2Value(ReverseHexString(hex))) & (((uint32_t)1 << 24) - 1) << 0) >> 0) << 2) << (32 - 26)) >> (32 - 26)) + offset + add;
+        outOffset = static_cast<BNM_PTR>(static_cast<int32_t>((((static_cast<uint32_t>(HexStr2Value(ReverseHexString(hex))) & (((static_cast<uint32_t>(1) << 24) - 1) << 0)) >> 0) << 2) << (32 - 26)) >> (32 - 26)) + offset + add;
 #elif defined(__i386__) || defined(__x86_64__)
         if (!IsCallHex(hex)) return false;
         // Address + address from the `call` + size of the instruction
@@ -269,7 +269,7 @@ void Internal::LateInit(void *il2cpp_class_from_il2cpp_type_addr) {
     // Путь (Path):
     // il2cpp_class_from_il2cpp_type ->
     // il2cpp::vm::Class::FromIl2CppType
-    auto from_il2cpp_type = AssemblerUtils::FindNextJump((BNM_PTR) il2cpp_class_from_il2cpp_type_addr, count);
+    auto from_il2cpp_type = AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(il2cpp_class_from_il2cpp_type_addr), count);
 
     Internal::BNM_Class$$FromIl2CppType_origin = ::BasicHook(from_il2cpp_type, Internal::BNM_Class$$FromIl2CppType, Internal::old_BNM_Class$$FromIl2CppType);
 }
@@ -280,7 +280,7 @@ static void EmptyMethod() {}
 static void *OffsetInLib(void *offsetInMemory) {
     if (offsetInMemory == nullptr) return nullptr;
     Dl_info info; BNM_dladdr(offsetInMemory, &info);
-    return (void *) ((BNM_PTR) offsetInMemory - (BNM_PTR) info.dli_fbase);
+    return reinterpret_cast<void *>(reinterpret_cast<BNM_PTR>(offsetInMemory) - reinterpret_cast<BNM_PTR>(info.dli_fbase));
 }
 
 void *Utils::OffsetInLib(void *offsetInMemory) {
@@ -301,11 +301,11 @@ void Internal::SetupBNM() {
     // il2cpp_array_new_specific ->
     // il2cpp::vm::Array::NewSpecific ->
     // il2cpp::vm::Class::Init
-    il2cppMethods.Class$$Init = (decltype(il2cppMethods.Class$$Init)) AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump((BNM_PTR) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_array_new_specific)), count), count);
-    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Class_Init, OffsetInLib((void *)il2cppMethods.Class$$Init));
+    il2cppMethods.Class$$Init = reinterpret_cast<decltype(il2cppMethods.Class$$Init)>(AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_array_new_specific))), count), count));
+    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Class_Init, OffsetInLib(reinterpret_cast<void *>(il2cppMethods.Class$$Init)));
 
 
-#define INIT_IL2CPP_API(name) il2cppMethods.name = (decltype(il2cppMethods.name)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_##name)); BNM_LOG_DEBUG("[INIT_IL2CPP_API]: " #name " (" BNM_IL2CPP_API_##name ") in lib %p", OffsetInLib((void *)il2cppMethods.name))
+#define INIT_IL2CPP_API(name) il2cppMethods.name = reinterpret_cast<decltype(il2cppMethods.name)>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_##name))); BNM_LOG_DEBUG("[INIT_IL2CPP_API]: " #name " (" BNM_IL2CPP_API_##name ") in lib %p", OffsetInLib(reinterpret_cast<void *>(il2cppMethods.name)))
 
     INIT_IL2CPP_API(il2cpp_image_get_class);
     INIT_IL2CPP_API(il2cpp_get_corlib);
@@ -349,9 +349,9 @@ void Internal::SetupBNM() {
         // il2cpp::icalls::mscorlib::System::Reflection::Assembly::GetTypes ->
         // il2cpp::icalls::mscorlib::System::Module::InternalGetTypes ->
         // il2cpp::vm::Image::GetTypes
-        il2cppMethods.orig_Image$$GetTypes = (decltype(il2cppMethods.orig_Image$$GetTypes)) AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump(GetTypesAdr, count), sCount), count);
+        il2cppMethods.orig_Image$$GetTypes = reinterpret_cast<decltype(il2cppMethods.orig_Image$$GetTypes)>(AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump(GetTypesAdr, count), sCount), count));
 
-        BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Image_GetTypes, OffsetInLib((void *)il2cppMethods.orig_Image$$GetTypes));
+        BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Image_GetTypes, OffsetInLib(reinterpret_cast<void *>(il2cppMethods.orig_Image$$GetTypes)));
     } else BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_image_get_class_exists);
 
 #ifdef BNM_CLASSES_MANAGEMENT
@@ -360,27 +360,27 @@ void Internal::SetupBNM() {
     // Path:
     // il2cpp_class_from_type ->
     // il2cpp::vm::Class::FromIl2CppType
-    auto from_type_adr = AssemblerUtils::FindNextJump((BNM_PTR) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_class_from_type)), count);
+    auto from_type_adr = AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_class_from_type))), count);
     ::BasicHook(from_type_adr, ClassesManagement::Class$$FromIl2CppType, ClassesManagement::old_Class$$FromIl2CppType);
-    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Class_FromIl2CppType, OffsetInLib((void *)from_type_adr));
+    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Class_FromIl2CppType, OffsetInLib(reinterpret_cast<void *>(from_type_adr)));
 
 
     //! il2cpp::vm::Type::GetClassOrElementClass
     // Path:
     // il2cpp_type_get_class_or_element_class ->
     // il2cpp::vm::Type::GetClassOrElementClass
-    auto type_get_class_adr = AssemblerUtils::FindNextJump((BNM_PTR) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_type_get_class_or_element_class)), count);
+    auto type_get_class_adr = AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_type_get_class_or_element_class))), count);
     ::BasicHook(type_get_class_adr, ClassesManagement::Type$$GetClassOrElementClass, ClassesManagement::old_Type$$GetClassOrElementClass);
-    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Type_GetClassOrElementClass, OffsetInLib((void *)type_get_class_adr));
+    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Type_GetClassOrElementClass, OffsetInLib(reinterpret_cast<void *>(type_get_class_adr)));
 
     //! il2cpp::vm::Image::ClassFromName
     // Path:
     // il2cpp_class_from_name ->
     // il2cpp::vm::Class::FromName ->
     // il2cpp::vm::Image::ClassFromName
-    auto from_name_adr = AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump((BNM_PTR) il2cppMethods.il2cpp_class_from_name, count), count);
+    auto from_name_adr = AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(il2cppMethods.il2cpp_class_from_name), count), count);
     ::BasicHook(from_name_adr, ClassesManagement::Class$$FromName, ClassesManagement::old_Class$$FromName);
-    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Image_FromName, OffsetInLib((void *)from_name_adr));
+    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Image_FromName, OffsetInLib(reinterpret_cast<void *>(from_name_adr)));
 #if UNITY_VER <= 174
 
     //! il2cpp::vm::MetadataCache::GetImageFromIndex
@@ -388,17 +388,17 @@ void Internal::SetupBNM() {
     // il2cpp_assembly_get_image ->
     // il2cpp::vm::Assembly::GetImage ->
     // il2cpp::vm::MetadataCache::GetImageFromIndex
-    auto GetImageFromIndexOffset = AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump((BNM_PTR) il2cppMethods.il2cpp_assembly_get_image, count), count);
+    auto GetImageFromIndexOffset = AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(il2cppMethods.il2cpp_assembly_get_image), count), count);
     ::BasicHook(GetImageFromIndexOffset, ClassesManagement::new_GetImageFromIndex, ClassesManagement::old_GetImageFromIndex);
-    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_MetadataCache_GetImageFromIndex, OffsetInLib((void *)GetImageFromIndexOffset));
+    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_MetadataCache_GetImageFromIndex, OffsetInLib(reinterpret_cast<void *>(GetImageFromIndexOffset)));
 
     //! il2cpp::vm::Assembly::Load
     // Path:
     // il2cpp_domain_assembly_open ->
     // il2cpp::vm::Assembly::Load
-    BNM_PTR AssemblyLoadOffset = AssemblerUtils::FindNextJump((BNM_PTR) BNM_dlsym(il2cppLibraryHandle, BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_assembly_open)), count);
+    BNM_PTR AssemblyLoadOffset = AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(BNM_dlsym(il2cppLibraryHandle, BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_assembly_open)), count);
     ::BasicHook(AssemblyLoadOffset, ClassesManagement::Assembly$$Load, nullptr);
-    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Assembly_Load, OffsetInLib((void *)AssemblyLoadOffset));
+    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Assembly_Load, OffsetInLib(reinterpret_cast<void *>(AssemblyLoadOffset)));
 
 #endif
 #endif
@@ -407,9 +407,9 @@ void Internal::SetupBNM() {
     // Path:
     // il2cpp_domain_get_assemblies ->
     // il2cpp::vm::Assembly::GetAllAssemblies
-    auto adr = (BNM_PTR) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get_assemblies));
-    il2cppMethods.Assembly$$GetAllAssemblies = (std::vector<IL2CPP::Il2CppAssembly *> *(*)())(AssemblerUtils::FindNextJump(adr, count));
-    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Assembly_GetAllAssemblies, OffsetInLib((void *)il2cppMethods.Assembly$$GetAllAssemblies));
+    auto adr = reinterpret_cast<BNM_PTR>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get_assemblies)));
+    il2cppMethods.Assembly$$GetAllAssemblies = reinterpret_cast<std::vector<IL2CPP::Il2CppAssembly *> *(*)()>(AssemblerUtils::FindNextJump(adr, count));
+    BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Assembly_GetAllAssemblies, OffsetInLib(reinterpret_cast<void *>(il2cppMethods.Assembly$$GetAllAssemblies)));
 
     auto mscorlib = il2cppMethods.il2cpp_get_corlib();
 
@@ -449,7 +449,7 @@ void Internal::SetupBNM() {
     auto listClass = vmData.System$$List = Class(BNM_OBFUSCATE_TMP("System.Collections.Generic"), BNM_OBFUSCATE_TMP("List`1"));
     auto cls = listClass._data;
     auto size = sizeof(IL2CPP::Il2CppClass) + cls->vtable_count * sizeof(IL2CPP::VirtualInvokeData);
-    listClass._data = (IL2CPP::Il2CppClass *) BNM_malloc(size);
+    listClass._data = reinterpret_cast<IL2CPP::Il2CppClass *>(BNM_malloc(size));
     memcpy(listClass._data, cls, size);
     listClass._data->has_finalize = 0;
     listClass._data->instance_size = sizeof(Structures::Mono::List<void*>);
@@ -465,22 +465,22 @@ void Internal::SetupBNM() {
 
     auto constructor = listClass.GetMethod(Internal::constructorName, 0)._data;
 
-    auto newMethods = (IL2CPP::MethodInfo **) BNM_malloc(sizeof(IL2CPP::MethodInfo *) * listClass._data->method_count);
+    auto newMethods = reinterpret_cast<IL2CPP::MethodInfo **>(BNM_malloc(sizeof(IL2CPP::MethodInfo *) * listClass._data->method_count));
     memcpy(newMethods, listClass._data->methods, sizeof(IL2CPP::MethodInfo *) * listClass._data->method_count);
 
-    auto newConstructor = (IL2CPP::MethodInfo *) BNM_malloc(sizeof(IL2CPP::MethodInfo));
+    auto newConstructor = reinterpret_cast<IL2CPP::MethodInfo *>(BNM_malloc(sizeof(IL2CPP::MethodInfo)));
     *newConstructor = *constructor;
-    newConstructor->methodPointer = (decltype(newConstructor->methodPointer)) EmptyMethod;
-    newConstructor->invoker_method = (decltype(newConstructor->invoker_method)) EmptyMethod;
+    newConstructor->methodPointer = reinterpret_cast<decltype(newConstructor->methodPointer)>(EmptyMethod);
+    newConstructor->invoker_method = reinterpret_cast<decltype(newConstructor->invoker_method)>(EmptyMethod);
 
     for (uint16_t i = 0; i < listClass._data->method_count; ++i) {
         if (listClass._data->methods[i] == constructor) {
             newMethods[i] = newConstructor;
             continue;
         }
-        newMethods[i] = (IL2CPP::MethodInfo *) listClass._data->methods[i];
+        newMethods[i] = reinterpret_cast<IL2CPP::MethodInfo *>(const_cast<IL2CPP::MethodInfo *>(listClass._data->methods[i]));
     }
-    listClass._data->methods = (const IL2CPP::MethodInfo **) newMethods;
+    listClass._data->methods = const_cast<const IL2CPP::MethodInfo **>(newMethods);
     customListTemplateClass = listClass;
 }
 

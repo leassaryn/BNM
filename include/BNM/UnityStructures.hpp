@@ -300,8 +300,8 @@ namespace BNM::UnityEngine {
         inline void InvokeCalls(Parameters ...parameters) {
             if (!m_Calls) return;
 
-            InvokeList((Structures::Mono::List<InvokableCall<Parameters...> *> *) m_Calls->m_PersistentCalls, parameters...);
-            InvokeList((Structures::Mono::List<InvokableCall<Parameters...> *> *) m_Calls->m_RuntimeCalls, parameters...);
+            InvokeList(reinterpret_cast<Structures::Mono::List<InvokableCall<Parameters...> *> *>(m_Calls->m_PersistentCalls), parameters...);
+            InvokeList(reinterpret_cast<Structures::Mono::List<InvokableCall<Parameters...> *> *>(m_Calls->m_RuntimeCalls), parameters...);
         }
 
     private:

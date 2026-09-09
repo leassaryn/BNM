@@ -278,9 +278,9 @@ namespace BNM::Structures::Unity {
             M(2, 2) = (one_c * zz) + c;
         }
         static void OrthoNormalize(Matrix3x3& matrix) {
-            Vector3* c0 = (Vector3*)matrix.GetPtr() + 0;
-            Vector3* c1 = (Vector3*)matrix.GetPtr() + 3;
-            Vector3* c2 = (Vector3*)matrix.GetPtr() + 6;
+            Vector3* c0 = reinterpret_cast<Vector3*>(matrix.GetPtr()) + 0;
+            Vector3* c1 = reinterpret_cast<Vector3*>(matrix.GetPtr()) + 3;
+            Vector3* c2 = reinterpret_cast<Vector3*>(matrix.GetPtr()) + 6;
             Vector3::OrthoNormalize(*c0, *c1, *c2);
         }
 

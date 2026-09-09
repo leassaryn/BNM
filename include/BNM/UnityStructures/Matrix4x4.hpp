@@ -286,7 +286,7 @@ namespace BNM::Structures::Unity {
                     m03 * m11 * m20 * m32 - m01 * m13 * m20 * m32 - m03 * m10 * m21 * m32 + m00 * m13 * m21 * m32 +
                     m01 * m10 * m23 * m32 - m00 * m11 * m23 * m32 - m02 * m11 * m20 * m33 + m01 * m12 * m20 * m33 +
                     m02 * m10 * m21 * m33 - m00 * m12 * m21 * m33 - m01 * m10 * m22 * m33 + m00 * m11 * m22 * m33;
-            return (float)result;
+            return static_cast<float>(result);
         }
         [[nodiscard]] inline float GetDeterminant2x2() const {
             return Get(0,0) * Get(1,1) - Get(0,1) * Get(1,0);
@@ -833,7 +833,7 @@ namespace BNM::Structures::Unity {
     }
 
     template<class T>
-    inline T* Stride(T* p, size_t offset) { return reinterpret_cast<T*>((char*)p + offset); }
+    inline T* Stride(T* p, size_t offset) { return reinterpret_cast<T*>(reinterpret_cast<char*>(const_cast<typename std::remove_const<T>::type*>(p)) + offset); }
 
     inline bool CompareApproximately(const Matrix4x4& lhs, const Matrix4x4& rhs, float dist) {
         for (int i = 0; i < 16; i++) if (!CompareApproximately(lhs[i], rhs[i], dist)) return false;

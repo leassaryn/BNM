@@ -274,7 +274,7 @@ namespace BNM::Structures::Unity {
     Vector3 Vector3::RotateTowards(Vector3 current, Vector3 target, float maxRadiansDelta, float maxMagnitudeDelta) {
         float magCur = Magnitude(current);
         float magTar = Magnitude(target);
-        float newMag = magCur + maxMagnitudeDelta * (float) ((magTar > magCur) - (magCur > magTar));
+        float newMag = magCur + maxMagnitudeDelta * static_cast<float>((magTar > magCur) - (magCur > magTar));
         newMag = fminf(newMag, fmaxf(magCur, magTar));
         newMag = fmaxf(newMag, fminf(magCur, magTar));
         float totalAngle = Angle(current, target) - maxRadiansDelta;

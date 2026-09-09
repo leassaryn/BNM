@@ -27,8 +27,8 @@ void *BNM::GetIl2CppLibraryHandle() {
 
 bool BNM::InvokeHookImpl(IL2CPP::MethodInfo *info, void *newMet, void **oldMet) {
     if (!info) return false;
-    if (oldMet) *oldMet = (void *) info->methodPointer;
-    info->methodPointer = (IL2CPP::Il2CppMethodPointer) newMet;
+    if (oldMet) *oldMet = reinterpret_cast<void *>(info->methodPointer);
+    info->methodPointer = reinterpret_cast<IL2CPP::Il2CppMethodPointer>(newMet);
     return true;
 }
 
@@ -58,7 +58,7 @@ bool BNM::VirtualHookImpl(Class targetClass, IL2CPP::MethodInfo *info, void *new
         
         if (!methodsMatch(vTable.method, info)) continue;
 
-        if (oldMet) *oldMet = (void *) vTable.methodPtr;
+        if (oldMet) *oldMet = reinterpret_cast<void *>(vTable.methodPtr);
         vTable.methodPtr = (void(*)()) newMet;
         return true;
     }
@@ -86,18 +86,18 @@ static void LogCompileTimeClassInfo(CompileTimeClass::_BaseInfo *info, const Com
             BNM_LOG_ERR("\tNone");
             break;
         case CompileTimeClass::_BaseType::Class: {
-            auto classInfo = (CompileTimeClass::_ClassInfo *) info;
+            auto classInfo = static_cast<CompileTimeClass::_ClassInfo *>(info);
             BNM_LOG_ERR("\tClass( imageName: \"%s\", namespace: \"%s\", name: \"%s\") - %s", classInfo->_imageName, classInfo->_namespace, classInfo->_name, tmp._loadedClass.str().data());
         } break;
         case CompileTimeClass::_BaseType::Inner: {
-            auto innerInfo = (CompileTimeClass::_InnerInfo *) info;
+            auto innerInfo = static_cast<CompileTimeClass::_InnerInfo *>(info);
             BNM_LOG_ERR("\tClass( name: \"%s\") - %s", innerInfo->_name, tmp._loadedClass.str().data());
         } break;
         case CompileTimeClass::_BaseType::Modifier: {
-            BNM_LOG_ERR("\tModifier(\"%s\") - %s", CompileTimeClassModifiers[(uint8_t) ((CompileTimeClass::_ModifierInfo *) info)->_modifierType], tmp._loadedClass.str().data());
+            BNM_LOG_ERR("\tModifier(\"%s\") - %s", CompileTimeClassModifiers[static_cast<uint8_t>(static_cast<CompileTimeClass::_ModifierInfo *>(info)->_modifierType)], tmp._loadedClass.str().data());
         } break;
         case CompileTimeClass::_BaseType::Generic: {
-            auto genericInfo = (CompileTimeClass::_GenericInfo *) info;
+            auto genericInfo = static_cast<CompileTimeClass::_GenericInfo *>(info);
             BNM_LOG_ERR("\tGeneric: ");
             for (auto type : genericInfo->_types) BNM_LOG_ERR("\t\t%s", type.ToClass().str().data());
             BNM_LOG_ERR("\t%s", tmp._loadedClass.str().data());
@@ -108,7 +108,7 @@ static void LogCompileTimeClassInfo(CompileTimeClass::_BaseInfo *info, const Com
 
 namespace CompileTimeClassProcessors {
     typedef void (*ProcessorType)(CompileTimeClass &target, CompileTimeClass::_BaseInfo *info);
-    extern ProcessorType processors[(uint8_t) CompileTimeClass::_BaseType::MaxCount];
+    extern ProcessorType processors[static_cast<uint8_t>(CompileTimeClass::_BaseType::MaxCount)];
 }
 
 void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
@@ -121,9 +121,9 @@ void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
     auto current = lastElement->next;
     do {
         auto info = current->value;
-        auto index = (uint8_t) info->_baseType;
-        if (index >= (uint8_t) CompileTimeClass::_BaseType::MaxCount) {
-            BNM_LOG_ERR("\t" DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (size_t)index);
+        auto index = static_cast<uint8_t>(info->_baseType);
+        if (index >= static_cast<uint8_t>(CompileTimeClass::_BaseType::MaxCount)) {
+            BNM_LOG_ERR("\t" DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, static_cast<size_t>(index));
             continue;
         }
         CompileTimeClassProcessors::processors[index](tmp, info);

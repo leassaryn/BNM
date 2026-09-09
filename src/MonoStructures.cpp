@@ -16,7 +16,7 @@ static std::string Utf16ToUtf8(BNM::IL2CPP::Il2CppChar *utf16String, size_t leng
 using namespace BNM::Structures::Mono;
 
 void *__Internal_Array::ArrayFromClass(IL2CPP::Il2CppClass *cls, IL2CPP::il2cpp_array_size_t capacity) {
-    return (void *) BNM::Class(cls).NewArray<void *>(capacity);
+    return reinterpret_cast<void *>(BNM::Class(cls).NewArray<void *>(capacity));
 }
 
 std::string String::str() {
@@ -47,7 +47,7 @@ bool String::SelfCheck() const {
 
 // The only normal way to call CompareExchange for SyncRoot is for List
 void *PRIVATE_MonoListData::CompareExchange4List(void *syncRoot) {
-    if (Internal::vmData.Interlocked$$CompareExchange.IsValid()) Internal::vmData.Interlocked$$CompareExchange((void **)&syncRoot, (void *)Internal::vmData.Object.CreateNewInstance(), (void *)nullptr);
+    if (Internal::vmData.Interlocked$$CompareExchange.IsValid()) Internal::vmData.Interlocked$$CompareExchange(reinterpret_cast<void **>(&syncRoot), reinterpret_cast<void *>(Internal::vmData.Object.CreateNewInstance()), nullptr);
     return syncRoot;
 }
 
@@ -59,7 +59,7 @@ BNM::IL2CPP::Il2CppClass *BNM::Structures::Mono::PRIVATE_MonoListData::TryGetMon
     std::map<size_t, BNM::IL2CPP::MethodInfo *> createdMethods{};
     auto templateClass = Internal::customListTemplateClass.GetClass();
     auto size = sizeof(IL2CPP::Il2CppClass) + templateClass->vtable_count * sizeof(IL2CPP::VirtualInvokeData);
-    auto typedClass = (IL2CPP::Il2CppClass *) BNM_malloc(size);
+    auto typedClass = reinterpret_cast<IL2CPP::Il2CppClass *>(BNM_malloc(size));
     memcpy(typedClass, templateClass, size);
     for (uint16_t i = 4 /* Skipping virtual methods from System.Object */; i < typedClass->vtable_count; ++i) {
         auto &cur = typedClass->vtable[i];
@@ -73,9 +73,9 @@ BNM::IL2CPP::Il2CppClass *BNM::Structures::Mono::PRIVATE_MonoListData::TryGetMon
         auto &methodInfo = createdMethods[FNV1a(name)];
 
         if (methodInfo == nullptr) {
-            methodInfo = (IL2CPP::MethodInfo *) BNM_malloc(sizeof(IL2CPP::MethodInfo));
+            methodInfo = reinterpret_cast<IL2CPP::MethodInfo *>(BNM_malloc(sizeof(IL2CPP::MethodInfo)));
             *methodInfo = *cur.method;
-            methodInfo->methodPointer = (decltype(methodInfo->methodPointer)) iterator->ptr;
+            methodInfo->methodPointer = reinterpret_cast<decltype(methodInfo->methodPointer)>(iterator->ptr);
         }
         cur.method = methodInfo;
         cur.methodPtr = methodInfo->methodPointer;

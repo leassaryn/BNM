@@ -56,7 +56,7 @@ namespace BNM {
             @brief Cast delegate to be able to invoke it.
         */
         template<typename NewRet>
-        inline Delegate<NewRet> &cast() const { return (Delegate<NewRet> &) *this; }
+        inline Delegate<NewRet> &cast() const { return static_cast<Delegate<NewRet> &>(*this); }
     };
 
     /**
@@ -91,14 +91,14 @@ namespace BNM {
         void Remove(DelegateBase *delegate);
 
         inline void operator +=(DelegateBase *delegate) { return Add(delegate); }
-        inline void operator +=(BNM::MethodBase method) { return (void) Add(method); }
+        inline void operator +=(BNM::MethodBase method) { Add(method); }
         inline void operator -=(DelegateBase *delegate) { return Remove(delegate); }
 
         /**
             @brief Cast delegate to be able to invoke it.
         */
         template<typename NewRet>
-        inline MulticastDelegate<NewRet> &cast() const { return (MulticastDelegate<NewRet> &) *this; }
+        inline MulticastDelegate<NewRet> &cast() const { return static_cast<MulticastDelegate<NewRet> &>(*this); }
     };
 
     /**
@@ -140,8 +140,8 @@ namespace BNM {
         inline Ret Invoke(Parameters ...parameters) {
             if (!CheckForNull(this)) return BNM::PRIVATE_INTERNAL::ReturnEmpty<Ret>();
 
-            auto delegates = (Structures::Mono::Array<DelegateBase *> *) this->delegates;
-            if (!delegates) return ((Delegate<Ret>*)this)->Invoke(parameters...);
+            auto delegates = reinterpret_cast<Structures::Mono::Array<DelegateBase *> *>(this->delegates);
+            if (!delegates) return static_cast<Delegate<Ret> *>(this)->Invoke(parameters...);
 
             for (IL2CPP::il2cpp_array_size_t i = 0; i < delegates->capacity - 1; ++i) delegates->At(i)->GetMethod().template cast<Ret>().Call(parameters...);
             return delegates->At(delegates->capacity - 1)->GetMethod().template cast<Ret>().Call(parameters...);

@@ -5,7 +5,7 @@ namespace BNM::Internal {
     void *il2cppLibraryHandle{};
     std::atomic<bool> isLoading{false};
 
-    void *BasicFinder(const char *name, void *userData) { return BNM_dlsym(*(void **)userData, name); }
+    void *BasicFinder(const char *name, void *userData) { return BNM_dlsym(*static_cast<void **>(userData), name); }
 
     Loading::MethodFinder currentFinderMethod = BasicFinder;
     void *currentFinderData = &il2cppLibraryHandle;
@@ -74,7 +74,7 @@ IL2CPP::Il2CppClass *Internal::TryGetClassInImage(const IL2CPP::Il2CppImage *ima
 
 #ifdef BNM_CLASSES_MANAGEMENT
     // Get BNM classes
-    if (image->nameToClassHashTable == (decltype(image->nameToClassHashTable))-0x424e4d) goto NEW_CLASSES;
+    if (image->nameToClassHashTable == reinterpret_cast<decltype(image->nameToClassHashTable)>(-0x424e4d)) goto NEW_CLASSES;
 #endif
 
     if (Internal::il2cppMethods.il2cpp_image_get_class) {
@@ -115,7 +115,7 @@ Class Internal::TryMakeGenericClass(Class genericType, const std::vector<Compile
     if (!vmData.RuntimeType$$MakeGenericType.IsValid()) return {};
     auto monoType = genericType.GetMonoType();
     auto monoGenericsList = Structures::Mono::Array<MonoType *>::Create(templateTypes.size(), true);
-    for (IL2CPP::il2cpp_array_size_t i = 0; i < (IL2CPP::il2cpp_array_size_t) templateTypes.size(); ++i)
+    for (IL2CPP::il2cpp_array_size_t i = 0; i < static_cast<IL2CPP::il2cpp_array_size_t>(templateTypes.size()); ++i)
         (*monoGenericsList)[i] = templateTypes[i].ToClass().GetMonoType();
 
     Class typedGenericType = vmData.RuntimeType$$MakeGenericType(monoType, monoGenericsList);
@@ -135,9 +135,9 @@ MethodBase Internal::TryMakeGenericMethod(const MethodBase &genericMethod, const
     reflectionMethod.object.klass = BNM::PRIVATE_INTERNAL::GetMethodClass(vmData.RuntimeMethodInfo$$MakeGenericMethod_impl._data);
 #endif
     auto monoGenericsList = Structures::Mono::Array<MonoType *>::Create(templateTypes.size(), true);
-    for (IL2CPP::il2cpp_array_size_t i = 0; i < (IL2CPP::il2cpp_array_size_t) templateTypes.size(); ++i) (*monoGenericsList)[i] = templateTypes[i].ToClass().GetMonoType();
+    for (IL2CPP::il2cpp_array_size_t i = 0; i < static_cast<IL2CPP::il2cpp_array_size_t>(templateTypes.size()); ++i) (*monoGenericsList)[i] = templateTypes[i].ToClass().GetMonoType();
 
-    MethodBase typedGenericMethod = vmData.RuntimeMethodInfo$$MakeGenericMethod_impl[(void *)&reflectionMethod](monoGenericsList)->method;
+    MethodBase typedGenericMethod = vmData.RuntimeMethodInfo$$MakeGenericMethod_impl[reinterpret_cast<void *>(&reflectionMethod)](monoGenericsList)->method;
 
     monoGenericsList->Destroy();
 
@@ -151,5 +151,5 @@ Class Internal::GetPointer(Class target) {
 
 Class Internal::GetReference(Class target) {
     if (!vmData.RuntimeType$$make_byref_type.IsValid()) return {};
-    return vmData.RuntimeType$$make_byref_type[(void *)target.GetMonoType()]();
+    return vmData.RuntimeType$$make_byref_type[reinterpret_cast<void *>(target.GetMonoType())]();
 }

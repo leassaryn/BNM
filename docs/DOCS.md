@@ -1331,3 +1331,106 @@ Makro untuk enkripsi string (ganti dengan string encryptor Anda):
 ### Multi-threading Issues
 - Aktifkan `BNM_ALLOW_MULTI_THREADING_SYNC` jika menggunakan BNM dari banyak thread
 - Method `AttachIl2Cpp()` / `DetachIl2Cpp()` diperlukan untuk thread selain thread utama il2cpp
+
+---
+
+## 22. Modern C++ Improvements (v2.5.0)
+
+### 22.1 Build System (CMake & Android.mk)
+
+**CMake** (cmake 3.14..3.30):
+- `target_compile_features(BNM PUBLIC cxx_std_20)` — C++20 wajib
+- `POSITION_INDEPENDENT_CODE ON` — untuk shared library
+- `PRIVATE/PUBLIC` include separation dengan generator expressions
+- Compiler warnings: `-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wnon-virtual-dtor -Woverloaded-virtual`
+- Sanitizer: `option(BNM_SANITIZERS "Enable ASan+UBSan" OFF)`
+
+**Android.mk**:
+- `-Wall -Wextra -Wpedantic -Wshadow`
+- Source order: `Defaults.cpp` → `Delegates.cpp`
+
+**Code quality configs**:
+- `.clang-tidy` — bugprone, clang-analyzer, modernize, performance checks
+- `.clang-format` — LLVM-based, 4 indent, 120 col, Allman braces
+
+### 22.2 C++20 Concepts
+
+Semua SFINAE `enable_if_t` diganti dengan `requires`:
+
+| File | Templates |
+|------|-----------|
+| `Utils.hpp` | `IsAllocated`, `CheckObj` |
+| `Operators.hpp` | 8 operator (`->*`, `>>`) |
+| `Class.hpp` | `BoxObject`, 4× `IsA` |
+| `ClassesManagement.hpp` | 2× `_InvokerHelper::UnpackArg` |
+
+### 22.3 Modern Casts
+
+Semua C-style cast `((Type)expr)` diganti:
+- **Pointer reinterpretation**: `reinterpret_cast<Type *>(expr)` — untuk `this`, `Il2CppObject *`, address manipulation
+- **Inheritance upcast**: `static_cast<Base &>(expr)` — untuk delegate `cast()` methods
+- **Const removal**: `const_cast<IL2CPP::Il2CppImage *>(image)` — untuk constructor
+
+Contoh:
+```cpp
+// Sebelum
+((IL2CPP::Il2CppObject *)this)
+((void *)ptr)
+
+// Sesudah
+reinterpret_cast<IL2CPP::Il2CppObject *>(this)
+reinterpret_cast<void *>(ptr)
+```
+
+### 22.4 constexpr Methods
+
+`IsValid()`, `Alive()`, dan `operator bool()` sekarang `constexpr`:
+
+| Class | Methods |
+|-------|---------|
+| `Class` | `IsValid()`, `Alive()`, `operator bool()` |
+| `MethodBase` | `IsValid()` |
+| `FieldBase` | `IsValid()` |
+| `EventBase` | `IsValid()` |
+| `PropertyBase` | `IsValid()` |
+| `Image` | `IsValid()`, `operator bool()` |
+| `Exception` | `IsValid()` |
+
+### 22.5 Move Semantics
+
+Semua wrapper sekarang support move operations:
+
+| Class | Move Constructor | Move Assignment |
+|-------|-----------------|-----------------|
+| `ForwardList<T>` | ✅ | ✅ |
+| `MethodBase` | ✅ | ✅ |
+| `FieldBase` | ✅ | ✅ |
+| `EventBase` | ✅ | ✅ |
+| `PropertyBase` | ✅ | ✅ |
+
+Contoh:
+```cpp
+// Move ForwardList
+BNM::ForwardList<int> list1;
+list1.Add(1);
+BNM::ForwardList<int> list2 = std::move(list1); // list1 sekarang kosong
+
+// Move Method
+BNM::Method<void> m1 = someClass.GetMethod("Foo");
+BNM::Method<void> m2 = std::move(m1); // m1 sekarang tidak valid
+```
+
+### 22.6 RAII & Safety Improvements
+
+**BNMClassesMap** — sekarang memiliki copy/move semantics:
+```cpp
+// Copy dihapus (deleted)
+BNMClassesMap map2 = map; // ERROR
+// Move diizinkan
+BNMClassesMap map2 = std::move(map); // OK
+```
+
+**BasicMonoStructures** — Array::Create menggunakan `reinterpret_cast`:
+```cpp
+auto arr = reinterpret_cast<Array<int>*>(BNM_malloc(...));
+```

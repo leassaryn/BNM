@@ -50,7 +50,7 @@ namespace BNM {
         inline T *GetPointer() const {
             auto ptr = GetFieldPointer();
             BNM_LOG_ERR_IF(ptr == nullptr, DBG_BNM_MSG_Field_GetPointer_Error, _data ? str().c_str() : DBG_BNM_MSG_Field_GetPointer_Dead);
-            return (T *) ptr;
+            return static_cast<T *>(ptr);
         }
 
         /**
@@ -62,7 +62,7 @@ namespace BNM {
             if (!_data) return {};
             if (_isThreadStatic || _isConst) {
                 T val{};
-                PRIVATE_FieldUtils::GetStaticValue(_data, (void *)&val);
+                PRIVATE_FieldUtils::GetStaticValue(_data, reinterpret_cast<void *>(&val));
                 return val;
             }
             if (auto ptr = GetPointer(); ptr != nullptr) return *ptr;
@@ -91,7 +91,7 @@ namespace BNM {
                 return;
             }
             if (_isThreadStatic) {
-                PRIVATE_FieldUtils::SetStaticValue(_data, (void *)&value);
+                PRIVATE_FieldUtils::SetStaticValue(_data, reinterpret_cast<void *>(&value));
                 return;
             }
             if (auto ptr = GetPointer(); ptr != nullptr) *ptr = value;
@@ -107,7 +107,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current Field
         */
-        inline Field<T> &operator[](void *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline Field<T> &operator[](void *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Operator for setting instance.
@@ -121,7 +121,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current Field
         */
-        inline Field<T> &operator[](UnityEngine::Object *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline Field<T> &operator[](UnityEngine::Object *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Convert base field to typed.

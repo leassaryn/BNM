@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := BNM
 
-LOCAL_CPPFLAGS += -std=c++20
+LOCAL_CPPFLAGS += -std=c++20 -Wall -Wextra -Wpedantic -Wshadow
 
 INCLUDE_DIRS := $(BNM_LOCAL_PATH)/include \
                 $(BNM_LOCAL_PATH)/external/include \
@@ -15,8 +15,8 @@ LOCAL_SRC_FILES := \
     $(BNM_LOCAL_PATH)/src/Class.cpp \
     $(BNM_LOCAL_PATH)/src/ClassesManagement.cpp \
     $(BNM_LOCAL_PATH)/src/Coroutine.cpp \
-    $(BNM_LOCAL_PATH)/src/Delegates.cpp \
     $(BNM_LOCAL_PATH)/src/Defaults.cpp \
+    $(BNM_LOCAL_PATH)/src/Delegates.cpp \
     $(BNM_LOCAL_PATH)/src/EventBase.cpp \
     $(BNM_LOCAL_PATH)/src/Exceptions.cpp \
     $(BNM_LOCAL_PATH)/src/FieldBase.cpp \
