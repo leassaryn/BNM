@@ -210,7 +210,7 @@ inline void Unhook(PTR_T ptr) {
 // Dummy
 #include <cassert>
 
-// static_assert(false, "No hooking software!");
+static_assert(false, "No hooking software!");
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
