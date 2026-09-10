@@ -344,6 +344,7 @@ MonoType *Class::GetMonoType() const {
 
 CompileTimeClass Class::GetCompileTimeClass() const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
+    if (!_data) return {};
     TryInit();
     CompileTimeClass result{};
     result._loadedClass = *this;

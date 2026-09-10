@@ -688,7 +688,6 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
             return originalMethod;
         }
     }
-#undef kls
 
 
     if (method->_isInvokeHook) {

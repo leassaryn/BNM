@@ -21,7 +21,9 @@ namespace BNM {
     }
 } // namespace BNM
 #else
-using std::to_underlying;
+namespace BNM {
+    using std::to_underlying;
+} // namespace BNM
 #endif
 
 #include "UserSettings/GlobalSettings.hpp"
