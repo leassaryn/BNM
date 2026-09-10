@@ -50,7 +50,7 @@ bool BNM::VirtualHookImpl(Class targetClass, IL2CPP::MethodInfo *info, void *new
 
     for (uint16_t i = 0; i < targetClass._data->vtable_count; ++i) {
         auto &vTable = targetClass._data->vtable[i];
-        
+        if (!vTable.method) continue;
         if (!methodsMatch(vTable.method, info)) continue;
 
         if (oldMet) *oldMet = reinterpret_cast<void *>(vTable.methodPtr);

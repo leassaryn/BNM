@@ -29,7 +29,7 @@
 20. [Utilitas Tambahan](#20-utilitas-tambahan)
 21. [Trouble Shooting](#21-trouble-shooting)
 22. [Modern C++ Improvements (v2.5.3)](#22-modern-c-improvements-v253)
-23. [Refined Improvements (post-v2.5.3 bugfixes)](#23-refined-improvements-post-v253-bugfixes)
+23. [Bugfixes dan Penyempurnaan (post-v2.5.3)](#23-bugfixes-dan-penyempurnaan-post-v253)
 
 ---
 
@@ -37,9 +37,9 @@
 
 | Komponen | Keterangan |
 |---|---|
-| **Android NDK** | Dibutuhkan untuk mengkompilasi. Gunakan `aarch64-linux-android-clang++` (NDK r25+ direkomendasikan). |
-| **C++20** | BNM menggunakan fitur C++20 (`std::string_view`, `constexpr`, `if constexpr`, dll). |
-| **Hook Backend** | Salah satu: [Dobby](https://github.com/jmpews/Dobby), [ShadowHook](https://github.com/bytedance/android-inline-hook), atau Substrate. |
+| **Android NDK** | Dibutuhkan untuk mengkompilasi. Gunakan `aarch64-linux-android-clang++` (NDK r25+ direkomendasikan, NDK 29=clang 21 dengan dukungan C++23 penuh). |
+| **C++20** | BNM menggunakan fitur C++20 (`std::string_view`, `constexpr`, `if constexpr`, `requires`, dll). |
+| **Hook Backend** | Salah satu: [Dobby](https://github.com/jmpews/Dobby), [ShadowHook](https://github.com/jmpeds/android-inline-hook), atau Substrate. |
 | **Target** | Game Unity yang menggunakan **il2cpp** (bukan Mono). |
 
 ---
@@ -1444,14 +1444,14 @@ using MethodInvoker = void (*)(const Il2CppMethodPointer, ...);
 
 ---
 
-## 23. Refined Improvements (post-v2.5.3 bugfixes)
+## 23. Bugfixes dan Penyempurnaan (post-v2.5.3)
 
 ### 23.1 C++20 Compatibility Helpers
 
 **`BNM::to_underlying`** — fallback untuk C++20 yang belum memiliki `std::to_underlying` (C++23). Otomatis memakai `std::to_underlying` jika tersedia, atau menggunakan implementasi internal:
 
 ```cpp
-// Digunakan di berbagai place untuk enum → integer conversion
+// Digunakan di berbagai tempat untuk enum → integer conversion
 auto index = BNM::to_underlying(info->_baseType);
 extern ProcessorType processors[BNM::to_underlying(CompileTimeClass::_BaseType::MaxCount)];
 ```
@@ -1509,7 +1509,7 @@ Berlaku di: `Class.cpp`, `ClassesManagement.cpp`, `Hooks.cpp`, `Image.cpp`, `Int
 
 ### 23.5 JNI Resource Cleanup
 
-`TryLoadByJNI` di `Loading.cpp` sekarang memanggil `DeleteLocalRef` sebelum pengecekan null, menghindari leak reference JNA:
+`TryLoadByJNI` di `Loading.cpp` sekarang memanggil `DeleteLocalRef` sebelum pengecekan null, menghindari leak reference JNI:
 
 ```cpp
 auto activityThread = env->CallStaticObjectMethod(...);
@@ -1545,3 +1545,114 @@ for (uint16_t v = 0; v < newVtableSize; ++v) {
 ### 23.8 Duplicate ShadowHook Block Removed
 
 `GlobalSettings.hpp` sebelumnya memiliki dua blok ShadowHook (satu di section atas, satu lagi di bawah Dobby). Versi sekarang hanya menyisakan satu blok ShadowHook di dalam komentar (legacy) dan Dobby sebagai backend aktif.
+
+### 23.9 Additional Null Pointer Guards
+
+Beberapa null pointer dereference yang sebelumnya tidak terdeteksi telah diperbaiki:
+
+**`FieldBase.cpp` — Constructor null check untuk `info->type`**
+```cpp
+// Sebelum (crash jika info->type null)
+FieldBase::FieldBase(IL2CPP::FieldInfo *info) {
+    if (!info) return;
+    _isConst = (info->type->attrs & 0x0040) != 0;
+    // ...
+
+// Sesudah
+FieldBase::FieldBase(IL2CPP::FieldInfo *info) {
+    if (!info || !info->type) return;
+    _isConst = (info->type->attrs & 0x0040) != 0;
+    // ...
+```
+
+**`Utils.cpp` — VirtualHookImpl null guard untuk vtable method**
+```cpp
+// Sebelum (potential null deref jika vTable.method null)
+for (uint16_t i = 0; i < targetClass._data->vtable_count; ++i) {
+    auto &vTable = targetClass._data->vtable[i];
+    if (!methodsMatch(vTable.method, info)) continue;
+
+// Sesudah
+for (uint16_t i = 0; i < targetClass._data->vtable_count; ++i) {
+    auto &vTable = targetClass._data->vtable[i];
+    if (!vTable.method) continue;
+    if (!methodsMatch(vTable.method, info)) continue;
+```
+
+**`MethodBase.cpp` — GetOverride null guard untuk vtable method**
+```cpp
+// Sebelum (crash jika vTable.method null)
+for (; i < klass->vtable_count; ++i) {
+    auto &vTable = klass->vtable[i];
+    auto count = vTable.method->parameters_count;
+
+// Sesudah
+for (; i < klass->vtable_count; ++i) {
+    auto &vTable = klass->vtable[i];
+    if (!vTable.method) continue;
+    auto count = vTable.method->parameters_count;
+```
+
+### 23.10 Loading Mutex Fix
+
+`Load()` di `Loading.cpp` menggunakan `std::unique_lock` (bukan `std::shared_lock`) karena fungsi ini melakukan **write** ke state global. Lock sebelumnya salah menggunakan `shared_lock` yang memungkinkan beberapa thread menulis secara bersamaan:
+
+```cpp
+// Sebelum (salah — shared lock untuk write operation)
+void Internal::Load() {
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    std::shared_lock lock(loadingMutex);  // ❌
+#endif
+
+// Sesudah
+void Internal::Load() {
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    std::unique_lock lock(loadingMutex);  // ✅ exclusive lock untuk write
+#endif
+```
+
+### 23.11 Orphaned Preprocessor Directive Removed
+
+`ClassesManagement.cpp` sebelumnya memiliki `#undef kls` yang tidak memiliki `#define kls` yang cocok. Directive ini sekarang dihapus:
+
+```cpp
+// Sebelum (orphaned undef — tidak berbahaya tapi membingungkan)
+#undef kls
+
+// Sesudah — dihapus
+```
+
+### 23.12 CompileTimeClass const Correctness
+
+`CompileTimeClass::ToClass() const` sekarang menggunakan pendekatan yang benar secara const-correctness — membuat temporary copy dan memanggil versi non-const pada copy tersebut:
+
+```cpp
+// Sebelum (const_cast — UB)
+Class CompileTimeClass::ToClass() const {
+    return const_cast<CompileTimeClass &>(*this).ToClass();
+}
+
+// Sesudah (benar — buat temporary copy)
+Class CompileTimeClass::ToClass() const {
+    CompileTimeClass temp = *this;
+    return temp.ToClass();
+}
+```
+
+### 23.13 `to_underlying` Namespace Fix
+
+`using std::to_underlying` sekarang ditempatkan di dalam `namespace BNM {}` bukan di global namespace, mencegah pollution dan konflik:
+
+```cpp
+// Sebelum (global namespace pollution)
+#if __cplusplus >= 202302L
+using std::to_underlying;
+#endif
+
+// Sesudah (dalam namespace BNM)
+#if __cplusplus >= 202302L
+namespace BNM {
+    using std::to_underlying;
+}
+#endif
+```

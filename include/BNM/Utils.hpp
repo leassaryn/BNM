@@ -6,25 +6,13 @@
 #include <string_view>
 #include <type_traits>
 
-#ifdef __has_include
-#  if __has_include(<version>)
-#    include <version>
-#  endif
-#endif
-
-// std::to_underlying is C++23; provide a fallback for C++20
-#if __cplusplus < 202302L
+// std::to_underlying is C++23; provide a portable fallback that works everywhere.
 namespace BNM {
     template<typename E>
     constexpr auto to_underlying(E e) noexcept -> std::underlying_type_t<E> {
         return static_cast<std::underlying_type_t<E>>(e);
     }
 } // namespace BNM
-#else
-namespace BNM {
-    using std::to_underlying;
-} // namespace BNM
-#endif
 
 #include "UserSettings/GlobalSettings.hpp"
 #include "Il2CppHeaders.hpp"

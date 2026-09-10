@@ -18,7 +18,7 @@ static bool CheckIsFieldStatic(IL2CPP::FieldInfo *field) {
 }
 
 FieldBase::FieldBase(IL2CPP::FieldInfo *info) {
-    if (!info) return;
+    if (!info || !info->type) return;
 
     _isConst = (info->type->attrs & 0x0040) != 0; // FIELD_ATTRIBUTE_LITERAL
     _isStatic = !_isConst && CheckIsFieldStatic(info);
