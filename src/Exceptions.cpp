@@ -12,7 +12,7 @@ BNM::Exception BNM::TryInvoke(const std::function<void()> &func) {
     klass.valuetype = 0;
 #endif
     BNM::IL2CPP::MethodInfo info;
-    for (size_t i = 0; i < sizeof(info); ++i) *reinterpret_cast<char *>(&info) = 0;
+    for (size_t i = 0; i < sizeof(info); ++i) reinterpret_cast<char *>(&info)[i] = 0;
     info.return_type = &type;
     BNM::PRIVATE_INTERNAL::GetMethodClass(&info) = &klass;
 

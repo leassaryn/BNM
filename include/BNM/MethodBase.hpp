@@ -29,6 +29,12 @@ namespace BNM {
         inline MethodBase(const MethodBase &other) = default;
 
         /**
+            @brief Copy method.
+            @param other Other method
+        */
+        inline MethodBase &operator=(const MethodBase &other) = default;
+
+        /**
             @brief Create method from il2cpp method.
             @param info Il2cpp method
         */

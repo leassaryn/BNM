@@ -224,7 +224,7 @@ namespace BNM::Structures::Mono {
             @brief Get element at index.
             @return DataIterator of target element if array is valid and index isn't out of bounds, otherwise empty DataIterator.
         */
-        inline Utils::DataIterator<T> At(IL2CPP::il2cpp_array_size_t index) const { BNM_CHECK_SELF({}); if (GetCapacity() < index) return {}; return &m_Items[index]; }
+        inline Utils::DataIterator<T> At(IL2CPP::il2cpp_array_size_t index) const { BNM_CHECK_SELF({}); if (index >= GetCapacity()) return {}; return &m_Items[index]; }
         inline Utils::DataIterator<T> operator[] (IL2CPP::il2cpp_array_size_t index) const { return At(index); }
 
         /**
@@ -248,8 +248,12 @@ namespace BNM::Structures::Mono {
 #else
             auto monoArr = reinterpret_cast<Array<T> *>(cls.IsValid() ? __Internal_Array::ArrayFromClass(cls, capacity) : BNM::Allocate(sizeof(Array) + sizeof(T) * capacity));
 #endif
-            memset(monoArr, 0, sizeof(Array) + sizeof(T) * capacity);
-            if (!cls.IsValid()) monoArr->klass = nullptr;
+            // Only clear the header for BNM-allocated arrays. il2cpp-allocated arrays (cls.IsValid())
+            // already have klass/bounds set and elements zeroed by the GC; memset would wipe the klass.
+            if (!cls.IsValid()) {
+                memset(monoArr, 0, sizeof(Array) + sizeof(T) * capacity);
+                monoArr->klass = nullptr;
+            }
             monoArr->capacity = capacity;
             return monoArr;
         }
@@ -417,10 +421,9 @@ namespace BNM::Structures::Mono {
             @brief Remove element at index.
         */
         void RemoveAt(int index) {
-            if (index != -1) {
-                Shift(index, -1);
-                version++;
-            }
+            if (index < 0 || index >= size) return;
+            Shift(index, -1);
+            version++;
         }
 
         /**
@@ -463,7 +466,7 @@ namespace BNM::Structures::Mono {
 
             @return DataIterator of target element if index isn't out of bounds, otherwise empty DataIterator.
         */
-        [[nodiscard]] Utils::DataIterator<T> At(int index) const { if (index >= size) return {}; return &items->m_Items[index]; }
+        [[nodiscard]] Utils::DataIterator<T> At(int index) const { if (index < 0 || index >= size) return {}; return &items->m_Items[index]; }
         Utils::DataIterator<T> operator[] (int index) const { return At(index); }
 
         /**
@@ -485,6 +488,8 @@ namespace BNM::Structures::Mono {
             BNM_CHECK_SELF(false);
             Resize(arrSize);
             memcpy(items->m_Items, arr, arrSize * sizeof(T));
+            size = arrSize;
+            ++version;
             return true;
         }
 
@@ -519,7 +524,7 @@ namespace BNM::Structures::Mono {
             @return Element if index isn't out of bounds, otherwise default value.
         */
         [[nodiscard]] T get_Item(int index) const {
-            if (index >= size) return {};
+            if (index < 0 || index >= size) return {};
             return items->m_Items[index];
         }
 
@@ -529,7 +534,7 @@ namespace BNM::Structures::Mono {
             @param item New element value
         */
         void set_Item(int index, T item) {
-            if (index >= size) return;
+            if (index < 0 || index >= size) return;
             items->m_Items[index] = item;
             ++version;
         }
@@ -540,7 +545,7 @@ namespace BNM::Structures::Mono {
             @param item New element value
         */
         void Insert(int index, T item) {
-            if (index > size) return;
+            if (index < 0 || index > size) return;
             if (size == items->capacity) GrowIfNeeded(1);
             if (index < size) memmove(items->m_Items + index + 1, items->m_Items + index, (size - index) * sizeof(T));
             items->m_Items[index] = item;
@@ -560,7 +565,7 @@ namespace BNM::Structures::Mono {
             @brief Copy data from current list to some array.
         */
         void CopyTo(Array<T>* arr, int arrIndex) const {
-            memcpy(items->m_Items, arr->m_Items + arrIndex, size * sizeof(T));
+            memcpy(arr->m_Items + arrIndex, items->m_Items, size * sizeof(T));
         }
 
         /**
@@ -581,7 +586,7 @@ namespace BNM::Structures::Mono {
             if (delta < 0) start -= delta;
             if (start < size) memmove(items->m_Items + start + delta, items->m_Items + start, (size - start) * sizeof(T));
             size += delta;
-            if (delta < 0) memset(items->m_Items + size + delta, 0, -delta * sizeof(T));
+            if (delta < 0) memset(items->m_Items + size, 0, -delta * sizeof(T));
         }
 
 #ifdef BNM_ALLOW_SELF_CHECKS

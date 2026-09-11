@@ -15,6 +15,8 @@ BNM::Image::Image(const BNM::IL2CPP::Il2CppAssembly *assembly) {
 std::vector<BNM::Class> BNM::Image::GetClasses(bool includeInner) const {
     std::vector<IL2CPP::Il2CppClass *> classes{};
 
+    if (!_data) return {};
+
     if (_data->nameToClassHashTable == reinterpret_cast<decltype(_data->nameToClassHashTable)>(-0x424e4d)) goto NEW_CLASSES;
 
 
@@ -23,6 +25,7 @@ std::vector<BNM::Class> BNM::Image::GetClasses(bool includeInner) const {
 
         for (uint32_t i = 0; i < typeCount; ++i) {
             auto cls = Internal::il2cppMethods.il2cpp_image_get_class(_data, i);
+            if (!cls) continue;
             if ((!includeInner && cls->declaringType) || (!cls->flags && strcmp(cls->name, BNM_OBFUSCATE("<Module>")) == 0)) continue;
             classes.push_back(cls);
         }
@@ -34,7 +37,7 @@ std::vector<BNM::Class> BNM::Image::GetClasses(bool includeInner) const {
 
         for (auto it = classes.begin(); it != classes.end();) {
             if ((*it)->declaringType) {
-                classes.erase(it);
+                it = classes.erase(it);
                 continue;
             }
             ++it;

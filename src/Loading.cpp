@@ -36,6 +36,7 @@ void Internal::Load() {
 
     // Call all events after loading il2cpp
     auto events = onIl2CppLoaded;
+    if (events.IsEmpty()) return;
     auto current = events.lastElement->next;
     do {
         current->value();
@@ -402,7 +403,7 @@ void Internal::SetupBNM() {
     // Path:
     // il2cpp_domain_assembly_open ->
     // il2cpp::vm::Assembly::Load
-    BNM_PTR AssemblyLoadOffset = AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(BNM_dlsym(il2cppLibraryHandle, BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_assembly_open)), count);
+    BNM_PTR AssemblyLoadOffset = AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(BNM_dlsym(il2cppLibraryHandle, BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_assembly_open))), count);
     ::BasicHook(AssemblyLoadOffset, ClassesManagement::Assembly$$Load, nullptr);
     BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Assembly_Load, OffsetInLib(reinterpret_cast<void *>(AssemblyLoadOffset)));
 

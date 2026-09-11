@@ -514,6 +514,7 @@ Class CompileTimeClass::ToClass() {
         auto index = (uint8_t) info->_baseType;
         if (index >= (uint8_t) _BaseType::MaxCount) {
             BNM_LOG_WARN(DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (unsigned long) index);
+            current = current->next;
             continue;
         }
         CompileTimeClassProcessors::processors[index](*this, static_cast<_BaseInfo *>(info));

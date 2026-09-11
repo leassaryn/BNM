@@ -120,7 +120,7 @@ namespace BNM {
             @brief Convert base event to typed event.
             @param other Base event
         */
-        Event<Ret> &operator =(const EventBase &other) {
+        Event<Ret, Parameters...> &operator =(const EventBase &other) {
             _data = other._data;
             _add = other._add;
             _remove = other._remove;

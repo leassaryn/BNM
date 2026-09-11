@@ -42,6 +42,7 @@ void BNM::MulticastDelegateBase::Remove(BNM::DelegateBase *delegate)  {
     if (!CheckForNull(this)) return;
 
     auto delegates = reinterpret_cast<Structures::Mono::Array<DelegateBase *> *>(this->delegates);
+    if (!delegates) return;
     IL2CPP::il2cpp_array_size_t index = 0;
     bool found = false;
     for (IL2CPP::il2cpp_array_size_t i = 0; i < delegates->capacity; ++i) {

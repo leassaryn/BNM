@@ -28,6 +28,12 @@ namespace BNM {
         inline FieldBase(const FieldBase &other) = default;
 
         /**
+            @brief Copy field.
+            @param other Other field
+        */
+        inline FieldBase &operator=(const FieldBase &other) = default;
+
+        /**
             @brief Create event from il2cpp field.
             @param info Il2cpp field
         */

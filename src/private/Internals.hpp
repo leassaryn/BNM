@@ -217,7 +217,9 @@ namespace BNM::Internal {
 #ifdef BNM_ALLOW_MULTI_THREADING_SYNC
                 std::shared_lock lock(classesFindAccessMutex);
 #endif
-                for (auto item : (*_map)[image]) if (func(item)) break;
+                auto it = _map->find(image);
+                if (it == _map->end()) return;
+                for (auto item : it->second) if (func(item)) break;
             }
 
             template <class IterateMethod>

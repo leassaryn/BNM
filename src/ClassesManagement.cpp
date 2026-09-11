@@ -171,6 +171,7 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
 
         klass->actualSize = currentAddress;
         klass->fields = newFields;
+        klass->field_count += static_cast<uint16_t>(newFieldsCount);
     }
 
     customClass->myClass = klass;
@@ -193,7 +194,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
             }
         }
     } else image = Image(baseImageName);
-    if (!image) image = MakeImage(classInfo._imageName);
+    if (!image) image = MakeImage(classInfo._imageName ? classInfo._imageName : baseImageName);
 
     BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Target, classInfo._namespace ? classInfo._namespace : &forEmptyString, classInfo._name, image._data->name);
     
@@ -245,10 +246,11 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
             if (!vTable.method) continue;
             auto count = vTable.method->parameters_count;
 
-            if (!strcmp(vTable.method->name, method->myInfo->name) && count == method->myInfo->parameters_count && method->_parameterTypes.size() == count) {
+            if (!strcmp(vTable.method->name, method->myInfo->name) && count == method->myInfo->parameters_count) {
                 if (!method->_skipTypeMatch) for (uint8_t p = 0; p < count; ++p) {
                     auto type = BNM::PRIVATE_INTERNAL::GetMethodParam(vTable.method, p);
-                    if (Class(type).GetClass() != method->_parameterTypes[p].ToIl2CppClass()) goto NEXT;
+                    auto type2 = BNM::PRIVATE_INTERNAL::GetMethodParam(method->myInfo, p);
+                    if (Class(type).GetClass() != Class(type2).GetClass()) goto NEXT;
                 }
 
                 if (!hasFinalize) hasFinalize = v == Internal::finalizerSlot;
@@ -472,6 +474,8 @@ static CustomClassInfo GetClassInfo(const CompileTimeClass &compileTimeClass) {
     CompileTimeClass tmp{};
 
     auto &stack = compileTimeClass._stack;
+
+    if (stack.IsEmpty()) return {};
 
     auto lastElement = stack.lastElement;
     auto current = lastElement->next;
@@ -835,8 +839,8 @@ static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *ow
     target->declaringType = owner;
 
     // Add a class to the new owner's list
-    auto newInnerList = reinterpret_cast<IL2CPP::Il2CppClass **>(BNM_malloc(sizeof(IL2CPP::Il2CppClass) * (owner->nested_type_count + 1)));
-    memcpy(newInnerList, owner->nestedTypes, sizeof(IL2CPP::Il2CppClass) * owner->nested_type_count);
+    auto newInnerList = reinterpret_cast<IL2CPP::Il2CppClass **>(BNM_malloc(sizeof(IL2CPP::Il2CppClass *) * (owner->nested_type_count + 1)));
+    memcpy(newInnerList, owner->nestedTypes, sizeof(IL2CPP::Il2CppClass *) * owner->nested_type_count);
     newInnerList[owner->nested_type_count++] = target;
     owner->nestedTypes = newInnerList;
 
@@ -847,7 +851,7 @@ static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *ow
     // Remove a class from the old owner's list
     if (oldOwner) {
         oldInnerList = oldOwner->nestedTypes;
-        newInnerList = reinterpret_cast<IL2CPP::Il2CppClass **>(BNM_malloc(sizeof(IL2CPP::Il2CppClass) * (oldOwner->nested_type_count - 1)));
+        newInnerList = reinterpret_cast<IL2CPP::Il2CppClass **>(BNM_malloc(sizeof(IL2CPP::Il2CppClass *) * (oldOwner->nested_type_count - 1)));
         uint8_t skipped = 0;
         for (uint16_t i = 0; i < oldOwner->nested_type_count; ++i) {
             if (skipped == 0) if (skipped = (oldInnerList[i] == target); skipped) continue;

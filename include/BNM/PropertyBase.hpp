@@ -29,6 +29,12 @@ namespace BNM {
         inline PropertyBase(const PropertyBase &other) = default;
 
         /**
+            @brief Copy property.
+            @param other Other property
+        */
+        inline PropertyBase &operator=(const PropertyBase &other) = default;
+
+        /**
             @brief Create property from il2cpp property.
             @param info Il2cpp property
         */
@@ -105,7 +111,7 @@ namespace BNM {
         /**
            @brief Cast event to be able to get and set it.
         */
-        template<typename NewRet> inline Property<NewRet> &cast() const { return static_cast<Property<NewRet> &>(*this); }
+        template<typename NewRet> inline Property<NewRet> &cast() const { return const_cast<Property<NewRet> &>(static_cast<const Property<NewRet> &>(*this)); }
 
         IL2CPP::PropertyInfo *_data{};
         MethodBase _getter{}, _setter{};
