@@ -143,7 +143,7 @@ IL2CPP::Il2CppAssembly *Internal::ClassesManagement::Assembly$$Load(const char *
         auto image = new_GetImageFromIndex(assembly->imageIndex);
 
         // Check if the names match
-        if (CompareImageName(image, name)) return assembly;
+        if (image && CompareImageName(image, name)) return assembly;
     }
 
     return nullptr;

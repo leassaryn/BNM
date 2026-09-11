@@ -852,7 +852,7 @@ static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *ow
     if (oldOwner) {
         oldInnerList = oldOwner->nestedTypes;
         newInnerList = reinterpret_cast<IL2CPP::Il2CppClass **>(BNM_malloc(sizeof(IL2CPP::Il2CppClass *) * (oldOwner->nested_type_count - 1)));
-        uint8_t skipped = 0;
+        uint16_t skipped = 0;
         for (uint16_t i = 0; i < oldOwner->nested_type_count; ++i) {
             if (skipped == 0) if (skipped = (oldInnerList[i] == target); skipped) continue;
             newInnerList[i - skipped] = oldInnerList[i];

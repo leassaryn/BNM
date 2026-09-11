@@ -91,11 +91,7 @@ namespace BNM::Structures::Unity {
     }
 
     inline Quaternion& Quaternion::operator/=(Quaternion rhs) {
-        float tempX = w / rhs.x + x / rhs.w + y / rhs.z - z / rhs.y;
-        float tempY = w / rhs.y + y / rhs.w + z / rhs.x - x / rhs.z;
-        float tempZ = w / rhs.z + z / rhs.w + x / rhs.y - y / rhs.x;
-        float tempW = w / rhs.w - x / rhs.x - y / rhs.y - z / rhs.z;
-        x = tempX; y = tempY; z = tempZ; w = tempW;
+        *this = *this * Inverse(rhs);
         return *this;
     }
 
@@ -127,6 +123,7 @@ namespace BNM::Structures::Unity {
     Quaternion Quaternion::FromAngleAxis(float angle, Vector3 axis) {
         Quaternion q;
         float m = sqrtf(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z);
+        if (m < Vector3::kEpsilon) return identity;
         float s = sinf(angle / 2) / m;
         q.x = axis.x * s;
         q.y = axis.y * s;
@@ -212,6 +209,7 @@ namespace BNM::Structures::Unity {
 
     Quaternion Quaternion::Inverse(Quaternion rotation) {
         float n = Norm(rotation);
+        if (n < Vector3::kEpsilon) return identity;
         return Conjugate(rotation) / (n * n);
     }
 
@@ -278,7 +276,9 @@ namespace BNM::Structures::Unity {
     }
 
     Quaternion Quaternion::Normalize(Quaternion rotation) {
-        return rotation / Norm(rotation);
+        float n = Norm(rotation);
+        if (n < Vector3::kEpsilon) return identity;
+        return rotation / n;
     }
 
     Quaternion Quaternion::RotateTowards(Quaternion from, Quaternion to, float maxRadiansDelta) {
@@ -310,7 +310,7 @@ namespace BNM::Structures::Unity {
     }
 
     void Quaternion::ToAngleAxis(Quaternion rotation, float &angle, Vector3 &axis) {
-        if (rotation.w > 1) rotation = Normalize(rotation);
+        if (fabsf(rotation.w) > 1) rotation = Normalize(rotation);
         angle = 2 * acosf(rotation.w);
         float s = sqrt(1 - rotation.w * rotation.w);
         if (s < 0.00001) {

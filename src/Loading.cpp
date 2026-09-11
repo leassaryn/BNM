@@ -101,7 +101,12 @@ bool Loading::TryLoadByJNI(JNIEnv *env, jobject context) {
 
     auto jDir = reinterpret_cast<jstring>(env->GetObjectField(applicationInfo, env->GetFieldID(applicationInfoClass, isLibrariesExtracted ? BNM_OBFUSCATE_TMP("nativeLibraryDir") : BNM_OBFUSCATE_TMP("sourceDir"), BNM_OBFUSCATE_TMP("Ljava/lang/String;"))));
 
-    auto cDir = std::string_view(env->GetStringUTFChars(jDir, nullptr));
+    auto dirChars = env->GetStringUTFChars(jDir, nullptr);
+    if (!dirChars) {
+        env->DeleteLocalRef(applicationInfo); env->DeleteLocalRef(applicationInfoClass); env->DeleteLocalRef(jDir);
+        return result;
+    }
+    auto cDir = std::string_view(dirChars);
     env->DeleteLocalRef(applicationInfo); env->DeleteLocalRef(applicationInfoClass);
 
     // isLibrariesExtracted = true:   Full path to library /data/app/.../package name-.../lib/architecture/libil2cpp.so
@@ -196,7 +201,7 @@ namespace AssemblerUtils {
     static std::string ReadMemory(BNM_PTR address) {
         char temp[len]; memset(temp, 0, len);
         std::string ret{};
-        if (memcpy(temp, reinterpret_cast<void *>(address), len) == nullptr) return ret;
+        memcpy(temp, reinterpret_cast<void *>(address), len);
         ret.resize(len * 2, 0);
         auto buf = reinterpret_cast<char *>(ret.data());
         for (size_t i = 0; i < len; ++i) {
@@ -232,29 +237,40 @@ namespace AssemblerUtils {
     // Then gets the address they go to
     // index: 1 is the first, 2 is the second, etc.
     static BNM_PTR FindNextJump(BNM_PTR start, uint8_t index) {
+        constexpr BNM_PTR maxOffset = 4096;
 #if defined(__ARM_ARCH_7A__) || defined(__aarch64__)
         BNM_PTR offset = 0;
         std::string curHex = ReadMemory<4>(start);
         BNM_PTR outOffset = 0;
         bool out;
-        while (!(out = DecodeBranchOrCall(curHex, start + offset, outOffset)) || index != 1) {
+        while (offset < maxOffset) {
+            out = DecodeBranchOrCall(curHex, start + offset, outOffset);
+            if (out) {
+                if (index <= 1) return outOffset;
+                index--;
+            }
             offset += 4;
             curHex = ReadMemory<4>(start + offset);
-            if (out) index--;
         }
-        return outOffset;
+        return 0;
 #elif defined(__i386__) || defined(__x86_64__)
         BNM_PTR offset = 0;
         std::string curHex = ReadMemory<1>(start);
         BNM_PTR outOffset = 0;
         bool out;
-        while (!(out = IsCallHex(curHex)) || index != 1) {
+        while (offset < maxOffset) {
+            out = IsCallHex(curHex);
+            if (out) {
+                if (index <= 1) {
+                    DecodeBranchOrCall(ReadMemory<5>(start + offset), start + offset, outOffset);
+                    return outOffset;
+                }
+                index--;
+            }
             offset += 1;
             curHex = ReadMemory<1>(start + offset);
-            if (out) index--;
         }
-        DecodeBranchOrCall(ReadMemory<5>(start + offset), start + offset, outOffset);
-        return outOffset;
+        return 0;
 #else
 #error "BNM only supports arm64, arm, x86 and x86_64"
         return 0;

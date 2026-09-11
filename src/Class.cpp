@@ -369,7 +369,8 @@ IL2CPP::Il2CppObject *Class::CreateNewInstance() const {
         BNM_LOG_WARN(DBG_BNM_MSG_Class_CreateNewInstance_Abstract_Warn, str().c_str());
 
     auto obj = Internal::il2cppMethods.il2cpp_object_new(_data);
-    if (obj) memset(reinterpret_cast<char *>(obj) + sizeof(IL2CPP::Il2CppObject), 0, _data->instance_size - sizeof(IL2CPP::Il2CppObject));
+    if (obj && _data->instance_size > sizeof(IL2CPP::Il2CppObject))
+        memset(reinterpret_cast<char *>(obj) + sizeof(IL2CPP::Il2CppObject), 0, _data->instance_size - sizeof(IL2CPP::Il2CppObject));
     return obj;
 }
 

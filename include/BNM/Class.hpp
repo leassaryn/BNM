@@ -435,6 +435,7 @@ namespace BNM {
             if (!_data) return nullptr;
             TryInit();
             BNM::Structures::Mono::Array<T> *array = NewArray<T>(1);
+            if (!array) return nullptr;
             auto *lst = (BNM::Structures::Mono::List<T> *) NewListInstance();
             if (!lst) {
                 BNM_LOG_ERR(DBG_BNM_MSG_Class_NewList_Error, str().c_str());

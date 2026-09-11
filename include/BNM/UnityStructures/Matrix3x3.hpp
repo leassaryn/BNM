@@ -122,7 +122,7 @@ namespace BNM::Structures::Unity {
                 float uxx, uyy, uzz, uxy, uxz, uyz;
                 float lxx, lyy, lzz, lxy, lxz, lyz;
                 Vector3 left(0.0f, from[2], -from[1]);
-                if (Vector3::Dot(left, left) < kEpsilon) left[0] = -from[2]; left[1] = 0.0; left[2] = from[0];
+                if (Vector3::Dot(left, left) < kEpsilon) { left[0] = -from[2]; left[1] = 0.0; left[2] = from[0]; }
 
                 invlen = 1.0f / sqrt(Vector3::Dot(left, left));
                 left[0] *= invlen;
@@ -278,9 +278,10 @@ namespace BNM::Structures::Unity {
             M(2, 2) = (one_c * zz) + c;
         }
         static void OrthoNormalize(Matrix3x3& matrix) {
-            Vector3* c0 = reinterpret_cast<Vector3*>(matrix.GetPtr()) + 0;
-            Vector3* c1 = reinterpret_cast<Vector3*>(matrix.GetPtr()) + 3;
-            Vector3* c2 = reinterpret_cast<Vector3*>(matrix.GetPtr()) + 6;
+            float* ptr = matrix.GetPtr();
+            Vector3* c0 = reinterpret_cast<Vector3*>(ptr);
+            Vector3* c1 = reinterpret_cast<Vector3*>(ptr + 3);
+            Vector3* c2 = reinterpret_cast<Vector3*>(ptr + 6);
             Vector3::OrthoNormalize(*c0, *c1, *c2);
         }
 

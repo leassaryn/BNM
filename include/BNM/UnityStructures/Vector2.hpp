@@ -167,8 +167,8 @@ namespace BNM::Structures::Unity {
         if (totalAngle <= 0) return Normalize(target) * newMag;
         else if (totalAngle >= M_PI) return -Normalize(target) * newMag;
         float axis = current.x * target.y - current.y * target.x;
-        axis = axis / fabsf(axis);
-        if (1 - fabsf(axis) >= 0.00001) axis = 1;
+        if (fabsf(axis) < kEpsilon) axis = 1.0f;
+        else axis = axis / fabsf(axis);
         current = Normalize(current);
         Vector2 newVector = current * cosf(maxRadiansDelta) + Vector2(-current.y, current.x) * sinf(maxRadiansDelta) * axis;
         return newVector * newMag;

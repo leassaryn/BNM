@@ -24,7 +24,10 @@ FieldBase::FieldBase(IL2CPP::FieldInfo *info) {
     _isStatic = !_isConst && CheckIsFieldStatic(info);
     _data = info;
     _isThreadStatic = _data->offset == -1;
-    _isInStruct = Class(info->parent).GetIl2CppType()->type == IL2CPP::IL2CPP_TYPE_VALUETYPE;
+    if (info->parent) {
+        auto cls = Class(info->parent);
+        _isInStruct = cls.GetIl2CppType() && cls.GetIl2CppType()->type == IL2CPP::IL2CPP_TYPE_VALUETYPE;
+    }
 }
 
 FieldBase &FieldBase::SetInstance(IL2CPP::Il2CppObject *val)  {

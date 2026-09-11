@@ -144,8 +144,13 @@ namespace BNM {
             if (!delegates) return static_cast<Delegate<Ret> *>(this)->Invoke(parameters...);
 
             if (delegates->capacity == 0) return BNM::PRIVATE_INTERNAL::ReturnEmpty<Ret>();
-            for (IL2CPP::il2cpp_array_size_t i = 0; i < delegates->capacity - 1; ++i) delegates->At(i)->GetMethod().template cast<Ret>().Call(parameters...);
-            return delegates->At(delegates->capacity - 1)->GetMethod().template cast<Ret>().Call(parameters...);
+            for (IL2CPP::il2cpp_array_size_t i = 0; i < delegates->capacity - 1; ++i) {
+                auto d = delegates->At(i);
+                if (d) d->GetMethod().template cast<Ret>().Call(parameters...);
+            }
+            auto last = delegates->At(delegates->capacity - 1);
+            if (last) return last->GetMethod().template cast<Ret>().Call(parameters...);
+            return BNM::PRIVATE_INTERNAL::ReturnEmpty<Ret>();
         }
 
         template<typename ...Parameters>

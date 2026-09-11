@@ -69,6 +69,7 @@ BNM::IL2CPP::Il2CppClass *BNM::Structures::Mono::PRIVATE_MonoListData::TryGetMon
 
         auto iterator = data.begin();
         for (; iterator != data.end(); ++iterator) if (iterator->methodName == name) break;
+        if (iterator == data.end()) continue;
 
         auto &methodInfo = createdMethods[FNV1a(name)];
 

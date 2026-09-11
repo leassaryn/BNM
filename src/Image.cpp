@@ -55,7 +55,7 @@ std::vector<BNM::Class> BNM::Image::GetClasses(bool includeInner) const {
     });
 #endif
 
-    // A clever way to make a copy with the desired type without for, because BNM::Class is BNM::IL2CPP::Il2CppClass *.
+    // BNM::Class is layout-compatible with Il2CppClass*, so this is a safe reinterpret.
     return *reinterpret_cast<std::vector<BNM::Class> *>(&classes);
 }
 

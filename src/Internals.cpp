@@ -130,7 +130,7 @@ Class Internal::TryMakeGenericClass(Class genericType, const std::vector<Compile
 }
 
 MethodBase Internal::TryMakeGenericMethod(const MethodBase &genericMethod, const std::vector<CompileTimeClass> &templateTypes) {
-    if (!vmData.RuntimeMethodInfo$$MakeGenericMethod_impl.IsValid() || !genericMethod.GetInfo()->is_generic) return {};
+    if (!vmData.RuntimeMethodInfo$$MakeGenericMethod_impl.IsValid() || !genericMethod._data || !genericMethod.GetInfo()->is_generic) return {};
     IL2CPP::Il2CppReflectionMethod reflectionMethod;
     reflectionMethod.method = genericMethod.GetInfo();
 
@@ -150,10 +150,14 @@ MethodBase Internal::TryMakeGenericMethod(const MethodBase &genericMethod, const
 
 Class Internal::GetPointer(Class target) {
     if (!vmData.RuntimeType$$MakePointerType.IsValid()) return {};
-    return vmData.RuntimeType$$MakePointerType(target.GetMonoType());
+    auto monoType = target.GetMonoType();
+    if (!monoType) return {};
+    return vmData.RuntimeType$$MakePointerType(monoType);
 }
 
 Class Internal::GetReference(Class target) {
     if (!vmData.RuntimeType$$make_byref_type.IsValid()) return {};
-    return vmData.RuntimeType$$make_byref_type[reinterpret_cast<void *>(target.GetMonoType())]();
+    auto monoType = target.GetMonoType();
+    if (!monoType) return {};
+    return vmData.RuntimeType$$make_byref_type[reinterpret_cast<void *>(monoType)]();
 }

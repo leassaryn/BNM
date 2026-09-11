@@ -159,11 +159,13 @@ BNM::Coroutine::WaitForSecondsRealtime::WaitForSecondsRealtime(float seconds) { 
 
 BNM::Coroutine::WaitUntil::WaitUntil(const std::function<bool()> &function) {
     auto obj = reinterpret_cast<CustomWait *>(BNM::Class(CustomWaitData::customClass.myClass).CreateNewInstance());
+    if (!obj) return;
     obj->_func = function; obj->_isUntil = true; _object = obj;
 }
 
 BNM::Coroutine::WaitWhile::WaitWhile(const std::function<bool()> &function) {
     auto obj = reinterpret_cast<CustomWait *>(BNM::Class(CustomWaitData::customClass.myClass).CreateNewInstance());
+    if (!obj) return;
     obj->_func = function; obj->_isUntil = false; _object = obj;
 }
 

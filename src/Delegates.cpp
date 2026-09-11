@@ -24,7 +24,10 @@ std::vector<BNM::MethodBase> BNM::MulticastDelegateBase::GetMethods() const {
 
     std::vector<MethodBase> ret{};
     ret.reserve(delegates->capacity);
-    for (IL2CPP::il2cpp_array_size_t i = 0; i < delegates->capacity; ++i) ret.push_back(delegates->At(i)->GetMethod());
+    for (IL2CPP::il2cpp_array_size_t i = 0; i < delegates->capacity; ++i) {
+        auto d = delegates->At(i);
+        if (d) ret.push_back(d->GetMethod());
+    }
     return ret;
 }
 
@@ -32,6 +35,7 @@ void BNM::MulticastDelegateBase::Add(BNM::DelegateBase *delegate)  {
     if (!CheckForNull(this)) return;
 
     auto delegates = reinterpret_cast<Structures::Mono::Array<DelegateBase *> *>(this->delegates);
+    if (!delegates) return;
     auto arr = BNM::Class(delegates->klass->element_class).NewArray<DelegateBase *>(this->delegates->max_length + 1);
     arr->CopyFrom(delegates->m_Items, delegates->capacity);
     arr->m_Items[delegates->capacity] = delegate;
@@ -53,6 +57,7 @@ void BNM::MulticastDelegateBase::Remove(BNM::DelegateBase *delegate)  {
         break;
     }
     if (!found) return;
+    if (this->delegates->max_length == 0) return;
     auto arr = BNM::Class(delegates->klass->element_class).NewArray<DelegateBase *>(this->delegates->max_length - 1);
     memmove(delegates->m_Items + index, delegates->m_Items + index + 1, (delegates->capacity - index - 1) * sizeof(void *));
     arr->CopyFrom(delegates->m_Items, delegates->capacity - 1);

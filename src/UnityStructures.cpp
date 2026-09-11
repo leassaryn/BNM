@@ -7,7 +7,11 @@
 
 namespace BNM::Structures::Unity {
     void *RaycastHit::GetCollider() const {
-        if (!m_Collider || static_cast<BNM_PTR>(m_Collider) < 0) return {};
+#if UNITY_VER > 174
+        if (!m_Collider || m_Collider < 0) return {};
+#else
+        if (!m_Collider) return {};
+#endif
 #if UNITY_VER > 174
 #    if UNITY_VER >= 232
         static void *(*FromId)(int){};
@@ -24,7 +28,11 @@ namespace BNM::Structures::Unity {
     }
 
     void *RaycastHit2D::GetCollider() const {
-        if (!m_Collider || static_cast<BNM_PTR>(m_Collider) < 0) return {};
+#if UNITY_VER > 174
+        if (!m_Collider || m_Collider < 0) return {};
+#else
+        if (!m_Collider) return {};
+#endif
 #if UNITY_VER > 174
 #    if UNITY_VER >= 232
         static void *(*FromId)(int){};
