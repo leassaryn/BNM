@@ -88,12 +88,16 @@ bool Loading::TryLoadByJNI(JNIEnv *env, jobject context) {
         auto currentActivityThread = env->CallStaticObjectMethod(activityThread, env->GetStaticMethodID(activityThread, BNM_OBFUSCATE_TMP("currentActivityThread"), BNM_OBFUSCATE_TMP("()Landroid/app/ActivityThread;")));
         env->DeleteLocalRef(activityThread);
         if (!currentActivityThread) return result;
-        context = env->CallObjectMethod(currentActivityThread, env->GetMethodID(env->GetObjectClass(currentActivityThread), BNM_OBFUSCATE_TMP("getApplication"), BNM_OBFUSCATE_TMP("()Landroid/app/Application;")));
+        auto contextClass = env->GetObjectClass(currentActivityThread);
+        context = env->CallObjectMethod(currentActivityThread, env->GetMethodID(contextClass, BNM_OBFUSCATE_TMP("getApplication"), BNM_OBFUSCATE_TMP("()Landroid/app/Application;")));
         env->DeleteLocalRef(currentActivityThread);
+        env->DeleteLocalRef(contextClass);
         if (!context) return result;
     }
 
-    auto applicationInfo = env->CallObjectMethod(context, env->GetMethodID(env->GetObjectClass(context), BNM_OBFUSCATE_TMP("getApplicationInfo"), BNM_OBFUSCATE_TMP("()Landroid/content/pm/ApplicationInfo;")));
+    auto contextClass = env->GetObjectClass(context);
+    auto applicationInfo = env->CallObjectMethod(context, env->GetMethodID(contextClass, BNM_OBFUSCATE_TMP("getApplicationInfo"), BNM_OBFUSCATE_TMP("()Landroid/content/pm/ApplicationInfo;")));
+    env->DeleteLocalRef(contextClass);
     auto applicationInfoClass = env->GetObjectClass(applicationInfo);
 
     auto flags = env->GetIntField(applicationInfo, env->GetFieldID(applicationInfoClass, BNM_OBFUSCATE_TMP("flags"), BNM_OBFUSCATE_TMP("I")));
