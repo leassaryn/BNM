@@ -1,7 +1,7 @@
 # ByNameModding (BNM) — Dokumentasi Lengkap
 
 > BNM adalah library C++20 statik untuk modding game Unity (il2cpp) di Android.
-> Versi library saat ini: **2.5.3** (`BNM_VER` di `include/BNM/UserSettings/GlobalSettings.hpp`)
+> Versi library saat ini: **2.5.4-dirty** (`BNM_VER` di `include/BNM/UserSettings/GlobalSettings.hpp`)
 
 ---
 

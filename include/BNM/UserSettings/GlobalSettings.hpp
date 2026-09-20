@@ -292,4 +292,4 @@ namespace BNM {
 #endif
 }
 
-#define BNM_VER "2.5.3"
+#define BNM_VER "2.5.4-dirty"
