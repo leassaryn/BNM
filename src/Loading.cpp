@@ -119,21 +119,24 @@ bool Loading::TryLoadByJNI(JNIEnv *env, jobject context) {
 
     // Try to load il2cpp using this path
     auto handle = BNM_dlopen(file.c_str(), RTLD_LAZY);
-    if (!(result = CheckHandle(handle))) {
-        BNM_LOG_ERR_IF(isLibrariesExtracted, DBG_BNM_MSG_TryLoadByJNI_Fail);
-    } else goto FINISH;
+    if ((result = CheckHandle(handle))) {
+        goto FINISH;
+    }
+    BNM_LOG_ERR_IF(isLibrariesExtracted, DBG_BNM_MSG_TryLoadByJNI_Fail);
     if (isLibrariesExtracted) goto FINISH;
-    file.clear();
 
     // Full path to library in split_config.architecture.apk /data/app/.../package name-.../split_config.architecture.apk!/lib/architecture/libil2cpp.so
-    if (cDir.length() >= 8) {
-        file = std::string(cDir).substr(0, cDir.length() - 8) + BNM_OBFUSCATE_TMP("split_config." CURRENT_ARCH ".apk!/lib/" CURRENT_ARCH "/libil2cpp.so");
-        handle = BNM_dlopen(file.c_str(), RTLD_LAZY);
-        if (!(result = CheckHandle(handle))) BNM_LOG_ERR(DBG_BNM_MSG_TryLoadByJNI_Fail);
+    {
+        auto lastLibPos = cDir.rfind("/lib/");
+        if (lastLibPos != std::string_view::npos) {
+            file = std::string(cDir.substr(0, lastLibPos)) + BNM_OBFUSCATE_TMP("/split_config." CURRENT_ARCH ".apk!/lib/" CURRENT_ARCH "/libil2cpp.so");
+            handle = BNM_dlopen(file.c_str(), RTLD_LAZY);
+            if (!(result = CheckHandle(handle))) BNM_LOG_ERR(DBG_BNM_MSG_TryLoadByJNI_Fail);
+        }
     }
 
     FINISH:
-    env->ReleaseStringUTFChars(jDir, cDir.data()); env->DeleteLocalRef(jDir);
+    env->ReleaseStringUTFChars(jDir, dirChars); env->DeleteLocalRef(jDir);
     return result;
 }
 

@@ -486,7 +486,16 @@ namespace BNM::Structures::Mono {
         */
         bool CopyFrom(T *arr, int arrSize) {
             BNM_CHECK_SELF(false);
-            Resize(arrSize);
+            // Resize only if needed (skip old data copy if we're about to overwrite)
+            if (arrSize > items->capacity) {
+                auto nItems = Array<T>::Create(arrSize);
+                nItems->klass = items->klass;
+                nItems->monitor = items->monitor;
+                nItems->bounds = items->bounds;
+                nItems->capacity = arrSize;
+                if (!items->klass) items->Destroy();
+                items = nItems;
+            }
             memcpy(items->m_Items, arr, arrSize * sizeof(T));
             size = arrSize;
             ++version;
@@ -573,8 +582,12 @@ namespace BNM::Structures::Mono {
             @param n Number of additional elements
         */
         void GrowIfNeeded(int n) {
-            if (size + n > items->capacity)
-                Resize(size + n);
+            if (size + n > items->capacity) {
+                // Geometric growth (2x) to reduce reallocation frequency
+                int newCap = items->capacity > 0 ? items->capacity * 2 : 4;
+                if (newCap < size + n) newCap = size + n;
+                Resize(newCap);
+            }
         }
 
         /**

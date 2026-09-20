@@ -375,7 +375,12 @@ IL2CPP::Il2CppObject *Class::CreateNewInstance() const {
 }
 
 // Try initializing the class if it is alive
-void Class::TryInit() const { if (_data) Internal::il2cppMethods.Class$$Init(_data); }
+void Class::TryInit() const {
+    if (_data && !_initialized) {
+        Internal::il2cppMethods.Class$$Init(_data);
+        _initialized = 1;
+    }
+}
 
 IL2CPP::Il2CppObject *Class::BoxObject(IL2CPP::Il2CppClass *_data, void *data) {
     return Internal::il2cppMethods.il2cpp_value_box(_data, data);

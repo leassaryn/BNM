@@ -8,6 +8,13 @@
 
 #define BNM_CLASS_ALLOCATED_METHODS_FLAG 0x01000000
 #define BNM_CLASS_ALLOCATED_FIELDS_FLAG 0x02000000
+
+// il2cpp MethodAttributes flags
+#define BNM_METHOD_PUBLIC           0x0006
+#define BNM_METHOD_STATIC           0x0010
+#define BNM_METHOD_HIDE_BY_SIG      0x0080
+#define BNM_METHOD_SPECIAL_NAME     0x0800
+#define BNM_METHOD_RT_SPECIAL_NAME  0x1000
 #define BNM_CLASS_ALLOCATED_INNER_FLAG 0x04000000
 #define BNM_CLASS_ALLOCATED_HIERARCHY_FLAG 0x08000000
 
@@ -156,9 +163,7 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
             SetupField(newField, field);
             newField->parent = klass;
 
-            field->offset = currentAddress;
             newField->offset = static_cast<int32_t>(currentAddress);
-            field->myInfo = newField;
 
             currentAddress += field->_size;
 
@@ -326,7 +331,6 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
             newField->parent = klass;
 
             newField->offset = static_cast<int32_t>(field->offset);
-            field->myInfo = newField;
 
             newField++;
         }
@@ -746,9 +750,9 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
     myInfo->name = name;
 
     // Set method flags
-    myInfo->flags = 0x0006 | 0x0080; // PUBLIC | HIDE_BY_SIG
-    if (method->_isStatic) myInfo->flags |= 0x0010; // |= STATIC
-    if (method->_name == Internal::constructorName) myInfo->flags |= 0x0800 | 0x1000; // |= SPECIAL_NAME | RT_SPECIAL_NAME
+    myInfo->flags = BNM_METHOD_PUBLIC | BNM_METHOD_HIDE_BY_SIG;
+    if (method->_isStatic) myInfo->flags |= BNM_METHOD_STATIC;
+    if (method->_name == Internal::constructorName) myInfo->flags |= BNM_METHOD_SPECIAL_NAME | BNM_METHOD_RT_SPECIAL_NAME;
 
     // BNM does not support the creation of generic methods
     myInfo->is_generic = false;

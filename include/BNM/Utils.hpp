@@ -1,7 +1,7 @@
 #pragma once
 
-#include <csetjmp>
-#include <csignal>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include <string_view>
 #include <type_traits>
@@ -39,25 +39,12 @@ namespace BNM {
     inline bool IsAllocated(T x) {
 #ifdef BNM_ALLOW_SAFE_IS_ALLOCATED
         if (!x) return false;
-
-        // Use thread-local storage for signal safety
-        static thread_local jmp_buf jump;
-        [[maybe_unused]] static thread_local volatile sig_atomic_t jumpRequested = 0;
-
-        auto signalHandler = [](int) { jumpRequested = 1; longjmp(jump, 1); }; // NOLINT
-
-        char c;
-        bool ok = true;
-        sighandler_t old_handler = signal(SIGSEGV, signalHandler);
-        jumpRequested = 0;
-        if (!setjmp(jump)) { // NOLINT
-            c = *(volatile char *) x;
-            (void)c;
-        } else {
-            ok = false;
-        }
-        signal(SIGSEGV, old_handler);
-        return ok;
+        // Use mincore() to check if the address is in a valid mapped page.
+        // mincore is async-signal-safe and does not cause SIGSEGV on invalid addresses.
+        unsigned char vec;
+        uintptr_t addr = reinterpret_cast<uintptr_t>(x);
+        uintptr_t pageAddr = addr & ~static_cast<uintptr_t>(getpagesize() - 1);
+        return mincore(reinterpret_cast<void *>(pageAddr), 1, &vec) == 0;
 #else
         return x != nullptr;
 #endif

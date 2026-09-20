@@ -210,7 +210,7 @@ inline void Unhook(PTR_T ptr) {
 // Dummy
 #include <cassert>
 
-static_assert(false, "No hooking software!");
+#error "No hooking backend selected! Uncomment one of DobbyHook, ShadowHook, or XOFHook in GlobalSettings.hpp above."
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T, NEW_T, T_OLD &) {

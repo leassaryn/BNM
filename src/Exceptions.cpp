@@ -5,16 +5,25 @@
 #pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
 
 BNM::Exception BNM::TryInvoke(const std::function<void()> &func) {
-    BNM::IL2CPP::Il2CppType type;
-    type.type = BNM::IL2CPP::IL2CPP_TYPE_VOID;
-    BNM::IL2CPP::Il2CppClass klass;
+    // Static void type and class to avoid re-initialization on every call.
+    // Thread-safe initialization guaranteed by C++11.
+    static auto &voidType = []() -> BNM::IL2CPP::Il2CppType & {
+        static BNM::IL2CPP::Il2CppType t{};
+        t.type = BNM::IL2CPP::IL2CPP_TYPE_VOID;
+        return t;
+    }();
+    static auto &voidClass = []() -> BNM::IL2CPP::Il2CppClass & {
+        static BNM::IL2CPP::Il2CppClass k{};
 #if UNITY_VER <= 204
-    klass.valuetype = 0;
+        k.valuetype = 0;
 #endif
-    BNM::IL2CPP::MethodInfo info;
-    for (size_t i = 0; i < sizeof(info); ++i) reinterpret_cast<char *>(&info)[i] = 0;
-    info.return_type = &type;
-    BNM::PRIVATE_INTERNAL::GetMethodClass(&info) = &klass;
+        k.instance_size = 0;
+        return k;
+    }();
+
+    BNM::IL2CPP::MethodInfo info{};
+    info.return_type = &voidType;
+    BNM::PRIVATE_INTERNAL::GetMethodClass(&info) = &voidClass;
 
     info.methodPointer = reinterpret_cast<decltype(info.methodPointer)>(const_cast<std::function<void()> *>(&func));
 #if UNITY_VER < 171
