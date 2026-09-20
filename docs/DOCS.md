@@ -30,6 +30,7 @@
 21. [Trouble Shooting](#21-trouble-shooting)
 22. [Modern C++ Improvements (v2.5.3)](#22-modern-c-improvements-v253)
 23. [Bugfixes dan Penyempurnaan (post-v2.5.3)](#23-bugfixes-dan-penyempurnaan-post-v253)
+    - [23.14 Code Review Fixes (12 mitigations)](#2314-code-review-fixes-12-mitigations)
 
 ---
 
@@ -244,7 +245,7 @@ inline void Unhook(PTR_T ptr) {
 }
 ```
 
-> **Peringatan:** Bagian "Dummy" (dengan `static_assert(false, "No hooking software!")`) harus dikomentari atau dihapus. Tanpa hook backend yang valid, BNM tidak akan dikompilasi.
+> **Peringatan:** Bagian "Dummy" (dengan `#error "No hooking backend selected!"`) harus dikomentari atau dihapus. Tanpa hook backend yang valid, BNM tidak akan dikompilasi.
 
 ### Flag Tambahan di GlobalSettings.hpp
 
@@ -1244,7 +1245,7 @@ BNM::VirtualHook(cls, target, [](auto *instance) {
 // Cek apakah pointer valid (tidak null)
 bool valid = BNM::CheckForNull(ptr);
 
-// Cek apakah alamat valid (dengan signal handler)
+// Cek apakah alamat valid (menggunakan mincore syscall)
 bool valid = BNM::IsAllocated(ptr);  // Memerlukan BNM_ALLOW_SAFE_IS_ALLOCATED
 ```
 
@@ -1309,7 +1310,7 @@ Makro untuk enkripsi string (ganti dengan string encryptor Anda):
 
 ## 21. Trouble Shooting
 
-### Build Gagal: `static_assert(false, "No hooking software!")`
+### Build Gagal: `#error "No hooking backend selected!"`
 → Anda belum mengkonfigurasi hook backend. Lihat [Bagian 4](#4-konfigurasi-hook-backend).
 
 ### Build Gagal: `static_assert(false, "Setup UNITY_VER in GlobalSettings.hpp")`
@@ -1656,3 +1657,26 @@ namespace BNM {
 }
 #endif
 ```
+
+### 23.14 Code Review Fixes (12 mitigations)
+
+Perbaikan bug dan peningkatan kualitas kode dari review menyeluruh:
+
+**Critical fixes:**
+- **`IsAllocated()`** — mengganti `SIGSEGV` + `longjmp` (UB di multi-threaded) dengan `mincore()` (async-signal-safe, tidak crash pada alamat tidak valid)
+- **`ReleaseStringUTFChars`** — pointer yang salah (`cDir.data()` → `dirChars`) menyebabkan undefined behavior
+
+**High fixes:**
+- **ModifyClass/CreateClass** — menghapus penulisan `field->myInfo` yang menjadi dangling pointer setelah vector di-clear
+- **`Class::TryInit`** — menambah flag `_initialized` untuk skip `Class$$Init` yang redundant (performa)
+- **Split APK path** — mengganti `substr(len-8)` dengan `rfind("/lib/")` yang lebih robust
+
+**Medium improvements:**
+- **`List::GrowIfNeeded`** — pertumbuhan geometris (2x) mengurangi reallokasi
+- **`List::CopyFrom`** — skip copy data lama saat resize
+- **`TryInvoke`** — static voidType/voidClass, `memset` → value-init
+- **Named constants** — konstanta bernama untuk `METHOD_PUBLIC`, `STATIC`, dll
+
+**Low improvements:**
+- **`static_assert(false)` → `#error`** — error message lebih jelas, tidak ada masalah C++20
+- **`Delegate::Remove`** — perbaiki urutan `memmove`, hapus pengecekan `max_length` yang tidak berguna
