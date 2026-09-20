@@ -1,4 +1,5 @@
 #include <cstring>
+#include <unordered_set>
 
 #include <BNM/Class.hpp>
 #include <BNM/FieldBase.hpp>
@@ -375,10 +376,12 @@ IL2CPP::Il2CppObject *Class::CreateNewInstance() const {
 }
 
 // Try initializing the class if it is alive
+// Uses external set to track initialized classes (keeps Class struct layout unchanged)
 void Class::TryInit() const {
-    if (_data && !_initialized) {
+    if (!_data) return;
+    static std::unordered_set<IL2CPP::Il2CppClass *> initialized;
+    if (initialized.insert(_data).second) {
         Internal::il2cppMethods.Class$$Init(_data);
-        _initialized = 1;
     }
 }
 

@@ -583,8 +583,13 @@ namespace BNM::Structures::Mono {
         */
         void GrowIfNeeded(int n) {
             if (size + n > items->capacity) {
-                // Geometric growth (2x) to reduce reallocation frequency
-                int newCap = items->capacity > 0 ? items->capacity * 2 : 4;
+                // Check if il2cpp array already has room (e.g. from external List<T>.Add)
+                if (size + n <= items->max_length) {
+                    items->capacity = items->max_length;
+                    return;
+                }
+                // Geometric growth (1.5x) — less over-allocation than 2x
+                int newCap = items->capacity > 0 ? items->capacity + items->capacity / 2 : 4;
                 if (newCap < size + n) newCap = size + n;
                 Resize(newCap);
             }

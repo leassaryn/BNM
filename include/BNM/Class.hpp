@@ -544,7 +544,6 @@ namespace BNM {
 #endif
 
         BNM::IL2CPP::Il2CppClass *_data{};
-        mutable uint8_t _initialized : 1 = 0;
 
     private:
         void TryInit() const;
