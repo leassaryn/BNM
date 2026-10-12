@@ -1686,9 +1686,9 @@ cls.NewArray<int>(10);                  // ⚠️ unused result
 
 | Lokasi | Perubahan |
 |--------|-----------|
-| `BasicMonoStructures.hpp:183` | `GetData()` adalah method `const` tetapi mengembalikan `T*`; gunakan `const_cast<T *>(&m_Items[0])`. (Perubahan awal sempat menghapus cast ini, lalu dikembalikan di [24.1](#241-bug-kompilasi-api-publik).) |
-| `Loading.cpp:487` | `reinterpret_cast<IL2CPP::MethodInfo *>(const_cast<...>(listClass._data->methods[i]))` → `const_cast<IL2CPP::MethodInfo *>(...)` (satu cast saja cukup) |
-| `ClassesManagement.cpp:259` | Hapus `const_cast` pada assignment `vTable.method = method->myInfo` (type sama) |
+| `BasicMonoStructures.hpp` — `Array<T>::GetData()` | `GetData()` adalah method `const` tetapi mengembalikan `T*`; gunakan `const_cast<T *>(&m_Items[0])`. (Perubahan awal sempat menghapus cast ini, lalu dikembalikan di [24.1](#241-bug-kompilasi-api-publik).) |
+| `Loading.cpp` — `SetupBNM`, penyalinan method List | `reinterpret_cast<IL2CPP::MethodInfo *>(const_cast<...>(listClass._data->methods[i]))` → `const_cast<IL2CPP::MethodInfo *>(...)` (satu cast saja cukup) |
+| `ClassesManagement.cpp` — `CreateClass`, override method vtable | Hapus `const_cast` pada assignment `vTable.method = method->myInfo` (type sama) |
 | `UnityStructures/Vector{2,3,4}.hpp` | `inline static constexpr const float` → `inline static constexpr float` (redudant `const`) |
 
 ### 23.4 Null-Safety Fixes
