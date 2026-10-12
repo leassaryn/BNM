@@ -1648,7 +1648,7 @@ using MethodInvoker = void (*)(const Il2CppMethodPointer, ...);
 
 ### 23.1 C++20 Compatibility Helpers
 
-**`BNM::to_underlying`** — fallback untuk C++20 yang belum memiliki `std::to_underlying` (C++23). Otomatis memakai `std::to_underlying` jika tersedia, atau menggunakan implementasi internal:
+**`BNM::to_underlying`** — fallback untuk C++20 yang belum memiliki `std::to_underlying` (C++23). BNM selalu memakai implementasi internalnya sendiri di `namespace BNM` (tanpa `using std::to_underlying`):
 
 ```cpp
 // Digunakan di berbagai tempat untuk enum → integer conversion
@@ -1828,21 +1828,22 @@ void Internal::Load() {
 
 ### 23.13 `to_underlying` Namespace Fix
 
-`using std::to_underlying` sekarang ditempatkan di dalam `namespace BNM {}` bukan di global namespace, mencegah pollution dan konflik:
+`to_underlying` didefinisikan sebagai template di dalam `namespace BNM`, bukan di namespace global. Ini mencegah pollution namespace global dan konflik dengan `std::to_underlying` (C++23) atau helper serupa dari pustaka lain:
 
 ```cpp
-// Sebelum (global namespace pollution)
-#if __cplusplus >= 202302L
-using std::to_underlying;
-#endif
-
-// Sesudah (dalam namespace BNM)
-#if __cplusplus >= 202302L
+// Implementasi aktual (include/BNM/Utils.hpp)
 namespace BNM {
-    using std::to_underlying;
-}
-#endif
+    template<typename E>
+    constexpr auto to_underlying(E e) noexcept -> std::underlying_type_t<E> {
+        return static_cast<std::underlying_type_t<E>>(e);
+    }
+} // namespace BNM
+
+// Penggunaan
+auto index = BNM::to_underlying(info->_baseType);
 ```
+
+> **Catatan:** BNM **tidak** memakai `std::to_underlying` meski tersedia di C++23 — versi internal selalu dipakai agar perilakunya sama di semua standar.
 
 ### 23.14 Code Review Fixes (12 mitigations)
 
