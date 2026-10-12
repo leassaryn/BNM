@@ -266,7 +266,11 @@ inline void Unhook(PTR_T ptr) {
 
 ### ShadowHook
 
+> **Catatan:** berbeda dengan blok Dobby, blok ShadowHook di `GlobalSettings.hpp` **tidak** meng-`#include <shadowhook.h>` sendiri. Tambahkan `#include <shadowhook.h>` (atau pastikan header itu sudah diinclude) sebelum blok ini, jika tidak akan muncul error `use of undeclared identifier 'shadowhook_hook_func_addr'`.
+
 ```cpp
+#include <shadowhook.h>   // WAJIB ditambahkan sendiri
+
 // Shadowhook
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
