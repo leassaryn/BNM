@@ -1931,6 +1931,7 @@ Unity 6000.5.x mengubah `Il2CppClass::events`, `properties`, dan `nestedTypes` d
 - **Build end-to-end** dengan NDK 29 (clang 21), backend Dobby, dan stub `dobby.h`:
   - CMake (`cmake --build`) menghasilkan `libBNM.a` untuk `arm64-v8a`, `android-21`.
   - ndk-build menghasilkan `libBNM.a`, dengan syarat `APP_CPPFLAGS += -fexceptions -frtti`.
+  - Proyek konsumen CMake (`add_subdirectory(BNM)` + `target_link_libraries(app PRIVATE BNM)`) berhasil membangun `libapp.so`. Include path BNM terpropagasi otomatis (PUBLIC) — konsumen cukup `#include <BNM/Class.hpp>` tanpa menambah path manual. Hanya simbol hook (Dobby) yang perlu disediakan library hooking.
 - **Backend ShadowHook** diverifikasi kompilasi (butuh `#include <shadowhook.h>` sendiri; `shadowhook_hook_func_addr` mengembalikan `void*`).
 - **Versi tak terpetakan** (mis. 6006) gagal dengan `static_assert(false, "Setup UNITY_VER in GlobalSettings.hpp")` sesuai dokumen.
 - **`BNM_DOTNET35`** Dictionary path dikompilasi bersih.
