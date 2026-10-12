@@ -200,19 +200,19 @@ Buka `include/BNM/UserSettings/GlobalSettings.hpp` dan:
 | `201` | 2020.1.x | Tidak perlu patch |
 | `202` | 2020.2.x - 2020.3.19f1 | Tidak perlu patch |
 | `203` | 2020.3.20f1 - 2020.3.x | Tidak perlu patch |
-| `211` | 2021.1.x | Patch ≥24: set `UNITY_PATCH_VER 24` |
+| `211` | 2021.1.x | Tidak perlu patch untuk pemilihan header. Set `UNITY_PATCH_VER 24` bila patch ≥24 (dipakai di internal header) |
 | `212` | 2021.2.x | Tidak perlu patch |
 | `213` | 2021.3.x | Tidak perlu patch |
 | `221` | 2022.1.x | Patch ≥8: set `UNITY_PATCH_VER 8` |
 | `222` | 2022.2.x | Patch ≥9: set `UNITY_PATCH_VER 9` |
 | `223` | 2022.3.x | Patch <8, 8-32, ≥33 → set `UNITY_PATCH_VER` sesuai |
 | `231` | 2023.1.x | Patch ≥10: set `UNITY_PATCH_VER 10` |
-| `232` | 2023.2.x | Set `UNITY_PATCH_VER 22` |
+| `232` | 2023.2.x | Tidak perlu patch (selalu `2023.2.22f1.h`) |
 | `6000` | 6000.0.x | Patch ≥10/44/57: set `UNITY_PATCH_VER` sesuai |
-| `6001` | 6000.1.x | Set `UNITY_PATCH_VER 17` |
+| `6001` | 6000.1.x | Tidak perlu patch (selalu `6000.1.17f1.h`) |
 | `6002` | 6000.2.x | Patch ≥2: set `UNITY_PATCH_VER 2` |
 | `6003` | 6000.3.x | Patch ≥3: set `UNITY_PATCH_VER 3` |
-| `6004` | 6000.4.x | Set `UNITY_PATCH_VER 12` |
+| `6004` | 6000.4.x | Tidak perlu patch (selalu `6000.4.12f1.h`) |
 | `6005` | 6000.5.x | Patch ≥1: set `UNITY_PATCH_VER 1` |
 
 **Contoh:**
@@ -352,13 +352,15 @@ Jika dlfcn atau JNI tidak berfungsi di konteks Anda:
 ```cpp
 #include <BNM/Loading.hpp>
 
+// Fungsi pencarian simbol il2cpp Anda sendiri. userData diteruskan dari SetMethodFinder.
 void *MyMethodFinder(const char *name, void *userData) {
-    // Implementasi pencarian method Anda sendiri
-    return nullptr;
+    // Contoh: cari simbol di handle yang disimpan di userData
+    return BNM_dlsym(*static_cast<void **>(userData), name);
 }
 
-void MyLoadFunction() {
-    BNM::Loading::SetMethodFinder(MyMethodFinder, myUserData);
+void MyLoadFunction(void **libHandle) {
+    // libHandle: handle dlopen ke libil2cpp.so yang Anda kelola sendiri
+    BNM::Loading::SetMethodFinder(MyMethodFinder, libHandle);
     BNM::Loading::TryLoadByUsersFinder();
 }
 ```
@@ -368,8 +370,9 @@ void MyLoadFunction() {
 **Peringatan:** Il2cpp harus sudah dimuat sepenuhnya sebelum memanggil ini. Bisa crash jika dipanggil terlalu awal.
 
 ```cpp
-void MyLoadFunction() {
-    BNM::Loading::SetMethodFinder(MyMethodFinder, myUserData);
+// Gunakan MyMethodFinder dari contoh 5.3 di atas (deklarasi harus sudah ada).
+void MyLoadFunction(void **libHandle) {
+    BNM::Loading::SetMethodFinder(MyMethodFinder, libHandle);
     BNM::Loading::TrySetupByUsersFinder();  // Langsung muat dari thread ini
 }
 ```
@@ -379,11 +382,17 @@ void MyLoadFunction() {
 Untuk game yang memulai il2cpp sangat lambat:
 
 ```cpp
-// Panggil SEBELUM TryLoad*
-BNM::Loading::AllowLateInitHook();
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+    JNIEnv *env;
+    vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
 
-// Lalu muat seperti biasa
-BNM::Loading::TryLoadByJNI(env);
+    // Panggil SEBELUM TryLoad*
+    BNM::Loading::AllowLateInitHook();
+
+    // Lalu muat seperti biasa
+    BNM::Loading::TryLoadByJNI(env);
+    return JNI_VERSION_1_6;
+}
 ```
 
 ### 5.6 Event Setelah Loaded
@@ -393,11 +402,14 @@ Daftarkan callback yang dipanggil setelah BNM dan il2cpp selesai dimuat:
 ```cpp
 void OnBNMLoaded() {
     // BNM sudah siap digunakan di sini
-    auto cls = BNM::Class("UnityEngine", "GameObject");
+    BNM::Class cls("UnityEngine", "GameObject");
     // ...
 }
 
-BNM::Loading::AddOnLoadedEvent(OnBNMLoaded);
+void RegisterCallbacks() {
+    // Panggil dari dalam fungsi (mis. JNI_OnLoad atau setup Anda)
+    BNM::Loading::AddOnLoadedEvent(OnBNMLoaded);
+}
 ```
 
 ---
@@ -422,10 +434,10 @@ BNM::Class cls2("MyNamespace", "MyClass", img);
 BNM::Class cls3(someIl2CppClass);
 
 // Dari objek il2cpp
-BNM::Class cls4(someIl2CppObject);
+BNM::Class cls4(someIl2CppObjectClass /* atau objek: obj->klass */);
 
-// Dari CompileTimeClass
-BNM::Class cls5 = myCompileTimeClass;
+// Dari CompileTimeClass (eksplisit, lebih jelas daripada copy-initialization)
+BNM::Class cls5 = myCompileTimeClass.ToClass();
 ```
 
 ### 6.2 Validasi
@@ -528,8 +540,10 @@ auto *arr = cls.NewArray<BNM::IL2CPP::Il2CppObject *>(10);
 // Membuat List<T>
 auto *list = cls.NewList<int>();
 
-// Membuat List<T> menggunakan BNM (untuk tipe yang tidak ada di game)
-auto *list2 = cls.NewListBNM<MyCustomStruct>();
+// Membuat List<T> menggunakan BNM (untuk tipe yang tidak ada di game).
+// Batasan: T harus mendukung operator== (dipakai IndexOf/Contains/Remove).
+// Untuk tipe primitif seperti int, ini berfungsi.
+auto *list2 = cls.NewListBNM<int>();
 ```
 
 ### 6.9 Boxing
@@ -806,6 +820,7 @@ event(someCollision);
 ### 10.3 Operator += dan -=
 
 ```cpp
+// event adalah Event<Ret, Params...> (lihat 10.2)
 event += someDelegate;   // Add
 event -= someDelegate;   // Remove
 ```
@@ -887,6 +902,7 @@ arr->At(0) = 42;                 // Set element
 
 // Copy data
 arr->CopyFrom(vec);
+int destPtr[10];           // buffer tujuan, minimal sebesar capacity array
 arr->CopyTo(destPtr);
 
 // Cek kosong
@@ -899,13 +915,16 @@ arr->Destroy();
 ### 12.3 List (Mono::List<T>)
 
 ```cpp
-// Membuat list baru (menggunakan BNM::Class)
-auto *list = BNM::Class("System.Collections.Generic", "List`1")
-    .GetGeneric({BNM::Defaults::Get<int>()})
-    .CreateNewObjectParameters();
+// Membuat list baru dari List<int> milik game. Hasilnya Il2CppObject*, cast ke tipe List.
+auto *list = reinterpret_cast<BNM::Structures::Mono::List<int> *>(
+    BNM::Class("System.Collections.Generic", "List`1")
+        .GetGeneric({BNM::Defaults::Get<int>()})
+        .CreateNewObjectParameters());
 
-// Atau menggunakan helper
-auto *list2 = BNM::Class().NewList<int>();
+// Atau gunakan helper (dibuat dari kelas List<T>)
+auto *list2 = BNM::Class("System.Collections.Generic", "List`1")
+    .GetGeneric({BNM::Defaults::Get<int>()})
+    .NewList<int>();
 
 // Operasi list
 list->Add(10);
@@ -931,17 +950,17 @@ list->Clear();
 // Insert
 list->Insert(1, 15);
 
-// Resize
+// Resize (capacity)
 list->Resize(100);
 
 // Copy
 list->CopyFrom(vec);
-list->CopyTo(destArr, 0);
+list->CopyTo(destArr, 0);   // destArr: BNM::Structures::Mono::Array<int>*
 
 // Konversi ke vector
 std::vector<int> vecResult = list->ToVector();
 
-// Iterasi
+// Iterasi dengan indeks
 for (int i = 0; i < list->GetSize(); i++) {
     int val = list->get_Item(i);
 }
@@ -1016,8 +1035,8 @@ BNM::Structures::Unity::RaycastHit2D hit2D;                      // RaycastHit2D
 BNM::IL2CPP::Il2CppObject *boxed = BNM::Defaults::Box(42);
 BNM::IL2CPP::Il2CppObject *boxedFloat = BNM::Defaults::Box(3.14f);
 
-// Unbox
-int val = BNM::UnboxObject(boxed);
+// Unbox: UnboxObject mengembalikan POINTER ke data (bukan nilai), jadi dereference.
+int val = *BNM::UnboxObject(reinterpret_cast<int *>(boxed));
 ```
 
 ---
@@ -1074,11 +1093,14 @@ BNM::IL2CPP::Il2CppClass *klass = ctc.ToIl2CppClass();
 ```cpp
 #include <BNM/ClassesManagement.hpp>
 
-// Definisikan kelas C++ yang akan ditambahkan ke il2cpp
+// Definisikan kelas C++ yang akan ditambahkan ke il2cpp.
+// Method TakeDamage harus didefinisikan di sini karena BNM_CustomMethod merujuknya.
 struct MyCustomComponent : BNM::IL2CPP::Il2CppObject {
     float health;
     int damage;
     BNM::Structures::Mono::String *name;
+
+    void TakeDamage(float amount) { health -= amount; }
 };
 
 // Daftarkan ke il2cpp. Setelah makro ini selalu tulis titik-koma.
@@ -1111,33 +1133,49 @@ BNM_CustomMethod(TakeDamage, false,  // false = non-static
 ### 16.2 Menggunakan Kelas yang Dibuat
 
 ```cpp
-// Membuat instance
-auto *comp = MyCustomComponent::BNMCustomClass.CreateNewInstance();
+#include <BNM/Class.hpp>
+#include <BNM/FieldBase.hpp>
+#include <BNM/Field.hpp>
 
-// Mengakses field
-comp->health = 100.0f;
-comp->damage = 10;
+// BNMCustomClass adalah variabel GLOBAL yang dibuat makro BNM_CustomClass
+// (bukan anggota MyCustomComponent). Setelah kelas diproses BNM, kelas il2cpp-nya
+// tersedia di BNMCustomClass.myClass, dan tipe MonoType di BNMCustomClass.type.
 
-// Atau melalui BNM
-auto field = BNM::Class(MyCustomComponent::BNMCustomClass.type)
-    .GetField("health").cast<float>();
+// Membungkus kelas il2cpp yang sudah diproses
+BNM::Class customCls(BNMCustomClass.myClass);
+
+// Membuat instance (tanpa constructor)
+auto *comp = customCls.CreateNewInstance();
+
+// Melalui BNM: ambil field dari kelas custom
+auto field = customCls.GetField("health").cast<float>();
 field[comp];
 float hp = field.Get();
 ```
 
 ### 16.3 Memodifikasi Kelas yang Ada
 
+Untuk meng-override method yang sudah ada di kelas game, buat kelas C++ dengan method pengganti, lalu daftarkan dengan `BNM_CustomClass` dan `BNM_CustomMethod`. Nama dan tipe parameter harus cocok dengan method asli agar BNM mengenalinya sebagai override:
+
 ```cpp
-// Override method yang sudah ada
-struct MyOverride : BNM::IL2CPP::Il2CppObject {
-    void Start() {
-        // Kode Anda
-    }
+#include <BNM/ClassesManagement.hpp>
+#include <BNM/Defaults.hpp>
+#include <BNM/UnityStructures.hpp>
+
+struct MyOverride : BNM::UnityEngine::MonoBehaviour {
+    void Start() { /* kode pengganti */ }
 };
 
-// Mendaftarkan override method (mengganti method yang ada)
-// ... (lihat BNM_CustomMethod dengan macro pendukung)
+BNM_CustomClass(MyOverride,
+    BNM::CompileTimeClassBuilder("Game", "MyOverrideTarget").Build(),
+    BNM::Defaults::Get<BNM::UnityEngine::MonoBehaviour *>(),
+    {});
+
+BNM_CustomMethod(Start, false, BNM::Defaults::Get<void>(), "Start");
+BNM_CustomMethodMarkAsInvokeHook(Start);   // gunakan InvokeHook untuk method Unity message
 ```
+
+> Override kelas (`BNM_CustomClass` dengan nama kelas game yang sudah ada) bergantung pada `ClassesManagement` dan **belum diuji di game nyata** pada fork ini.
 
 ### 16.4 Macro Pendukung
 
@@ -1152,8 +1190,11 @@ struct MyOverride : BNM::IL2CPP::Il2CppObject {
 ### 16.5 Runtime Class Processing
 
 ```cpp
-// Memproses kelas custom di runtime (harus di thread il2cpp)
-BNM::ClassesManagement::ProcessClassRuntime(myCustomClass);
+// Memproses kelas custom di runtime (harus di thread il2cpp).
+// Biasanya BNM memproses kelas otomatis saat load; panggilan manual hanya untuk kasus khusus.
+// Argumen adalah pointer ke MANAGEMENT_STRUCTURES::CustomClass, misalnya &BNMCustomClass
+// (yang diwarisi dari struct makro).
+BNM::ClassesManagement::ProcessClassRuntime(&BNMCustomClass);
 ```
 
 ---
@@ -1172,8 +1213,10 @@ BNM::Coroutine::WaitForSeconds(1.0f);           // Tunggu 1 detik
 BNM::Coroutine::WaitForSecondsRealtime(1.0f);   // Tunggu 1 detik (realtime)
 BNM::Coroutine::WaitForEndOfFrame();             // Tunggu akhir frame
 BNM::Coroutine::WaitForFixedUpdate();            // Tunggu FixedUpdate
-BNM::Coroutine::WaitUntil([]() { return ready; });    // Tunggu sampai true
-BNM::Coroutine::WaitWhile([]() { return loading; });  // Tunggu sampai false
+// Kondisi dievaluasi berulang oleh BNM; tangkap state dengan aman (mis. via pointer/atomic).
+static std::atomic<bool> ready{false}, loading{true};
+BNM::Coroutine::WaitUntil([]() { return ready.load(); });    // Tunggu sampai true
+BNM::Coroutine::WaitWhile([]() { return loading.load(); });  // Tunggu sampai false
 ```
 
 ### 17.2 Membuat Koroutine
@@ -1206,11 +1249,12 @@ auto *enumerator = MyCoroutine().Get();
 ```cpp
 #include <BNM/Delegates.hpp>
 
+BNM::Class someClass("Game", "Player");
 BNM::MethodBase method = someClass.GetMethod("OnSomething", 0);
 
-// Dapatkan delegate nyata dari game (mis. hasil baca field/parameter),
+// Dapatkan delegate nyata dari game (mis. hasil baca field bertipe Action/MulticastDelegate),
 // lalu cast ke tipe yang diinginkan:
-BNM::MulticastDelegate<void> *multi = ...;   // delegate nyata dari game
+BNM::MulticastDelegate<void> *multi = reinterpret_cast<BNM::MulticastDelegate<void> *>(gameDelegateObj);
 BNM::DelegateBase *d = multi->Add(method);   // membuat + menambahkan
 
 // Invoke satu delegate (tanpa parameter):
@@ -1231,7 +1275,7 @@ int result = typedInt.Invoke(42);  // contoh: satu parameter int
 
 ```cpp
 // multi harus delegate nyata dari game
-multi->Add(method1);     // MethodBase → buat + tambahkan DelegateBase*
+multi->Add(method);      // MethodBase → buat + tambahkan DelegateBase*
 multi->Add(method2);
 
 // Invoke semua handler (sesuaikan argumen dengan signature delegate)
@@ -1248,8 +1292,9 @@ multi->Remove(someDelegate);
 ### 18.3 Action
 
 ```cpp
-// Action<Params...> adalah MulticastDelegate<void>
-BNM::Structures::Mono::Action<int, float> *action = ...;  // delegate nyata dari game
+// Action<Params...> adalah MulticastDelegate<void>. Ambil instance nyata dari game
+// (mis. hasil baca field), lalu panggil Invoke dengan argumen yang sesuai.
+BNM::Structures::Mono::Action<int, float> *action = reinterpret_cast<BNM::Structures::Mono::Action<int, float> *>(gameActionObj);
 action->Invoke(42, 3.14f);
 ```
 
@@ -1259,45 +1304,63 @@ action->Invoke(42, 3.14f);
 
 ### 19.1 BasicHook (Inline Hook)
 
-Hook method pada tingkat method pointer:
+Hook langsung pada alamat method menggunakan backend hooking (Dobby/ShadowHook). Hook harus berupa **fungsi statis** (bukan lambda dengan capture), dan method asli disimpan sebagai pointer fungsi:
 
 ```cpp
-// Simpan method asli
-BNM::Method<void> originalMethod;
+#include <BNM/MethodBase.hpp>
 
-// Hook
-auto target = cls.GetMethod("Update", 0);
-BNM::BasicHook(target, [](auto *instance) {
-    // Kode hook Anda
-    // ...
+// Signature method asli: void Update(this). Sesuaikan dengan method target.
+static void (*orig_Update)(BNM::IL2CPP::Il2CppObject *, BNM::IL2CPP::MethodInfo *) = nullptr;
 
-    // Panggil method asli
-    originalMethod.SetInstance(instance);
-    originalMethod();
-}, originalMethod);
+static void Hook_Update(BNM::IL2CPP::Il2CppObject *instance, BNM::IL2CPP::MethodInfo *method) {
+    // Kode hook Anda ...
+    if (orig_Update) orig_Update(instance, method);   // panggil method asli
+}
+
+void InstallUpdateHook(BNM::Class cls) {
+    auto target = cls.GetMethod("Update", 0);
+    BNM::BasicHook(target, Hook_Update, orig_Update);
+}
 ```
 
 ### 19.2 InvokeHook (MethodInfo Hook)
 
-Hook dengan mengganti MethodInfo — hanya bekerja jika method dipanggil melalui il2cpp API (umum untuk Unity messages seperti `Start`, `Update`, dll):
+Hook dengan mengganti `methodPointer` pada `MethodInfo`. Hanya berfungsi jika method dipanggil melalui il2cpp API (umum untuk Unity messages seperti `Start`, `Update`):
 
 ```cpp
-auto target = cls.GetMethod("Start", 0);
-BNM::InvokeHook(target, [](auto *instance) {
-    // Kode hook
-}, originalMethod);
+static void (*orig_Start)(BNM::IL2CPP::Il2CppObject *, BNM::IL2CPP::MethodInfo *) = nullptr;
+
+static void Hook_Start(BNM::IL2CPP::Il2CppObject *instance, BNM::IL2CPP::MethodInfo *method) {
+    if (orig_Start) orig_Start(instance, method);
+}
+
+void InstallStartHook(BNM::Class cls) {
+    auto target = cls.GetMethod("Start", 0);
+    BNM::InvokeHook(target, Hook_Start, orig_Start);
+}
 ```
 
 ### 19.3 VirtualHook
 
-Hook method virtual dengan mengubah vtable:
+Hook method virtual dengan mengganti entri vtable kelas. Pola fungsi statis sama:
 
 ```cpp
-auto target = cls.GetMethod("OnDestroy", 0);
-BNM::VirtualHook(cls, target, [](auto *instance) {
-    // Kode hook
-}, originalMethod);
+static void (*orig_OnDestroy)(BNM::IL2CPP::Il2CppObject *, BNM::IL2CPP::MethodInfo *) = nullptr;
+
+static void Hook_OnDestroy(BNM::IL2CPP::Il2CppObject *instance, BNM::IL2CPP::MethodInfo *method) {
+    if (orig_OnDestroy) orig_OnDestroy(instance, method);
+}
+
+void InstallOnDestroyHook(BNM::Class cls) {
+    auto target = cls.GetMethod("OnDestroy", 0);
+    BNM::VirtualHook(cls, target, Hook_OnDestroy, orig_OnDestroy);
+}
 ```
+
+> **Catatan penting:**
+> - Signature hook (`Hook_*`) harus **sama** dengan signature method asli, termasuk `MethodInfo*` sebagai parameter terakhir (il2cpp menambahkannya sebagai argumen tersembunyi pada versi > 174).
+> - Jangan memakai lambda generik (`[](auto *instance){...}`) — tidak bisa dikonversi ke pointer fungsi C dan gagal dikompilasi.
+> - Hook (terutama `BasicHook`) memodifikasi kode mesin. Hanya uji di game nyata; kompilasi saja tidak menjamin hook berjalan.
 
 ### 19.4 Perbedaan Metode Hooking
 
@@ -1314,11 +1377,13 @@ BNM::VirtualHook(cls, target, [](auto *instance) {
 ### 20.1 Cek Validitas Pointer
 
 ```cpp
-// Cek apakah pointer valid (tidak null)
-bool valid = BNM::CheckForNull(ptr);
+void *ptr = someAddress;   // alamat yang ingin diperiksa
 
-// Cek apakah alamat valid (menggunakan mincore syscall)
-bool valid = BNM::IsAllocated(ptr);  // Memerlukan BNM_ALLOW_SAFE_IS_ALLOCATED
+// Cek apakah pointer valid (tidak null)
+bool notNull = BNM::CheckForNull(ptr);
+
+// Cek apakah alamat valid (menggunakan mincore). Hanya aktif jika BNM_ALLOW_SAFE_IS_ALLOCATED.
+bool mapped = BNM::IsAllocated(ptr);
 ```
 
 ### 20.2 Membuat Mono String
@@ -1363,10 +1428,14 @@ void *mem = BNM::Allocate(1024);
 BNM::Free(mem);
 ```
 
-### 20.7 Unmarshal Unity Object (Unity ≥ 2023.2)
+### 20.7 Unmarshal Unity Object (hanya `UNITY_VER >= 232`)
+
+Fungsi ini **hanya tersedia** jika `UNITY_VER >= 232` (lihat `Utils.hpp`). Di versi lain, pemanggilan akan gagal dikompilasi.
 
 ```cpp
+#if UNITY_VER >= 232
 BNM_INT_PTR unmarshaled = BNM::UnmarshalUnityObject(gcHandlePtr);
+#endif
 ```
 
 ### 20.8 BNM_OBFUSCATE
@@ -1386,7 +1455,7 @@ Syntactic sugar untuk menetapkan instance sekaligus mengambil anggota. `->*` dan
 #include <BNM/Operators.hpp>
 using namespace BNM::Operators;   // WAJIB: operator berada di namespace ini
 
-auto *obj = ...;                       // Il2CppObject*
+BNM::IL2CPP::Il2CppObject *obj = gameObj;   // instance nyata dari game (mis. hasil FindObjectOfType)
 auto health = cls.GetField("health").cast<int>();
 
 int hp = obj ->* health;                // set instance + baca
@@ -1394,7 +1463,7 @@ obj ->* health = 100;                  // set instance + tulis
 
 auto method = cls.GetMethod("Update", 0).cast<void>();
 obj ->* method;                        // set instance pada method
-obj ->* method();
+(obj ->* method)();                    // set instance lalu panggil
 ```
 
 > **Penting:** operator `->*` dan `>>` dideklarasikan di `namespace BNM::Operators`. Karena argumennya berada di namespace lain (`BNM`, `BNM::IL2CPP`), ADL tidak menemukannya. Anda **harus** menulis `using namespace BNM::Operators;` (atau memanggil `BNM::Operators::operator->*(...)` secara eksplisit).
@@ -1405,6 +1474,8 @@ BNM menyediakan makro untuk menangkap exception il2cpp saat memanggil kode C#:
 
 ```cpp
 #include <BNM/Exceptions.hpp>
+
+BNM::Method<void> someMethod = /* MethodBase milik game */ BNM::Class("Game", "Player").GetMethod("Explode", 0).cast<void>();
 
 BNM_try {
     // kode yang bisa memicu exception il2cpp
@@ -1840,22 +1911,46 @@ Unity 6000.5.x mengubah `Il2CppClass::events`, `properties`, dan `nestedTypes` d
 
 **Baca bagian ini sebelum menganggap BNM "stabil".**
 
-### Yang sudah diverifikasi
+### 25.1 Yang sudah diverifikasi
 
 - **Kompilasi bersih** untuk `src/*.cpp`, `features.cpp` (API publik), dan `cminst.cpp` (makro ClassesManagement) pada `UNITY_VER`: 56, 171, 181, 182, 193, 194, 201, 202, 203, 211, 212, 213, 221, 222, 223, 231, 232, 6000, 6001, 6002, 6003, 6004, 6005 (0 error). Satu warning tersisa untuk 172 berasal dari header vendored `2017.4.h` di bawah `-Wpedantic`, bukan kode BNM.
+- **Contoh kode di bagian 5–20** dikompilasi dengan prelude (`BNM` headers lengkap). Sebagian besar blok lolos. Blok yang gagal dikompilasi berupa fragmen yang bergantung pada variabel dari blok lain, atau deklarasi namespace-level yang dibungkus uji. Tidak semua contoh bisa dijalankan apa adanya; lihat catatan di tiap bagian.
 - Sebagian besar bug di [Bagian 24](#24-perbaikan-fork-ini-setelah-v253) dibuktikan dengan compiler atau harness host (ASan, uji numerik).
 
-### Yang **belum** diverifikasi
+### 25.2 Status uji per bagian
+
+| Bagian | Status kompilasi contoh | Catatan |
+|---|---|---|
+| 5 Loading | Valid (kecuali fragmen yang bergantung 5.3) | `AddOnLoadedEvent` harus dipanggil dari dalam fungsi |
+| 6 Class | Valid | `cls5` memakai `ToClass()` eksplisit |
+| 7 Field | Valid | |
+| 8 Method | Valid | |
+| 9 Property | Valid | |
+| 10 Event | Valid | `event` harus sudah dideklarasikan |
+| 11 Image | Valid | |
+| 12 Mono Structures | Valid | `List` dibuat via cast dari `CreateNewObjectParameters` |
+| 13 Unity Structures | Valid | |
+| 14 Defaults | Valid | `UnboxObject` mengembalikan pointer |
+| 15 CompileTimeClass | Valid | |
+| 16 ClassesManagement | Valid sebagai TU (16.1, 16.2, 16.3) | Override kelas **belum diuji di game** |
+| 17 Coroutine | Valid (17.2) | Kondisi `WaitUntil`/`WaitWhile` harus thread-aman |
+| 18 Delegates | Valid | |
+| 19 Hooking | Valid sebagai TU (fungsi statis) | **Hook belum diuji di game** |
+| 20 Utilitas | Valid | `UnmarshalUnityObject` hanya `UNITY_VER >= 232` |
+
+Status "Valid" berarti **compiler menerima contoh**, bukan bahwa contoh berjalan benar di game.
+
+### 25.3 Yang **belum** diverifikasi
 
 - **Tidak ada fitur yang dijalankan di il2cpp/game nyata.** Semua bukti bersifat kompilasi atau uji host. "Bisa dikompilasi" **tidak sama dengan** "aman saat dijalankan".
-- Jalur runtime berisiko tinggi yang belum diuji: `ClassesManagement` (menulis `Il2CppClass`/vtable/field offset), `Loading` (hook `il2cpp_init`, decoder branch pada binary nyata), `Coroutine` (C++20 coroutine + vtable buatan), `Method::Call` (konvensi argumen), `Field::Set` (tulis memori).
+- Jalur runtime berisiko tinggi yang belum diuji: `ClassesManagement` (menulis `Il2CppClass`/vtable/field offset), `Loading` (hook `il2cpp_init`, decoder branch pada binary nyata), `Coroutine` (C++20 coroutine + vtable buatan), `Method::Call` (konvensi argumen), `Field::Set` (tulis memori), dan semua hook (`BasicHook`/`InvokeHook`/`VirtualHook`).
 - Tidak ada automated test dan tidak ada CI di repo ini (memang tidak ada sejak awal).
 
-### Saran pengujian bertahap
+### 25.4 Saran pengujian bertahap
 
 1. `BNM::Loading` + `BNM::Class`/`GetMethod` (baca saja) — pastikan class ditemukan.
 2. `Method::Call` dan `Field::Get` (baca) pada method/field sederhana.
 3. `Field::Set` dan `Method::Call` (tulis/panggil).
-4. `ClassesManagement` / `Coroutine` — baru setelah di atas stabil.
+4. `ClassesManagement` / `Coroutine` / hook — baru setelah di atas stabil.
 
 Untuk penggunaan produksi, gunakan repo asli: **[ByNameModding/BNM-Android](https://github.com/ByNameModding/BNM-Android)**.

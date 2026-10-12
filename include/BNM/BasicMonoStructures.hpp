@@ -656,11 +656,11 @@ namespace BNM::Structures::Mono {
              * It is also necessary for types that are not in the game (it's not a fact that the game would be able to use them without that types, but the code is there)
              */
             using Type = std::conditional_t<std::is_pointer_v<T>, void*, T>;
-            constexpr auto RemoveAt = &List<Type>::RemoveAt; constexpr auto GetSize = &List<Type>::GetSize; constexpr auto Clear = &List<Type>::Clear;
-            constexpr auto get_Item = &List<Type>::get_Item; constexpr auto set_Item = &List<Type>::set_Item; constexpr auto IndexOf = &List<Type>::IndexOf;
-            constexpr auto Insert = &List<Type>::Insert; constexpr auto get_false = &List<Type>::get_false; constexpr auto Add = &List<Type>::Add;
-            constexpr auto Contains = &List<Type>::Contains; constexpr auto CopyTo = &List<Type>::CopyTo; constexpr auto Remove = &List<Type>::Remove;
-            constexpr auto GetEnumerator = &List<Type>::GetEnumerator; constexpr auto get_SyncRoot = &List<Type>::get_SyncRoot;
+            auto RemoveAt = &List<Type>::RemoveAt; auto GetSize = &List<Type>::GetSize; auto Clear = &List<Type>::Clear;
+            auto get_Item = &List<Type>::get_Item; auto set_Item = &List<Type>::set_Item; auto IndexOf = &List<Type>::IndexOf;
+            auto Insert = &List<Type>::Insert; auto get_false = &List<Type>::get_false; auto Add = &List<Type>::Add;
+            auto Contains = &List<Type>::Contains; auto CopyTo = &List<Type>::CopyTo; auto Remove = &List<Type>::Remove;
+            auto GetEnumerator = &List<Type>::GetEnumerator; auto get_SyncRoot = &List<Type>::get_SyncRoot;
             static std::array<MethodData, 16> namesMap = {
                     MethodData{BNM_OBFUSCATE("RemoveAt"), *reinterpret_cast<void **>(&RemoveAt)}, MethodData{BNM_OBFUSCATE("get_Count"), *reinterpret_cast<void **>(&GetSize)},
                     MethodData{BNM_OBFUSCATE("Clear"), *reinterpret_cast<void **>(&Clear)}, MethodData{BNM_OBFUSCATE("get_Item"), *reinterpret_cast<void **>(&get_Item)},
