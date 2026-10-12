@@ -1629,7 +1629,7 @@ BNMClassesMap map2 = std::move(map); // OK
 
 ### 22.7 Type Aliases
 
-`typedef` lama diganti dengan `using` modern:
+Sebagian besar `typedef` diganti dengan `using` modern:
 ```cpp
 // Sebelum
 typedef unsigned char byte;
@@ -1639,6 +1639,8 @@ typedef void (*MethodInvoker)(const Il2CppMethodPointer, ...);
 using byte = unsigned char;
 using MethodInvoker = void (*)(const Il2CppMethodPointer, ...);
 ```
+
+> **Catatan:** belum semua `typedef` diganti. Masih ada di `Loading.hpp` (`MethodFinder`), `Utils.cpp`, `Class.cpp`, dan `ClassesManagement.cpp` (`ProcessorType`).
 
 ---
 
