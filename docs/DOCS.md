@@ -1845,7 +1845,7 @@ auto index = BNM::to_underlying(info->_baseType);
 
 > **Catatan:** BNM **tidak** memakai `std::to_underlying` meski tersedia di C++23 — versi internal selalu dipakai agar perilakunya sama di semua standar.
 
-### 23.14 Code Review Fixes (12 mitigations)
+### 23.14 Code Review Fixes (11 mitigations)
 
 Perbaikan bug dan peningkatan kualitas kode dari review menyeluruh:
 
