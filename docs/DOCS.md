@@ -58,7 +58,6 @@ BNM-Android/
 │   │   │   └── Il2CppMethodNames.hpp     ← Nama-nama API il2cpp
 │   │   ├── Il2CppHeaders.hpp             ← Pemilih header versi il2cpp
 │   │   ├── Il2CppHeaders/                ← Header per versi Unity
-│   │   ├── Il2CppApi/                    ← Daftar API per versi (referensi saja)
 │   │   ├── UnityStructures/              ← Vector, Color, Quaternion, dll.
 │   │   ├── Class.hpp
 │   │   ├── Field.hpp / FieldBase.hpp
