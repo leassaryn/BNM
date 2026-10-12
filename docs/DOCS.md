@@ -128,9 +128,19 @@ include $(BUILD_SHARED_LIBRARY)  # atau BUILD_EXECUTABLE
 $(call import-module, path/to/BNM-Android)
 ```
 
+Dan di `jni/Application.mk` proyek Anda, aktifkan exception dan RTTI (ndk-build menonaktifkannya secara default, sedangkan `utf8/checked.h` yang ditarik `utf8.h` memakai `throw`):
+
+```makefile
+# jni/Application.mk
+APP_ABI := arm64-v8a
+APP_CPPFLAGS += -fexceptions -frtti
+```
+
+Tanpa baris `APP_CPPFLAGS` itu, build ndk-build gagal dengan `error: cannot use 'throw' with exceptions disabled`.
+
 **Menggunakan CMake:**
 
-CMake mengekspor tiga include path pertama sebagai `PUBLIC`, dan `external/utf8` + `src/private` sebagai `PRIVATE` (dipakai saat membangun BNM sendiri):
+> **Catatan:** CMake mengaktifkan exception dan RTTI secara default, jadi tidak perlu flag tambahan. ndk-build **tidak** — lihat catatan di atas.CMake mengekspor tiga include path pertama sebagai `PUBLIC`, dan `external/utf8` + `src/private` sebagai `PRIVATE` (dipakai saat membangun BNM sendiri):
 
 ```cmake
 add_subdirectory(path/to/BNM-Android)
@@ -1674,7 +1684,7 @@ cls.NewArray<int>(10);                  // ⚠️ unused result
 
 | Lokasi | Perubahan |
 |--------|-----------|
-| `BasicMonoStructures.hpp:183` | `const_cast<T *const>(&m_Items[0])` → `&m_Items[0]` (redundan karena `GetData()` sudah non-const) |
+| `BasicMonoStructures.hpp:183` | `GetData()` adalah method `const` tetapi mengembalikan `T*`; gunakan `const_cast<T *>(&m_Items[0])`. (Perubahan awal sempat menghapus cast ini, lalu dikembalikan di [24.1](#241-bug-kompilasi-api-publik).) |
 | `Loading.cpp:487` | `reinterpret_cast<IL2CPP::MethodInfo *>(const_cast<...>(listClass._data->methods[i]))` → `const_cast<IL2CPP::MethodInfo *>(...)` (satu cast saja cukup) |
 | `ClassesManagement.cpp:259` | Hapus `const_cast` pada assignment `vTable.method = method->myInfo` (type sama) |
 | `UnityStructures/Vector{2,3,4}.hpp` | `inline static constexpr const float` → `inline static constexpr float` (redudant `const`) |
@@ -1918,6 +1928,12 @@ Unity 6000.5.x mengubah `Il2CppClass::events`, `properties`, dan `nestedTypes` d
 ### 25.1 Yang sudah diverifikasi
 
 - **Kompilasi bersih** untuk `src/*.cpp`, `features.cpp` (API publik), dan `cminst.cpp` (makro ClassesManagement) pada `UNITY_VER`: 56, 171, 181, 182, 193, 194, 201, 202, 203, 211, 212, 213, 221, 222, 223, 231, 232, 6000, 6001, 6002, 6003, 6004, 6005 (0 error). Satu warning tersisa untuk 172 berasal dari header vendored `2017.4.h` di bawah `-Wpedantic`, bukan kode BNM.
+- **Build end-to-end** dengan NDK 29 (clang 21), backend Dobby, dan stub `dobby.h`:
+  - CMake (`cmake --build`) menghasilkan `libBNM.a` untuk `arm64-v8a`, `android-21`.
+  - ndk-build menghasilkan `libBNM.a`, dengan syarat `APP_CPPFLAGS += -fexceptions -frtti`.
+- **Backend ShadowHook** diverifikasi kompilasi (butuh `#include <shadowhook.h>` sendiri; `shadowhook_hook_func_addr` mengembalikan `void*`).
+- **Versi tak terpetakan** (mis. 6006) gagal dengan `static_assert(false, "Setup UNITY_VER in GlobalSettings.hpp")` sesuai dokumen.
+- **`BNM_DOTNET35`** Dictionary path dikompilasi bersih.
 - **Contoh kode di bagian 5–20** dikompilasi dengan prelude (`BNM` headers lengkap). Sebagian besar blok lolos. Blok yang gagal dikompilasi berupa fragmen yang bergantung pada variabel dari blok lain, atau deklarasi namespace-level yang dibungkus uji. Tidak semua contoh bisa dijalankan apa adanya; lihat catatan di tiap bagian.
 - Sebagian besar bug di [Bagian 24](#24-perbaikan-fork-ini-setelah-v253) dibuktikan dengan compiler atau harness host (ASan, uji numerik).
 
