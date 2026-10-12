@@ -1,4 +1,5 @@
 #include <cstring>
+#include <string>
 
 #include <BNM/UserSettings/GlobalSettings.hpp>
 #include <BNM/Utils.hpp>
@@ -8,12 +9,16 @@
 using namespace BNM;
 
 Structures::Mono::String *BNM::CreateMonoString(const std::string_view &str) {
-    return Internal::il2cppMethods.il2cpp_string_new(str.data());
+    // il2cpp_string_new expects a null-terminated C string; string_view may not be one.
+    std::string cStr(str);
+    return Internal::il2cppMethods.il2cpp_string_new(cStr.c_str());
 }
 
 void *BNM::GetExternMethod(const std::string_view &str) {
-    auto ret = Internal::il2cppMethods.il2cpp_resolve_icall(str.data());
-    BNM_LOG_WARN_IF(!ret, DBG_BNM_MSG_GetExternMethod_Warn, str.data());
+    // il2cpp_resolve_icall expects a null-terminated C string; string_view may not be one.
+    std::string cStr(str);
+    auto ret = Internal::il2cppMethods.il2cpp_resolve_icall(cStr.c_str());
+    BNM_LOG_WARN_IF(!ret, DBG_BNM_MSG_GetExternMethod_Warn, cStr.c_str());
     return ret;
 }
 
@@ -119,6 +124,7 @@ void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
         auto index = BNM::to_underlying(info->_baseType);
         if (index >= BNM::to_underlying(CompileTimeClass::_BaseType::MaxCount)) {
             BNM_LOG_ERR("\t" DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (unsigned long) index);
+            current = current->next;
             continue;
         }
         CompileTimeClassProcessors::processors[index](tmp, info);

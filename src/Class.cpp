@@ -544,9 +544,13 @@ Class CompileTimeClass::ToClass() {
 }
 
 Class CompileTimeClass::ToClass() const {
-    // For const version, create a temporary copy and process it
-    // This avoids UB from casting away const
+    // Process a temporary copy so this const method does not mutate *this.
+    // The copy's ForwardList shares the heap-allocated _BaseInfo objects with
+    // *this, so clear the autoFree bit to stop the copy from freeing them.
+    // (When the stack is empty - i.e. a DefaultTypeRef - keep the bit, since
+    // that path only dereferences _reference and never frees anything.)
     CompileTimeClass temp = *this;
+    if (!temp._stack.IsEmpty()) temp._RemoveBit();
     return temp.ToClass();
 }
 CompileTimeClass::operator Class() const { return ToClass(); }

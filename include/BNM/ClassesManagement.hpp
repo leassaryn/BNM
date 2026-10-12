@@ -135,7 +135,7 @@ namespace BNM {
             static void *Invoke(IL2CPP::MethodInfo *method, void *obj, void **args) {
                 IL2CPP::Il2CppMethodPointer ptr = method->methodPointer;
 #else
-            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *obj, void **args, void *returnValue) {
+            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *obj, void **args, [[maybe_unused]] void *returnValue) {
 #endif
                 auto func = reinterpret_cast<RetT(*)(T*, ParametersT...)>(ptr);
                 auto instance = static_cast<T *>(obj);
@@ -157,7 +157,7 @@ namespace BNM {
             static void *Invoke(IL2CPP::MethodInfo *method, void *obj, void **args) {
                 IL2CPP::Il2CppMethodPointer ptr = method->methodPointer;
 #else
-            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *obj, void **args, void *returnValue) {
+            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *obj, void **args, [[maybe_unused]] void *returnValue) {
 #endif
                 auto func = reinterpret_cast<RetT(*)(T*, ParametersT...)>(ptr);
                 auto instance = static_cast<T *>(obj);
@@ -187,7 +187,7 @@ namespace BNM {
             static void *Invoke(IL2CPP::MethodInfo *method, void *, void **args) {
                 IL2CPP::Il2CppMethodPointer ptr = method->methodPointer;
 #else
-            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *, void **args, void *returnValue) {
+            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *, void **args, [[maybe_unused]] void *returnValue) {
 #endif
                 auto func = reinterpret_cast<FuncType>(ptr);
                 auto seq = std::make_index_sequence<sizeof...(ParametersT)>();

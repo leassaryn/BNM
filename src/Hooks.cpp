@@ -114,7 +114,7 @@ IL2CPP::Il2CppImage *Internal::ClassesManagement::new_GetImageFromIndex(IL2CPP::
         IL2CPP::Il2CppImage *ret = nullptr;
 
         // Go through all the images and check if the number matches
-        bnmClassesMap.ForEach([index, &ret](IL2CPP::Il2CppImage *img, const std::vector<IL2CPP::Il2CppClass *> &classes) -> bool {
+        bnmClassesMap.ForEach([index, &ret](IL2CPP::Il2CppImage *img, [[maybe_unused]] const std::vector<IL2CPP::Il2CppClass *> &classes) -> bool {
             if (img->assemblyIndex == index) {
                 ret = img;
                 return true;
