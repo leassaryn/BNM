@@ -1938,42 +1938,58 @@ Unity 6000.5.x mengubah `Il2CppClass::events`, `properties`, dan `nestedTypes` d
 - **Versi tak terpetakan** (mis. 6006) gagal dengan `static_assert(false, "Setup UNITY_VER in GlobalSettings.hpp")` sesuai dokumen.
 - **`BNM_DOTNET35`** Dictionary path dikompilasi bersih.
 - **Contoh kode di bagian 5–20** dikompilasi dengan prelude (`BNM` headers lengkap). Sebagian besar blok lolos. Blok yang gagal dikompilasi berupa fragmen yang bergantung pada variabel dari blok lain, atau deklarasi namespace-level yang dibungkus uji. Tidak semua contoh bisa dijalankan apa adanya; lihat catatan di tiap bagian.
+- **Uji runtime oleh pemilik fork pada kasus normal**, dijalankan di game:
+  - init `BNM::Loading` + lookup class (`BNM::Class` / `IsValid`);
+  - `Method::Call` dan `Field::Get` (baca);
+  - `Method::Call` dan `Field::Set` (tulis);
+  - hook (Dobby/ShadowHook).
+
+  Empat jalur itu jalan tanpa masalah. Sisanya masih **belum** diuji runtime — lihat [25.3](#253-yang-belum-diverifikasi).
 - Sebagian besar bug di [Bagian 24](#24-perbaikan-fork-ini-setelah-v253) dibuktikan dengan compiler atau harness host (ASan, uji numerik).
 
 ### 25.2 Status uji per bagian
 
-| Bagian | Status kompilasi contoh | Catatan |
-|---|---|---|
-| 5 Loading | Valid (kecuali fragmen yang bergantung 5.3) | `AddOnLoadedEvent` harus dipanggil dari dalam fungsi |
-| 6 Class | Valid | `cls5` memakai `ToClass()` eksplisit |
-| 7 Field | Valid | |
-| 8 Method | Valid | |
-| 9 Property | Valid | |
-| 10 Event | Valid | `event` harus sudah dideklarasikan |
-| 11 Image | Valid | |
-| 12 Mono Structures | Valid | `List` dibuat via cast dari `CreateNewObjectParameters` |
-| 13 Unity Structures | Valid | |
-| 14 Defaults | Valid | `UnboxObject` mengembalikan pointer |
-| 15 CompileTimeClass | Valid | |
-| 16 ClassesManagement | Valid sebagai TU (16.1, 16.2, 16.3) | Override kelas **belum diuji di game** |
-| 17 Coroutine | Valid (17.2) | Kondisi `WaitUntil`/`WaitWhile` harus thread-aman |
-| 18 Delegates | Valid | |
-| 19 Hooking | Valid sebagai TU (fungsi statis) | **Hook belum diuji di game** |
-| 20 Utilitas | Valid | `UnmarshalUnityObject` hanya `UNITY_VER >= 232` |
+| Bagian | Status kompilasi contoh | Status runtime | Catatan |
+|---|---|---|---|
+| 5 Loading | Valid (kecuali fragmen yang bergantung 5.3) | Diuji | `AddOnLoadedEvent` harus dipanggil dari dalam fungsi |
+| 6 Class | Valid | Diuji | `cls5` memakai `ToClass()` eksplisit |
+| 7 Field | Valid | Diuji (`Get` dan `Set`) | |
+| 8 Method | Valid | Diuji (`Call` baca dan tulis) | |
+| 9 Property | Valid | Belum | |
+| 10 Event | Valid | Belum | `event` harus sudah dideklarasikan |
+| 11 Image | Valid | Belum | |
+| 12 Mono Structures | Valid | Belum | `List` dibuat via cast dari `CreateNewObjectParameters` |
+| 13 Unity Structures | Valid | Belum | Termasuk operator dan `SmoothDamp` |
+| 14 Defaults | Valid | Belum | `UnboxObject` mengembalikan pointer |
+| 15 CompileTimeClass | Valid | Belum | |
+| 16 ClassesManagement | Valid sebagai TU (16.1, 16.2, 16.3) | Belum | Override kelas menulis `Il2CppClass`/vtable |
+| 17 Coroutine | Valid (17.2) | Belum | Kondisi `WaitUntil`/`WaitWhile` harus thread-aman |
+| 18 Delegates | Valid | Belum | |
+| 19 Hooking | Valid sebagai TU (fungsi statis) | Diuji | |
+| 20 Utilitas | Valid | Belum | `UnmarshalUnityObject` hanya `UNITY_VER >= 232` |
 
 Status "Valid" berarti **compiler menerima contoh**, bukan bahwa contoh berjalan benar di game.
+Status "Diuji" berarti jalur itu dijalankan pemilik fork pada kasus normal di game dan berfungsi. Ini bukan pengujian menyeluruh: hanya satu game dan satu konfigurasi.
 
 ### 25.3 Yang **belum** diverifikasi
 
-- **Tidak ada fitur yang dijalankan di il2cpp/game nyata.** Semua bukti bersifat kompilasi atau uji host. "Bisa dikompilasi" **tidak sama dengan** "aman saat dijalankan".
-- Jalur runtime berisiko tinggi yang belum diuji: `ClassesManagement` (menulis `Il2CppClass`/vtable/field offset), `Loading` (hook `il2cpp_init`, decoder branch pada binary nyata), `Coroutine` (C++20 coroutine + vtable buatan), `Method::Call` (konvensi argumen), `Field::Set` (tulis memori), dan semua hook (`BasicHook`/`InvokeHook`/`VirtualHook`).
+- **Jalur runtime berisiko tinggi yang masih belum diuji**, meski sudah lolos kompilasi:
+  - `ClassesManagement` — menulis `Il2CppClass`/vtable/field offset. Paling berbahaya karena menyentuh layout internal il2cpp.
+  - `ComplexMonoStructures` — `List`/`Dictionary`/`Del`/perilaku ketika objek masih hidup.
+  - `UnityStructures` — operator aritmetika dan `SmoothDamp` dijalankan di game (baru diverifikasi dengan uji host).
+  - `Coroutine` — C++20 coroutine dengan vtable buatan.
+  - `Property`, `Event`, `Image`, `Defaults`, `CompileTimeClass` runtime.
+- **Satu game dan satu konfigurasi saja yang sudah diuji.** Tidak ada bukti lintas game, lintas versi Unity, atau lintas backend hooking. Kombinasi lain bisa berperilaku beda.
 - Tidak ada automated test dan tidak ada CI di repo ini (memang tidak ada sejak awal).
 
-### 25.4 Saran pengujian bertahap
+### 25.4 Tahapan pengujian
 
-1. `BNM::Loading` + `BNM::Class`/`GetMethod` (baca saja) — pastikan class ditemukan.
-2. `Method::Call` dan `Field::Get` (baca) pada method/field sederhana.
-3. `Field::Set` dan `Method::Call` (tulis/panggil).
-4. `ClassesManagement` / `Coroutine` / hook — baru setelah di atas stabil.
+1. ~~`BNM::Loading` + `BNM::Class`/`GetMethod` (baca saja)~~ — **selesai**, class ditemukan.
+2. ~~`Method::Call` dan `Field::Get` (baca)~~ — **selesai**.
+3. ~~`Field::Set` dan `Method::Call` (tulis/panggil)~~ — **selesai**.
+4. ~~Hook (Dobby/ShadowHook)~~ — **selesai**.
+5. Belum: `ComplexMonoStructures` (List/Dictionary/Del), `UnityStructures` + operator, `ClassesManagement`, `Coroutine`, lalu `Property`/`Event`/`Image`.
+
+Masing-masing langkah berikutnya sebaiknya diuji terpisah dan dicatat di [25.2](#252-status-uji-per-bagian), supaya jelas mana yang benar-benar sudah berjalan dan mana yang masih asumsi.
 
 Untuk penggunaan produksi, gunakan repo asli: **[ByNameModding/BNM-Android](https://github.com/ByNameModding/BNM-Android)**.
