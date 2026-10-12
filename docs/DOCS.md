@@ -1866,7 +1866,7 @@ Perbaikan bug dan peningkatan kualitas kode dari review menyeluruh:
 
 **Low improvements:**
 - **`static_assert(false)` → `#error`** — error message lebih jelas, tidak ada masalah C++20
-- **`Delegate::Remove`** — perbaiki urutan `memmove`, hapus pengecekan `max_length` yang tidak berguna
+- **`MulticastDelegateBase::Remove`** — salin bagian sebelum dan sesudah indeks yang dihapus ke array baru dengan urutan yang benar (`memcpy`, aman karena tujuannya array lain); loop memakai `capacity`, bukan `max_length`
 
 ---
 
