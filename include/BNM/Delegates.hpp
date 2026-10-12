@@ -56,7 +56,7 @@ namespace BNM {
             @brief Cast delegate to be able to invoke it.
         */
         template<typename NewRet>
-        inline Delegate<NewRet> &cast() const { return static_cast<Delegate<NewRet> &>(*this); }
+        inline Delegate<NewRet> &cast() const { return const_cast<Delegate<NewRet> &>(static_cast<const Delegate<NewRet> &>(*this)); }
     };
 
     /**
@@ -98,7 +98,7 @@ namespace BNM {
             @brief Cast delegate to be able to invoke it.
         */
         template<typename NewRet>
-        inline MulticastDelegate<NewRet> &cast() const { return static_cast<MulticastDelegate<NewRet> &>(*this); }
+        inline MulticastDelegate<NewRet> &cast() const { return const_cast<MulticastDelegate<NewRet> &>(static_cast<const MulticastDelegate<NewRet> &>(*this)); }
     };
 
     /**

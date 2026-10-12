@@ -1213,12 +1213,16 @@ BNM::MethodBase method = someClass.GetMethod("OnSomething", 0);
 BNM::MulticastDelegate<void> *multi = ...;   // delegate nyata dari game
 BNM::DelegateBase *d = multi->Add(method);   // membuat + menambahkan
 
-// Invoke satu delegate:
+// Invoke satu delegate (tanpa parameter):
 auto &typed = d->cast<void>();
 typed.Invoke();
+```
 
-// Atau, jika Anda sudah punya instance Delegate<Ret> nyata:
-// typed[instance].Invoke(args...);
+Untuk delegate dengan parameter, sesuaikan tipe `cast<Ret>()` dan kirim argumen ke `Invoke`:
+
+```cpp
+auto &typedInt = d->cast<int>();   // Delegate<int>
+int result = typedInt.Invoke(42);  // contoh: satu parameter int
 ```
 
 > **Jangan** membuat instance delegate dari `BNM::Allocate(...)`. `Create()` membaca `object.klass`, sedangkan `Allocate` hanya mengembalikan memori mentah tanpa `klass`, sehingga hasilnya tidak valid.
@@ -1230,8 +1234,8 @@ typed.Invoke();
 multi->Add(method1);     // MethodBase → buat + tambahkan DelegateBase*
 multi->Add(method2);
 
-// Invoke semua handler
-multi->Invoke(args...);
+// Invoke semua handler (sesuaikan argumen dengan signature delegate)
+multi->Invoke();          // untuk MulticastDelegate<void> tanpa parameter
 
 // Hapus (butuh DelegateBase* spesifik)
 multi->Remove(someDelegate);
