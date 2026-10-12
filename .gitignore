@@ -6,3 +6,4 @@ build/
 .python
 .cc
 .tinycc
+opencode.jsonc
