@@ -110,11 +110,11 @@ namespace BNM {
             }
 #else
 #define ARG_4_PACK reinterpret_cast<const IL2CPP::Il2CppType *>(data)
-#define ARG_4_INVOKE reinterpret_cast<void *>(method->return_type)
+#define ARG_4_INVOKE const_cast<void *>(reinterpret_cast<const void *>(method->return_type))
             template<typename T>
             inline void *PackReturnArg(T arg, const IL2CPP::Il2CppType *type) {
                 if constexpr (std::is_pointer_v<T>) return arg;
-                return BNM::Class(type).BoxObject(&arg);
+                else return BNM::Class(type).BoxObject(arg);
             }
 #endif
         }

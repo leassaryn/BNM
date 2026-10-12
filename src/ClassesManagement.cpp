@@ -776,7 +776,7 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
 #if UNITY_VER < 212
         myInfo->parameters = reinterpret_cast<IL2CPP::ParameterInfo *>(BNM_malloc(argsCount * sizeof(IL2CPP::ParameterInfo)));
 
-        auto parameter = reinterpret_cast<IL2CPP::ParameterInfo *>(myInfo->parameters);
+        auto parameter = const_cast<IL2CPP::ParameterInfo *>(reinterpret_cast<const IL2CPP::ParameterInfo *>(myInfo->parameters));
         for (uint8_t p = 0; p < argsCount; ++p) {
             // The name of parameter does not interest the engine in any way at all
             parameter->name = nullptr;
@@ -914,10 +914,11 @@ static void SetupTypes(IL2CPP::Il2CppClass *target) {
     target->this_arg.byref = 1;
 #else
     target->byval_arg = BNM_I2C_NEW(Il2CppType);
-    *reinterpret_cast<IL2CPP::Il2CppType *>(target->byval_arg) = classType;
+    // byval_arg/this_arg are const pointers in il2cpp <= 2017; the memory is BNM-allocated, so writing through it is safe
+    *const_cast<IL2CPP::Il2CppType *>(target->byval_arg) = classType;
     classType.byref = 1;
     target->this_arg = BNM_I2C_NEW(Il2CppType);
-    *reinterpret_cast<IL2CPP::Il2CppType *>(target->this_arg) = classType;
+    *const_cast<IL2CPP::Il2CppType *>(target->this_arg) = classType;
 #endif
 }
 

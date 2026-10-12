@@ -332,7 +332,7 @@ IL2CPP::Il2CppType *Class::GetIl2CppType() const {
 #if UNITY_VER > 174
     return reinterpret_cast<IL2CPP::Il2CppType *>(&_data->byval_arg);
 #else
-    return reinterpret_cast<IL2CPP::Il2CppType *>(_data->byval_arg);
+    return const_cast<IL2CPP::Il2CppType *>(_data->byval_arg);
 #endif
 }
 
