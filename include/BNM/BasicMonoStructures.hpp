@@ -523,7 +523,7 @@ namespace BNM::Structures::Mono {
             for (int i = 0; i < size; i++) if (items->m_Items[i] == item) return true;
             return false;
         }
-        Enumerator GetEnumerator() { return this; }
+        Enumerator GetEnumerator() { return Enumerator(this); }
 
         /**
             @brief Get element at index.
@@ -583,11 +583,6 @@ namespace BNM::Structures::Mono {
         */
         void GrowIfNeeded(int n) {
             if (size + n > items->capacity) {
-                // Check if il2cpp array already has room (e.g. from external List<T>.Add)
-                if (size + n <= items->max_length) {
-                    items->capacity = items->max_length;
-                    return;
-                }
                 // Geometric growth (1.5x) — less over-allocation than 2x
                 int newCap = items->capacity > 0 ? items->capacity + items->capacity / 2 : 4;
                 if (newCap < size + n) newCap = size + n;

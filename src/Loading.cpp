@@ -228,7 +228,15 @@ namespace AssemblerUtils {
         uint8_t add = 8;
 #endif
         // This line is based on the capstone code
+#if defined(__aarch64__)
+        // AArch64 B/BL: imm26 in bits 0..25, word-scaled (<< 2) and sign-extended
+        auto insn = static_cast<uint32_t>(HexStr2Value(ReverseHexString(hex)));
+        auto imm = static_cast<int32_t>(insn << 6) >> 4;
+        outOffset = static_cast<BNM_PTR>(static_cast<int64_t>(imm)) + offset + add;
+#else
+        // ARMv7 B/BL: imm24 in bits 0..23, word-scaled (<< 2) and sign-extended
         outOffset = static_cast<BNM_PTR>(static_cast<int32_t>((((static_cast<uint32_t>(HexStr2Value(ReverseHexString(hex))) & (((static_cast<uint32_t>(1) << 24) - 1) << 0)) >> 0) << 2) << (32 - 26)) >> (32 - 26)) + offset + add;
+#endif
 #elif defined(__i386__) || defined(__x86_64__)
         if (!IsCallHex(hex)) return false;
         // Address + address from the `call` + size of the instruction

@@ -141,7 +141,8 @@ namespace BNM {
             if (!CheckForNull(this)) return BNM::PRIVATE_INTERNAL::ReturnEmpty<Ret>();
 
             auto delegates = reinterpret_cast<Structures::Mono::Array<DelegateBase *> *>(this->delegates);
-            if (!delegates) return static_cast<Delegate<Ret> *>(this)->Invoke(parameters...);
+            // Without a delegate array the object holds a single delegate in its first member.
+            if (!delegates) return reinterpret_cast<Delegate<Ret> *>(&this->delegate)->Invoke(parameters...);
 
             if (delegates->capacity == 0) return BNM::PRIVATE_INTERNAL::ReturnEmpty<Ret>();
             for (IL2CPP::il2cpp_array_size_t i = 0; i < delegates->capacity - 1; ++i) {

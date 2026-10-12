@@ -170,7 +170,7 @@ namespace BNM {
         // Parameter type access: Unity < 212 uses ParameterInfo struct, >= 212 uses Il2CppType* array
         inline const IL2CPP::Il2CppType *GetMethodParam(const IL2CPP::MethodInfo *method, uint8_t index) {
 #if UNITY_VER < 212
-            return &(method->parameters + index)->parameter_type;
+            return (method->parameters + index)->parameter_type;
 #else
             return method->parameters[index];
 #endif
@@ -178,7 +178,7 @@ namespace BNM {
 
         inline const IL2CPP::Il2CppType *GetPropertySetParam(const IL2CPP::PropertyInfo *prop) {
 #if UNITY_VER < 212
-            return &prop->set->parameters->parameter_type;
+            return prop->set->parameters->parameter_type;
 #else
             return prop->set->parameters[0];
 #endif
