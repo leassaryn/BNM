@@ -838,13 +838,13 @@ static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *ow
     if (!owner) return;
 
     auto oldOwner = target->declaringType;
-    auto oldInnerList = owner->nestedTypes;
+    auto oldInnerList = Internal::PRIVATE_INTERNAL::ClassNestedTypes(owner);
 
     target->declaringType = owner;
 
     // Add a class to the new owner's list
     auto newInnerList = reinterpret_cast<IL2CPP::Il2CppClass **>(BNM_malloc(sizeof(IL2CPP::Il2CppClass *) * (owner->nested_type_count + 1)));
-    memcpy(newInnerList, owner->nestedTypes, sizeof(IL2CPP::Il2CppClass *) * owner->nested_type_count);
+    memcpy(newInnerList, Internal::PRIVATE_INTERNAL::ClassNestedTypes(owner), sizeof(IL2CPP::Il2CppClass *) * owner->nested_type_count);
     newInnerList[owner->nested_type_count++] = target;
     owner->nestedTypes = newInnerList;
 
@@ -854,7 +854,7 @@ static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *ow
 
     // Remove a class from the old owner's list
     if (oldOwner) {
-        oldInnerList = oldOwner->nestedTypes;
+        oldInnerList = Internal::PRIVATE_INTERNAL::ClassNestedTypes(oldOwner);
         newInnerList = reinterpret_cast<IL2CPP::Il2CppClass **>(BNM_malloc(sizeof(IL2CPP::Il2CppClass *) * (oldOwner->nested_type_count - 1)));
         uint16_t skipped = 0;
         for (uint16_t i = 0; i < oldOwner->nested_type_count; ++i) {

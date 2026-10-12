@@ -85,6 +85,20 @@ namespace BNM::Internal {
 
     extern BNM::ForwardList<void(*)()> onIl2CppLoaded;
 
+    // Unity 6000.5.x erases the type of these Il2CppClass members to `const void*`.
+    // The pointed-to data layout is unchanged, so recover the pointer type here.
+    namespace PRIVATE_INTERNAL {
+#if UNITY_VER >= 6005
+        inline const IL2CPP::EventInfo *ClassEvents(const IL2CPP::Il2CppClass *klass) { return reinterpret_cast<const IL2CPP::EventInfo *>(klass->events); }
+        inline const IL2CPP::PropertyInfo *ClassProperties(const IL2CPP::Il2CppClass *klass) { return reinterpret_cast<const IL2CPP::PropertyInfo *>(klass->properties); }
+        inline IL2CPP::Il2CppClass **ClassNestedTypes(IL2CPP::Il2CppClass *klass) { return reinterpret_cast<IL2CPP::Il2CppClass **>(const_cast<void *>(klass->nestedTypes)); }
+#else
+        inline const IL2CPP::EventInfo *ClassEvents(const IL2CPP::Il2CppClass *klass) { return klass->events; }
+        inline const IL2CPP::PropertyInfo *ClassProperties(const IL2CPP::Il2CppClass *klass) { return klass->properties; }
+        inline IL2CPP::Il2CppClass **ClassNestedTypes(IL2CPP::Il2CppClass *klass) { return klass->nestedTypes; }
+#endif
+    }
+
     extern std::string_view constructorName;
     extern BNM::Class customListTemplateClass;
     extern std::map<uint32_t, BNM::Class> customListsMap;

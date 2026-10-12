@@ -67,7 +67,8 @@ std::vector<Class> Class::GetInnerClasses(bool includeParent) const {
     auto curClass = _data;
 
     do {
-        for (uint16_t i = 0; i < curClass->nested_type_count; ++i) ret.emplace_back(curClass->nestedTypes[i]);
+        auto nestedTypes = Internal::PRIVATE_INTERNAL::ClassNestedTypes(curClass);
+        for (uint16_t i = 0; i < curClass->nested_type_count; ++i) ret.emplace_back(nestedTypes[i]);
         if (includeParent) curClass = curClass->parent;
         else break;
     } while (curClass);
@@ -116,8 +117,9 @@ std::vector<PropertyBase> Class::GetProperties(bool includeParent) const {
     auto curClass = _data;
 
     do {
-        auto end = curClass->properties + curClass->property_count;
-        for (auto currentProperty = curClass->properties; currentProperty != end; ++currentProperty) ret.emplace_back(currentProperty);
+        auto properties = Internal::PRIVATE_INTERNAL::ClassProperties(curClass);
+        auto end = properties + curClass->property_count;
+        for (auto currentProperty = properties; currentProperty != end; ++currentProperty) ret.emplace_back(currentProperty);
         if (includeParent) curClass = curClass->parent;
         else break;
     } while (curClass);
@@ -133,8 +135,9 @@ std::vector<EventBase> Class::GetEvents(bool includeParent) const {
     auto curClass = _data;
 
     do {
-        auto end = curClass->events + curClass->event_count;
-        for (auto currentEvent = curClass->events; currentEvent != end; ++currentEvent) ret.emplace_back(currentEvent);
+        auto events = Internal::PRIVATE_INTERNAL::ClassEvents(curClass);
+        auto end = events + curClass->event_count;
+        for (auto currentEvent = events; currentEvent != end; ++currentEvent) ret.emplace_back(currentEvent);
         if (includeParent) curClass = curClass->parent;
         else break;
     } while (curClass);
@@ -206,8 +209,9 @@ PropertyBase Class::GetProperty(const std::string_view &name) const {
     auto curClass = _data;
 
     do {
-        auto end = curClass->properties + curClass->property_count;
-        for (auto currentProperty = curClass->properties; currentProperty != end; ++currentProperty) if (name == currentProperty->name) return currentProperty;
+        auto properties = Internal::PRIVATE_INTERNAL::ClassProperties(curClass);
+        auto end = properties + curClass->property_count;
+        for (auto currentProperty = properties; currentProperty != end; ++currentProperty) if (name == currentProperty->name) return currentProperty;
         curClass = curClass->parent;
     } while (curClass);
 
@@ -224,8 +228,9 @@ PropertyBase Class::GetProperty(const std::string_view& name, const CompileTimeC
     auto typeClass = type.ToIl2CppClass();
 
     do {
-        auto end = curClass->properties + curClass->property_count;
-        for (auto currentProperty = curClass->properties; currentProperty != end; ++currentProperty)
+        auto properties = Internal::PRIVATE_INTERNAL::ClassProperties(curClass);
+        auto end = properties + curClass->property_count;
+        for (auto currentProperty = properties; currentProperty != end; ++currentProperty)
             if (name == currentProperty->name && PropertyBase{currentProperty}.GetType() == typeClass) return currentProperty;
         curClass = curClass->parent;
     } while (curClass);
@@ -242,7 +247,7 @@ Class Class::GetInnerClass(const std::string_view &name) const {
 
     do {
         for (uint16_t i = 0; i < curClass->nested_type_count; ++i) {
-            auto cls = curClass->nestedTypes[i];
+            auto cls = Internal::PRIVATE_INTERNAL::ClassNestedTypes(curClass)[i];
             if (name == cls->name) return cls;
         }
         curClass = curClass->parent;
@@ -278,8 +283,9 @@ EventBase Class::GetEvent(const std::string_view &name) const {
     auto curClass = _data;
 
     do {
-        auto end = curClass->events + curClass->event_count;
-        for (auto currentEvent = curClass->events; currentEvent != end; ++currentEvent) {
+        auto events = Internal::PRIVATE_INTERNAL::ClassEvents(curClass);
+        auto end = events + curClass->event_count;
+        for (auto currentEvent = events; currentEvent != end; ++currentEvent) {
             if (name != currentEvent->name) continue;
             return currentEvent;
         }
