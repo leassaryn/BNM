@@ -1,4 +1,8 @@
 ## ByNameModding
+> **Warning:** This repo is used by me for learning C++ and experimenting with Unity manipulation. It is **not recommended** for general use, unless you want to play around with C++ or do manipulation experiments.
+>
+> For a **stable** version, use the original repo: **[ByNameModding/BNM-Android](https://github.com/ByNameModding/BNM-Android)**.
+
 ByNameModding is a library for modding of il2cpp games by classes, methods, field names. It includes everything you need for Android Unity games modding.<br>
 Requires C++20 minimum.
 
