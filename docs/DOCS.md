@@ -2,6 +2,8 @@
 
 > BNM adalah library C++20 statik untuk modding game Unity (il2cpp) di Android.
 > Versi library saat ini: **2.5.4-dirty** (`BNM_VER` di `include/BNM/UserSettings/GlobalSettings.hpp`)
+>
+> ⚠️ **Repositori ini adalah fork belajar/eksperimen.** Untuk penggunaan produksi yang stabil, gunakan repo asli: [ByNameModding/BNM-Android](https://github.com/ByNameModding/BNM-Android). Baca [Bagian 25. Status Verifikasi dan Batasan](#25-status-verifikasi-dan-batasan) sebelum mengandalkan fork ini — dokumentasi ini menjamin **kompilasi**, bukan perilaku runtime.
 
 ---
 
@@ -30,7 +32,8 @@
 21. [Trouble Shooting](#21-trouble-shooting)
 22. [Modern C++ Improvements (v2.5.3)](#22-modern-c-improvements-v253)
 23. [Bugfixes dan Penyempurnaan (post-v2.5.3)](#23-bugfixes-dan-penyempurnaan-post-v253)
-    - [23.14 Code Review Fixes (12 mitigations)](#2314-code-review-fixes-12-mitigations)
+24. [Perbaikan Fork Ini (Setelah v2.5.3)](#24-perbaikan-fork-ini-setelah-v253)
+25. [Status Verifikasi dan Batasan](#25-status-verifikasi-dan-batasan)
 
 ---
 
@@ -38,10 +41,12 @@
 
 | Komponen | Keterangan |
 |---|---|
-| **Android NDK** | Dibutuhkan untuk mengkompilasi. Gunakan `aarch64-linux-android-clang++` (NDK r25+ direkomendasikan, NDK 29=clang 21 dengan dukungan C++23 penuh). |
+| **Android NDK** | Dibutuhkan untuk mengkompilasi. Gunakan `aarch64-linux-android-clang++` (NDK r25+ direkomendasikan; NDK 29 = clang 21). |
 | **C++20** | BNM menggunakan fitur C++20 (`std::string_view`, `constexpr`, `if constexpr`, `requires`, dll). |
-| **Hook Backend** | Salah satu: [Dobby](https://github.com/jmpews/Dobby), [ShadowHook](https://github.com/jmpeds/android-inline-hook), atau Substrate. |
+| **Hook Backend** | Salah satu: [Dobby](https://github.com/jmpews/Dobby), [ShadowHook](https://github.com/bytedance/android-inline-hook), atau Substrate. |
 | **Target** | Game Unity yang menggunakan **il2cpp** (bukan Mono). |
+
+> Untuk penggunaan produksi, gunakan repo asli **[ByNameModding/BNM-Android](https://github.com/ByNameModding/BNM-Android)**. Fork ini adalah repo belajar/eksperimen.
 
 ---
 
@@ -52,35 +57,43 @@
 ```
 BNM-Android/
 ├── include/
-│   ├── BNM/
-│   │   ├── UserSettings/
-│   │   │   ├── GlobalSettings.hpp        ← KONFIGURASI UTAMA
-│   │   │   └── Il2CppMethodNames.hpp     ← Nama-nama API il2cpp
-│   │   ├── Il2CppHeaders.hpp             ← Pemilih header versi il2cpp
-│   │   ├── Il2CppHeaders/                ← Header per versi Unity
-│   │   ├── UnityStructures/              ← Vector, Color, Quaternion, dll.
-│   │   ├── Class.hpp
-│   │   ├── Field.hpp / FieldBase.hpp
-│   │   ├── Method.hpp / MethodBase.hpp
-│   │   ├── Property.hpp / PropertyBase.hpp
-│   │   ├── Event.hpp / EventBase.hpp
-│   │   ├── Image.hpp
-│   │   ├── Loading.hpp
-│   │   ├── Defaults.hpp
-│   │   ├── Delegates.hpp
-│   │   ├── Coroutine.hpp
-│   │   ├── ClassesManagement.hpp
-│   │   ├── BasicMonoStructures.hpp       ← String, Array, List
-│   │   ├── Utils.hpp
-│   │   └── UnityStructures.hpp
-│   └── external/
-│       ├── include/utf8.h
-│       └── utf8/                         ← UTF8-CPP library
+│   └── BNM/
+│       ├── UserSettings/
+│       │   ├── GlobalSettings.hpp        ← KONFIGURASI UTAMA (UNITY_VER, hook backend)
+│       │   └── Il2CppMethodNames.hpp     ← Nama-nama API il2cpp
+│       ├── Il2CppHeaders.hpp             ← Pemilih header versi il2cpp (#if per versi)
+│       ├── Il2CppHeaders/                ← 342 header per versi Unity (read-only)
+│       ├── UnityStructures/              ← Vector, Color, Quaternion, Matrix, dll.
+│       ├── Class.hpp                     ← juga CompileTimeClass + CompileTimeClassBuilder
+│       ├── Field.hpp / FieldBase.hpp
+│       ├── Method.hpp / MethodBase.hpp
+│       ├── Property.hpp / PropertyBase.hpp
+│       ├── Event.hpp / EventBase.hpp
+│       ├── Image.hpp
+│       ├── Loading.hpp
+│       ├── Defaults.hpp
+│       ├── Delegates.hpp
+│       ├── Coroutine.hpp
+│       ├── ClassesManagement.hpp         ← makro BNM_CustomClass/Field/Method
+│       ├── BasicMonoStructures.hpp       ← String, Array, List, DataIterator
+│       ├── ComplexMonoStructures.hpp     ← Dictionary
+│       ├── Operators.hpp                 ← operator ->* dan >>
+│       ├── DebugMessages.hpp             ← pesan log (debug build)
+│       ├── Exceptions.hpp                ← Exception + makro BNM_try/catch
+│       ├── Utils.hpp
+│       └── UnityStructures.hpp
+├── external/                             ← dependency pihak ketiga (di root, bukan di dalam include/)
+│   ├── include/utf8.h                    ← shim UTF8-CPP
+│   ├── utf8/                             ← UTF8-CPP (checked/unchecked/core/...)
+│   └── include/rtti/                     ← Open-hierarchy RTTI (dipakai List)
 ├── src/                                  ← Implementasi (.cpp)
 │   └── private/Internals.hpp             ← Internal, jangan diinclude langsung
+├── docs/DOCS.md                          ← dokumen ini
 ├── Android.mk                            ← Build ndk-build
 └── CMakeLists.txt                        ← Build CMake
 ```
+
+> **Catatan direktori include:** `external/` berada di **root repo**, bukan di dalam `include/`. Lihat [Bagian 2.4](#24-direktori-include-yang-wajib-ditambahkan) untuk include path yang harus Anda tambahkan.
 
 ### 2.2 Menambahkan BNM ke Proyek Anda
 
@@ -88,16 +101,25 @@ BNM-Android/
 
 Tambahkan di `Android.mk` proyek Anda:
 
+> **Penting:** `Android.mk` BNM **tidak mengekspor include path** (`LOCAL_EXPORT_C_INCLUDES` tidak diisi). Anda harus menambahkan include path BNM sendiri. Lihat [Bagian 2.4](#24-direktori-include-yang-wajib-ditambahkan).
+
 ```makefile
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 # ... konfigurasi modul Anda ...
 
-# Arah ke BNM (adjust sesuai lokasi)
+LOCAL_CPPFLAGS += -std=c++20
+
+# Lokasi BNM (sesuaikan)
 BNM_PATH := $(LOCAL_PATH)/path/to/BNM-Android
 
-LOCAL_CPPFLAGS += -std=c++20
+# WAJIB: tambahkan include path BNM secara manual
+LOCAL_C_INCLUDES += $(BNM_PATH)/include
+LOCAL_C_INCLUDES += $(BNM_PATH)/external/include
+LOCAL_C_INCLUDES += $(BNM_PATH)/external
+LOCAL_C_INCLUDES += $(BNM_PATH)/external/utf8
+LOCAL_C_INCLUDES += $(BNM_PATH)/src/private
 
 LOCAL_STATIC_LIBRARIES += BNM
 
@@ -108,12 +130,21 @@ $(call import-module, path/to/BNM-Android)
 
 **Menggunakan CMake:**
 
+CMake mengekspor tiga include path pertama sebagai `PUBLIC`, dan `external/utf8` + `src/private` sebagai `PRIVATE` (dipakai saat membangun BNM sendiri):
+
 ```cmake
 add_subdirectory(path/to/BNM-Android)
 
 target_link_libraries(your_target PRIVATE BNM)
 target_compile_features(your_target PRIVATE cxx_std_20)
 ```
+
+Opsi CMake:
+
+| Opsi | Default | Keterangan |
+|---|---|---|
+| `BNM_LINK_LOG` | `OFF` | Link `liblog.so` (jika Anda tidak melakukannya sendiri) |
+| `BNM_SANITIZERS` | `OFF` | Aktifkan ASan + UBSan (build debug) |
 
 ### 2.3 Include Header
 
@@ -127,6 +158,20 @@ Include header utama BNM di file C++ Anda:
 #include <BNM/Loading.hpp>   // Untuk memuat BNM
 #include <BNM/Defaults.hpp>  // Untuk mapping tipe
 ```
+
+Header lain bersifat opsional sesuai kebutuhan: `Property.hpp`/`Event.hpp`/`Delegates.hpp` (dari `Class.hpp` belum tentu tersedia), `BasicMonoStructures.hpp` (String/Array/List), `ComplexMonoStructures.hpp` (Dictionary), `ClassesManagement.hpp`, `Coroutine.hpp`, `Exceptions.hpp`, `Operators.hpp`, `UnityStructures.hpp`.
+
+> **Catatan:** tidak ada header payung `BNM/All.hpp`. Sertakan header satu per satu. Jangan sertakan `src/private/Internals.hpp` — itu untuk internal BNM, bukan untuk konsumen.
+
+### 2.4 Direktori Include yang Wajib Ditambahkan
+
+| Path | Untuk apa | Wajib bagi konsumen? |
+|---|---|---|
+| `include/` | Semua header publik `<BNM/...>` | Ya |
+| `external/include/` | `utf8.h` shim | Ya |
+| `external/` | include `<utf8.h>` dan `<rtti/...>` | Ya |
+| `external/utf8/` | header inti UTF8-CPP (`utf8/core.h`, dll.) | Saat build BNM; disarankan juga untuk konsumen |
+| `src/private/` | `Internals.hpp` | Hanya saat build BNM sendiri |
 
 ---
 
@@ -669,10 +714,13 @@ std::string name = mb.str();
 ### 8.6 Generic Method
 
 ```cpp
-auto genericMethod = method.GetGeneric({
+// GetGeneric adalah member dari MethodBase (bukan Method<Ret>).
+BNM::MethodBase genericMethod = method.GetGeneric({
     BNM::Defaults::Get<int>()
 });
 ```
+
+> Jika method bukan generic, `GetGeneric` mengembalikan `MethodBase` kosong dan mencatat warning.
 
 ### 8.7 Virtual Method Override
 
@@ -898,12 +946,15 @@ for (int i = 0; i < list->GetSize(); i++) {
     int val = list->get_Item(i);
 }
 
-// Enumerator (foreach-style)
+// Enumerator (manual, mirip foreach C#)
 auto enumerator = list->GetEnumerator();
-for (auto &item : enumerator) {
+while (enumerator.MoveNext()) {
+    int item = enumerator.Current();
     // proses item
 }
 ```
+
+> **Catatan:** `List<T>::Enumerator` **tidak** menyediakan `begin()`/`end()`, jadi range-based `for (auto &x : list->GetEnumerator())` **tidak akan dikompilasi**. Gunakan loop `while (enumerator.MoveNext())` seperti di atas.
 
 ---
 
@@ -1030,25 +1081,32 @@ struct MyCustomComponent : BNM::IL2CPP::Il2CppObject {
     BNM::Structures::Mono::String *name;
 };
 
-// Daftarkan ke il2cpp
+// Daftarkan ke il2cpp. Setelah makro ini selalu tulis titik-koma.
 BNM_CustomClass(
     MyCustomComponent,                              // Kelas C++
     BNM::CompileTimeClassBuilder("Game", "CustomComponent").Build(), // Tipe di il2cpp
     BNM::Defaults::Get<BNM::UnityEngine::MonoBehaviour *>(),        // Base class
-    BNM::Defaults::Get<void>()                     // Owner (null = tidak nested)
+    {}                                              // Owner (kosong = tidak nested)
 );
 
-// Daftarkan field
-BNM_CustomField(MyCustomComponent::health,  BNM::Defaults::Get<float>(), "health");
-BNM_CustomField(MyCustomComponent::damage,  BNM::Defaults::Get<int>(), "damage");
-BNM_CustomField(MyCustomComponent::name,    BNM::Defaults::Get<BNM::Structures::Mono::String *>(), "name");
+// Daftarkan field. Argumen pertama adalah NAMA field (identifier), bukan `Class::field`.
+BNM_CustomField(health, BNM::Defaults::Get<float>(), "health");
+BNM_CustomField(damage, BNM::Defaults::Get<int>(), "damage");
+BNM_CustomField(name,   BNM::Defaults::Get<BNM::Structures::Mono::String *>(), "name");
 
-// Daftarkan method
-BNM_CustomMethod(MyCustomComponent::TakeDamage, false,  // false = non-static
+// Daftarkan method. Argumen pertama adalah NAMA method (identifier).
+BNM_CustomMethod(TakeDamage, false,  // false = non-static
     BNM::Defaults::Get<void>(), "TakeDamage",
     BNM::Defaults::Get<float>()
 );
 ```
+
+> **Penting soal makro:**
+> - Argumen pertama `BNM_CustomField`/`BNM_CustomMethod` adalah **identifier nama field/method**, bukan `Class::member`. Makro melakukan token-pasting untuk membentuk nama variabel pendaftar.
+> - Setiap makro `BNM_CustomClass`/`BNM_CustomField`/`BNM_CustomMethod` **harus diakhiri `;`**.
+> - `BNM_CustomClass` hanya boleh dipakai **satu kali per kelas**; makro ini mendefinisikan `_BNMCustomClassType` yang dipakai `BNM_CustomField`/`BNM_CustomMethod`.
+> - `_owner_` menerima `CompileTimeClass`; gunakan `{}` untuk tidak nested.
+> - Semua ini adalah **runtime class creation**. Belum diuji di game nyata pada fork ini, dan paling berisiko karena menulis struktur `Il2CppClass`.
 
 ### 16.2 Menggunakan Kelas yang Dibuat
 
@@ -1143,40 +1201,51 @@ auto *enumerator = MyCoroutine().Get();
 
 ### 18.1 Delegate (Single)
 
+`DelegateBase::Create(method)` membuat delegate il2cpp baru dari sebuah method **dan harus dipanggil pada instance delegate yang sudah punya `klass`**. Contoh paling aman adalah memakai `Add(MethodBase)` pada multicast delegate, yang menangani pembuatannya:
+
 ```cpp
 #include <BNM/Delegates.hpp>
 
-// Membuat delegate
 BNM::MethodBase method = someClass.GetMethod("OnSomething", 0);
-auto *delegate = reinterpret_cast<BNM::Delegate<void> *>(BNM::Allocate(sizeof(BNM::Delegate<void>)));
-delegate->Create(method);
 
-// Invoke delegate
-delegate->Invoke();
-// atau
-(*delegate)();
+// Dapatkan delegate nyata dari game (mis. hasil baca field/parameter),
+// lalu cast ke tipe yang diinginkan:
+BNM::MulticastDelegate<void> *multi = ...;   // delegate nyata dari game
+BNM::DelegateBase *d = multi->Add(method);   // membuat + menambahkan
+
+// Invoke satu delegate:
+auto &typed = d->cast<void>();
+typed.Invoke();
+
+// Atau, jika Anda sudah punya instance Delegate<Ret> nyata:
+// typed[instance].Invoke(args...);
 ```
+
+> **Jangan** membuat instance delegate dari `BNM::Allocate(...)`. `Create()` membaca `object.klass`, sedangkan `Allocate` hanya mengembalikan memori mentah tanpa `klass`, sehingga hasilnya tidak valid.
 
 ### 18.2 MulticastDelegate
 
 ```cpp
-auto *multi = reinterpret_cast<BNM::MulticastDelegate<void> *>(BNM::Allocate(sizeof(BNM::MulticastDelegate<void>)));
-multi->Add(method1);
+// multi harus delegate nyata dari game
+multi->Add(method1);     // MethodBase → buat + tambahkan DelegateBase*
 multi->Add(method2);
 
-// Invoke semua delegate
-multi->Invoke();
+// Invoke semua handler
+multi->Invoke(args...);
 
-// Tambah/hapus
-*multi += delegate;
-*multi -= delegate;
+// Hapus (butuh DelegateBase* spesifik)
+multi->Remove(someDelegate);
+
+// Operator
+*multi += someDelegate;
+*multi -= someDelegate;
 ```
 
 ### 18.3 Action
 
 ```cpp
-// Action<Params...> adalah MulticastDelegate<void> yang sudah ditypedef
-BNM::Structures::Mono::Action<int, float> *action = ...;
+// Action<Params...> adalah MulticastDelegate<void>
+BNM::Structures::Mono::Action<int, float> *action = ...;  // delegate nyata dari game
 action->Invoke(42, 3.14f);
 ```
 
@@ -1304,6 +1373,46 @@ Makro untuk enkripsi string (ganti dengan string encryptor Anda):
 #define BNM_OBFUSCATE(str) str
 #define BNM_OBFUSCATE_TMP(str) str
 ```
+
+### 20.9 Operators (`Operators.hpp`)
+
+Syntactic sugar untuk menetapkan instance sekaligus mengambil anggota. `->*` dan `>>` bekerja pada pointer objek:
+
+```cpp
+#include <BNM/Operators.hpp>
+using namespace BNM::Operators;   // WAJIB: operator berada di namespace ini
+
+auto *obj = ...;                       // Il2CppObject*
+auto health = cls.GetField("health").cast<int>();
+
+int hp = obj ->* health;                // set instance + baca
+obj ->* health = 100;                  // set instance + tulis
+
+auto method = cls.GetMethod("Update", 0).cast<void>();
+obj ->* method;                        // set instance pada method
+obj ->* method();
+```
+
+> **Penting:** operator `->*` dan `>>` dideklarasikan di `namespace BNM::Operators`. Karena argumennya berada di namespace lain (`BNM`, `BNM::IL2CPP`), ADL tidak menemukannya. Anda **harus** menulis `using namespace BNM::Operators;` (atau memanggil `BNM::Operators::operator->*(...)` secara eksplisit).
+
+### 20.10 Exceptions (`Exceptions.hpp`)
+
+BNM menyediakan makro untuk menangkap exception il2cpp saat memanggil kode C#:
+
+```cpp
+#include <BNM/Exceptions.hpp>
+
+BNM_try {
+    // kode yang bisa memicu exception il2cpp
+    someMethod();
+} BNM_catch(ex) {
+    // ex adalah BNM::Exception
+    std::string cls = ex.ClassName();
+    std::string msg = ex.Message();
+} BNM_end_try;
+```
+
+Anda juga bisa memanggil `BNM::TryInvoke(func)` secara langsung, yang mengembalikan `BNM::Exception`.
 
 ---
 
@@ -1624,20 +1733,7 @@ void Internal::Load() {
 
 ### 23.12 CompileTimeClass const Correctness
 
-`CompileTimeClass::ToClass() const` sekarang menggunakan pendekatan yang benar secara const-correctness — membuat temporary copy dan memanggil versi non-const pada copy tersebut:
-
-```cpp
-// Sebelum (const_cast — UB)
-Class CompileTimeClass::ToClass() const {
-    return const_cast<CompileTimeClass &>(*this).ToClass();
-}
-
-// Sesudah (benar — buat temporary copy)
-Class CompileTimeClass::ToClass() const {
-    CompileTimeClass temp = *this;
-    return temp.ToClass();
-}
-```
+`CompileTimeClass::ToClass() const` sebelumnya memakai `const_cast` (UB). Versi berikutnya membuat temporary copy, tetapi itu **menimbulkan use-after-free** karena `ForwardList` menyalin node tetapi berbagi pointer `_BaseInfo`, lalu salinan memanggil `Free()` dan membebaskan memori milik objek asli. Perbaikan final ada di [Bagian 24](#24-perbaikan-fork-ini-setelah-v253).
 
 ### 23.13 `to_underlying` Namespace Fix
 
@@ -1667,11 +1763,11 @@ Perbaikan bug dan peningkatan kualitas kode dari review menyeluruh:
 
 **High fixes:**
 - **ModifyClass/CreateClass** — menghapus penulisan `field->myInfo` yang menjadi dangling pointer setelah vector di-clear
-- **`Class::TryInit`** — menambah flag `_initialized` untuk skip `Class$$Init` yang redundant (performa)
+- **`Class::TryInit`** — menambahkan pelacakan kelas yang sudah di-init untuk melewati `Class$$Init` yang redundant (performa). Implementasi saat ini memakai `static std::unordered_set` (lihat [24.8](#248-bug-runtime-lain)).
 - **Split APK path** — mengganti `substr(len-8)` dengan `rfind("/lib/")` yang lebih robust
 
 **Medium improvements:**
-- **`List::GrowIfNeeded`** — pertumbuhan geometris (2x) mengurangi reallokasi
+- **`List::GrowIfNeeded`** — pertumbuhan geometris (1.5x) mengurangi reallokasi
 - **`List::CopyFrom`** — skip copy data lama saat resize
 - **`TryInvoke`** — static voidType/voidClass, `memset` → value-init
 - **Named constants** — konstanta bernama untuk `METHOD_PUBLIC`, `STATIC`, dll
@@ -1679,3 +1775,83 @@ Perbaikan bug dan peningkatan kualitas kode dari review menyeluruh:
 **Low improvements:**
 - **`static_assert(false)` → `#error`** — error message lebih jelas, tidak ada masalah C++20
 - **`Delegate::Remove`** — perbaiki urutan `memmove`, hapus pengecekan `max_length` yang tidak berguna
+
+---
+
+## 24. Perbaikan Fork Ini (Setelah v2.5.3)
+
+Bagian ini mendokumentasikan perbaikan yang dilakukan pada fork ini setelah v2.5.3. Semua diverifikasi dengan mengompilasi `src/*.cpp` pada seluruh varian `UNITY_VER` yang didukung (56 s/d 6005). Lihat [Bagian 25](#25-status-verifikasi-dan-batasan) untuk batasan verifikasi.
+
+### 24.1 Bug Kompilasi API Publik
+
+Ditemukan dengan mengompilasi satu translation unit yang benar-benar menginstansiasi API publik (Array, List, Dictionary, Class, makro custom class, delegate, event, field, method, property):
+
+- **`List::GrowIfNeeded`** memakai `items->max_length` yang tidak ada di `Array<T>` (yang punya `capacity`). Ini membuat **`List::Add` dan `List::Insert` tidak bisa dikompilasi**. `capacity` menempati offset dan ukuran yang sama dengan `Il2CppArray::max_length` di semua header, jadi penggantinya aman. Fork ini juga menghapus short-circuit `max_length` yang salah tersebut.
+- **`List::GetEnumerator`** mengembalikan `this` ke constructor `Enumerator` yang `explicit`, sehingga tidak bisa dikompilasi. Sekarang memakai `Enumerator(this)`.
+- **`MulticastDelegate::Invoke`** memakai `static_cast` ke `Delegate<Ret>*` yang tidak berkerabat dengan `MulticastDelegate<Ret>`; sekarang membaca subobjek `delegate` langsung.
+- **`Array<T>::GetData() const`**, **`Dictionary::ContainsKey`/`ContainsValue` const**, dan makro **`BNM_CustomMethod`** membuang `const` lewat `reinterpret_cast`; sekarang memakai `const_cast` yang benar atau menghapus `constexpr` pada pointer method.
+
+### 24.2 Bug Konversi `Il2CppType` (Unity < 2021.2)
+
+`GetMethodParam` dan `GetPropertySetParam` memakai `&(params + i)->parameter_type`. Pada Unity < 2021.2, `ParameterInfo::parameter_type` sudah bertipe pointer (`const Il2CppType*`), sehingga `&` menghasilkan pointer ganda dan gagal dikompilasi. Sekarang mengembalikan `parameter_type` langsung. Cross-check ke header: `2017.4.h`, `2020.1.h`, `2021.1.h`.
+
+### 24.3 Konstanta dan const-correctness Versi Lama
+
+- **`SetupTypes` (<=174)**: `byval_arg`/`this_arg` bertipe `const Il2CppType*` di 2017.x; penulisan memori milik BNM lewat `const_cast`.
+- **`Class::GetIl2CppType` (<=174)** dan **`CreateMethod` (<212)**: `const_cast` eksplisit alih-alih `reinterpret_cast` yang membuang `const`.
+- **`ARG_4_INVOKE` (<211)**: meneruskan `method->return_type` yang `const` lewat `const_cast<void*>`.
+
+### 24.4 Regresi Unity 6000.5
+
+Unity 6000.5.x mengubah `Il2CppClass::events`, `properties`, dan `nestedTypes` dari pointer bertipe menjadi `const void*`. Kode lama gagal dikompilasi (26 error) bahkan sebelum perubahan fork ini. Fork ini menambahkan aksesor `ClassEvents`/`ClassProperties`/`ClassNestedTypes` yang dijaga versi di `Internals.hpp`; layout data tidak berubah.
+
+### 24.5 Use-After-Free `CompileTimeClass::ToClass() const`
+
+`ToClass() const` menyalin `*this` lalu memanggil `ToClass()` non-const. Karena `ForwardList` menyalin node tetapi **berbagi** pointer `_BaseInfo`, salinan memanggil `Free()` dan membebaskan memori yang masih dipakai objek asli. Panggilan kedua = use-after-free (dibuktikan dengan harness ASan). Perbaikan: salinan tidak membebaskan node bersama; bit autoFree dipertahankan hanya untuk jalur `_reference`.
+
+### 24.6 Decoder Branch AArch64
+
+`AssemblerUtils::DecodeBranchOrCall` untuk AArch64 memakai mask 24-bit (format ARM32), padahal `B`/`BL` AArch64 memakai imm26 (bit 0–25). Akibatnya `FindNextJump` salah menghitung target untuk cabang jauh (>±8 MB), dan hook bisa dipasang ke alamat salah. Sekarang jalur AArch64 memakai imm26; jalur ARMv7 tetap.
+
+### 24.7 Matematika `SmoothDamp`
+
+`Vector2::SmoothDamp` dan `Vector3::SmoothDamp` memakai `change /= sqrtf(sqrMag) * maxChange`, yang berarti `change / (sqrt*maxChange)` sehingga hasil clamp bermagnitudo `1/maxChange`, bukan `maxChange`. Unity memakai `change / sqrtf(sqrMag) * maxChange`. Diverifikasi numerik: input magnitudo 100 dengan `maxChange=10` menghasilkan 0.1 sebelum, 10 sesudah.
+
+### 24.8 Bug Runtime Lain
+
+- **`Utils::CreateMonoString` / `GetExternMethod`**: meneruskan `string_view::data()` ke API il2cpp yang membutuhkan string null-terminated; sekarang menyalin ke `std::string` dulu.
+- **`LogCompileTimeClass`** (debug): `continue` tanpa memajukan iterator menyebabkan infinite loop untuk tipe di luar jangkauan; sekarang memajukan `current` dulu.
+- **`MulticastDelegateBase::Add`**: masih diam-diam tidak menambah handler jika array `delegates` null. Ini perilaku yang diketahui, belum diperbaiki.
+- **`Class::TryInit`**: memakai `static std::unordered_set` untuk menandai kelas yang sudah di-init; belum aman untuk multithread.
+
+### 24.9 Perubahan Berkas
+
+- `include/BNM/Il2CppApi/` (327 berkas) **dihapus** — tidak dipakai di mana pun dan tidak diinclude otomatis.
+- `external/utf8/core.h` disinkronkan dengan `nemtrif/utfcpp` master (perbaikan `validate_next16`).
+- Warning `-Wextra` pada versi <211 dibersihkan dengan `[[maybe_unused]]`.
+
+---
+
+## 25. Status Verifikasi dan Batasan
+
+**Baca bagian ini sebelum menganggap BNM "stabil".**
+
+### Yang sudah diverifikasi
+
+- **Kompilasi bersih** untuk `src/*.cpp`, `features.cpp` (API publik), dan `cminst.cpp` (makro ClassesManagement) pada `UNITY_VER`: 56, 171, 181, 182, 193, 194, 201, 202, 203, 211, 212, 213, 221, 222, 223, 231, 232, 6000, 6001, 6002, 6003, 6004, 6005 (0 error). Satu warning tersisa untuk 172 berasal dari header vendored `2017.4.h` di bawah `-Wpedantic`, bukan kode BNM.
+- Sebagian besar bug di [Bagian 24](#24-perbaikan-fork-ini-setelah-v253) dibuktikan dengan compiler atau harness host (ASan, uji numerik).
+
+### Yang **belum** diverifikasi
+
+- **Tidak ada fitur yang dijalankan di il2cpp/game nyata.** Semua bukti bersifat kompilasi atau uji host. "Bisa dikompilasi" **tidak sama dengan** "aman saat dijalankan".
+- Jalur runtime berisiko tinggi yang belum diuji: `ClassesManagement` (menulis `Il2CppClass`/vtable/field offset), `Loading` (hook `il2cpp_init`, decoder branch pada binary nyata), `Coroutine` (C++20 coroutine + vtable buatan), `Method::Call` (konvensi argumen), `Field::Set` (tulis memori).
+- Tidak ada automated test dan tidak ada CI di repo ini (memang tidak ada sejak awal).
+
+### Saran pengujian bertahap
+
+1. `BNM::Loading` + `BNM::Class`/`GetMethod` (baca saja) — pastikan class ditemukan.
+2. `Method::Call` dan `Field::Get` (baca) pada method/field sederhana.
+3. `Field::Set` dan `Method::Call` (tulis/panggil).
+4. `ClassesManagement` / `Coroutine` — baru setelah di atas stabil.
+
+Untuk penggunaan produksi, gunakan repo asli: **[ByNameModding/BNM-Android](https://github.com/ByNameModding/BNM-Android)**.
