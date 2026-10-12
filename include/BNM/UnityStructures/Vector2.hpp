@@ -204,7 +204,7 @@ namespace BNM::Structures::Unity {
         float maxChange = maxSpeed * smoothTime;
         float maxChangeSq = maxChange * maxChange;
         float sqrMag = SqrMagnitude(change);
-        if (sqrMag > maxChangeSq) change /= sqrtf(sqrMag) * maxChange;
+        if (sqrMag > maxChangeSq) change = change / sqrtf(sqrMag) * maxChange;
         target = current - change;
         Vector2 temp = (currentVelocity + omega * change) * deltaTime;
         currentVelocity = (currentVelocity - omega * temp) * exp;
