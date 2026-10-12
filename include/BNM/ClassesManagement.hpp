@@ -310,7 +310,7 @@ inline static _BNMCustomField_##_field_ BNMCustomField_##_field_ __attribute__((
 #define BNM_CustomMethod(_method_, _isStatic_, _type_, _name_, ...) \
 struct _BNMCustomMethod_##_method_ : BNM::MANAGEMENT_STRUCTURES::CustomMethod { \
     inline _BNMCustomMethod_##_method_() : BNM::MANAGEMENT_STRUCTURES::CustomMethod() { \
-        constexpr auto p = &_BNMCustomClassType::_method_; _address = *reinterpret_cast<void **>(&p); \
+        auto p = &_BNMCustomClassType::_method_; _address = *reinterpret_cast<void **>(&p); \
         _invoker = reinterpret_cast<void *>(&BNM::MANAGEMENT_STRUCTURES::GetMethodInvoker<_isStatic_, decltype(&_BNMCustomClassType::_method_)>::Invoke); \
         _name = BNM_OBFUSCATE_TMP(_name_); \
         _returnType = _type_; \

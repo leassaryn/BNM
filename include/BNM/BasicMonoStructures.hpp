@@ -180,7 +180,7 @@ namespace BNM::Structures::Mono {
             @brief Get array data pointer.
             @return Array data pointer if array is valid, otherwise null.
         */
-        [[nodiscard]] inline T *GetData() const { BNM_CHECK_SELF(nullptr); return &m_Items[0]; }
+        [[nodiscard]] inline T *GetData() const { BNM_CHECK_SELF(nullptr); return const_cast<T *>(&m_Items[0]); }
 
         /**
             @brief Convert array to std::vector.

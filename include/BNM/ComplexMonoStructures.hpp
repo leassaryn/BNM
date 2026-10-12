@@ -167,14 +167,14 @@ namespace BNM::Structures::Mono {
             @param key Target key
             @return True if key exists.
         */
-        bool ContainsKey(TKey key) const { return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(this)).GetMethod(BNM_OBFUSCATE("ContainsKey"), 1).template cast<bool>()[reinterpret_cast<void *>(this)](key); }
+        bool ContainsKey(TKey key) const { auto self = const_cast<Dictionary *>(this); return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(self)).GetMethod(BNM_OBFUSCATE("ContainsKey"), 1).template cast<bool>()[reinterpret_cast<void *>(self)](key); }
 
         /**
             @brief Check if value exists.
             @param value Target value
             @return True if value exists.
         */
-        bool ContainsValue(TValue value) const { return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(this)).GetMethod(BNM_OBFUSCATE("ContainsValue"), 1).template cast<bool>()[reinterpret_cast<void *>(this)](value); }
+        bool ContainsValue(TValue value) const { auto self = const_cast<Dictionary *>(this); return Class(reinterpret_cast<IL2CPP::Il2CppObject *>(self)).GetMethod(BNM_OBFUSCATE("ContainsValue"), 1).template cast<bool>()[reinterpret_cast<void *>(self)](value); }
 
         /**
             @brief Clear dictionary.
