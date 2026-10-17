@@ -42,14 +42,14 @@ namespace BNM {
     It contains: byte, sbyte, ushort, uint, ulong, nint, nuint, decimal.
 */
 namespace BNM::Types {
-    typedef uint8_t byte;
-    typedef int8_t sbyte;
-    typedef unsigned short ushort;
-    typedef unsigned int uint;
-    typedef unsigned long ulong;
+    using byte = uint8_t;
+    using sbyte = int8_t;
+    using ushort = unsigned short;
+    using uint = unsigned int;
+    using ulong = unsigned long;
     enum nint : intptr_t {};
     enum nuint : uintptr_t {};
-    typedef BNM::Structures::Mono::decimal decimal;
+    using decimal = BNM::Structures::Mono::decimal;
 }
 
 // NOLINTBEGIN
@@ -59,7 +59,7 @@ namespace BNM::Types {
 namespace BNM::Defaults {
     /// @cond
     namespace Internal {
-        typedef IL2CPP::Il2CppClass *ClassType;
+        using ClassType = IL2CPP::Il2CppClass *;
         extern ClassType Void, Boolean, Byte, SByte, Int16, UInt16, Int32, UInt32, IntPtr, UIntPtr, Int64, UInt64, Single, Double, Decimal, String, Object;
         extern ClassType Vector2, Vector3, Vector4, Color, Color32, Ray, Quaternion, Matrix3x3, Matrix4x4, RaycastHit, RaycastHit2D;
         extern ClassType UnityObject, MonoBehaviour;
@@ -209,7 +209,7 @@ namespace BNM::Defaults {
     template<typename T>
     inline IL2CPP::Il2CppObject *Box(T value) {
         if constexpr (std::is_pointer_v<T>)
-            return (IL2CPP::Il2CppObject *) value;
+            return reinterpret_cast<IL2CPP::Il2CppObject *>(value);
         return BNM::Defaults::Get<T>().ToClass().BoxObject(value);
     }
 }

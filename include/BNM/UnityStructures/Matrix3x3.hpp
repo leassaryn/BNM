@@ -3,7 +3,7 @@
 namespace BNM::Structures::Unity {
     struct Matrix4x4;
 
-    inline static bool CompareApproximately(float f0, float f1, float epsilon = 0.000001f) {
+    inline static constexpr bool CompareApproximately(float f0, float f1, float epsilon = 0.000001f) {
         float dist = (f0 - f1);
         dist = abs(dist);
         return dist <= epsilon;
@@ -13,7 +13,7 @@ namespace BNM::Structures::Unity {
         float m_Data[9]{};
         inline Matrix3x3() = default;
         inline Matrix3x3(float m00, float m01, float m02, float m10, float m11, float m12, float m20, float m21, float m22) { Get(0, 0) = m00; Get(1, 0) = m10; Get(2, 0) = m20; Get(0, 1) = m01; Get(1, 1) = m11; Get(2, 1) = m21; Get(0, 2) = m02; Get(1, 2) = m12; Get(2, 2) = m22; }
-        Matrix3x3(const class Matrix4x4& m);
+        Matrix3x3(const Matrix4x4& m);
 
         inline float& Get(int row, int column) { return m_Data[row + (column * 3)]; }
         [[nodiscard]] inline const float& Get(int row, int column) const { return m_Data[row + (column * 3)]; }
@@ -60,8 +60,8 @@ namespace BNM::Structures::Unity {
             return res;
         }
         [[nodiscard]] inline Vector3 MultiplyPoint3Transpose(const Vector3& inV) const { return MultiplyVector3Transpose(inV); }
-        Matrix3x3& operator=(const class Matrix4x4& m);
-        Matrix3x3& operator*=(const class Matrix4x4& inM);
+        Matrix3x3& operator=(const Matrix4x4& m);
+        Matrix3x3& operator*=(const Matrix4x4& inM);
         Matrix3x3& operator*=(const Matrix3x3& inM) {
             int i;
             for (i = 0; i < 3; i++) {
@@ -122,7 +122,7 @@ namespace BNM::Structures::Unity {
                 float uxx, uyy, uzz, uxy, uxz, uyz;
                 float lxx, lyy, lzz, lxy, lxz, lyz;
                 Vector3 left(0.0f, from[2], -from[1]);
-                if (Vector3::Dot(left, left) < kEpsilon) left[0] = -from[2]; left[1] = 0.0; left[2] = from[0];
+                if (Vector3::Dot(left, left) < kEpsilon) { left[0] = -from[2]; left[1] = 0.0; left[2] = from[0]; }
 
                 invlen = 1.0f / sqrt(Vector3::Dot(left, left));
                 left[0] *= invlen;
@@ -252,7 +252,8 @@ namespace BNM::Structures::Unity {
             vy = inVec[1];
             vz = inVec[2];
 
-#define M(row, col)  out[(row)*3 + col]
+            auto M = [&](int row, int col) -> float& { return out[row * 3 + col]; };
+
             xx = vx * vx;
             yy = vy * vy;
             zz = vz * vz;
@@ -275,12 +276,12 @@ namespace BNM::Structures::Unity {
             M(0, 2) = (one_c * zx) - ys;
             M(1, 2) = (one_c * yz) + xs;
             M(2, 2) = (one_c * zz) + c;
-#undef M
         }
         static void OrthoNormalize(Matrix3x3& matrix) {
-            Vector3* c0 = (Vector3*)matrix.GetPtr() + 0;
-            Vector3* c1 = (Vector3*)matrix.GetPtr() + 3;
-            Vector3* c2 = (Vector3*)matrix.GetPtr() + 6;
+            float* ptr = matrix.GetPtr();
+            Vector3* c0 = reinterpret_cast<Vector3*>(ptr);
+            Vector3* c1 = reinterpret_cast<Vector3*>(ptr + 3);
+            Vector3* c2 = reinterpret_cast<Vector3*>(ptr + 6);
             Vector3::OrthoNormalize(*c0, *c1, *c2);
         }
 

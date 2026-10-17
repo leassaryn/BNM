@@ -1,11 +1,17 @@
 #pragma once
 
+#include <bit>
+
 #include "Vector3.hpp"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
 
 namespace BNM::Structures::Unity {
     struct Vector4;
 
-    inline bool IsFinite(float value) { return (*(uint32_t *) &value & 0x7f800000) != 0x7f800000; }
+    inline bool IsFinite(float value) { return (std::bit_cast<uint32_t>(value) & 0x7f800000) != 0x7f800000; }
 
     struct Vector4 {
         union {
@@ -23,21 +29,21 @@ namespace BNM::Structures::Unity {
         inline float& operator[](int i) { return data[i]; }
         inline const float& operator[](int i) const { return data[i]; }
 
-        inline static float Component(Vector4 a, Vector4 b) { return Dot(a, b) / Magnitude(b); }
-        inline static float Distance(Vector4 a, Vector4 b) { return Magnitude(a - b); }
-        inline static float Dot(Vector4 lhs, Vector4 rhs) { return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z + lhs.w * rhs.w; }
+        inline static constexpr float Component(Vector4 a, Vector4 b) { return Dot(a, b) / Magnitude(b); }
+        inline static constexpr float Distance(Vector4 a, Vector4 b) { return Magnitude(a - b); }
+        inline static constexpr float Dot(Vector4 lhs, Vector4 rhs) { return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z + lhs.w * rhs.w; }
         inline static bool IsFinite(Vector4 f) { return Unity::IsFinite(f.x) && Unity::IsFinite(f.y) && Unity::IsFinite(f.z) && Unity::IsFinite(f.w); }
-        inline static Vector4 Lerp(Vector4 from, Vector4 to, float t) { return to * t + from * (1.0f - t); }
-        inline static Vector4 LerpUnclamped(Vector4 from, Vector4 to, float t) { return (to - from) * t + from; }
-        inline static float Magnitude(Vector4 inV) { return sqrt(Dot(inV, inV)); }
+        inline static constexpr Vector4 Lerp(Vector4 from, Vector4 to, float t) { return to * t + from * (1.0f - t); }
+        inline static constexpr Vector4 LerpUnclamped(Vector4 from, Vector4 to, float t) { return (to - from) * t + from; }
+        inline static constexpr float Magnitude(Vector4 inV) { return sqrtf(Dot(inV, inV)); }
         inline void Normalize() { *this = Normalize(*this); }
         inline static Vector4 Normalize(Vector4 v) { float n = Magnitude(v); if (n > 1E-05f) return v / n; return zero; }
         inline static Vector4 Project(Vector4 a, Vector4 b) { return b * (Dot(a, b) / Dot(b, b)); }
         inline static bool CompareApproximately(Vector4 a, Vector4 b, float inMaxDist = Vector3::kEpsilon) { return SqrMagnitude(b - a) <= inMaxDist * inMaxDist; }
-        inline static float SqrMagnitude(Vector4 inV) { return Dot(inV, inV); }
+        inline static constexpr float SqrMagnitude(Vector4 inV) { return Dot(inV, inV); }
 
-        bool operator==(Vector4 v) const { return x == v.x && y == v.y && z == v.z && w == v.w; }
-        bool operator!=(Vector4 v) const { return x != v.x || y != v.y || z != v.z || w != v.w; }
+        inline bool operator==(Vector4 v) const { return fabsf(x - v.x) < kEpsilon && fabsf(y - v.y) < kEpsilon && fabsf(z - v.z) < kEpsilon && fabsf(w - v.w) < kEpsilon; }
+        inline bool operator!=(Vector4 v) const { return !(*this == v); }
         inline friend Vector4 operator*(Vector4 lhs, Vector4 rhs) { return {lhs.x * rhs.x, lhs.y * rhs.y, lhs.z * rhs.z, lhs.w * rhs.w}; }
         inline friend Vector4 operator*(Vector4 v, float s) { return {v.x * s, v.y * s, v.z * s, v.w * s}; }
         inline friend Vector4 operator+(Vector4 lhs, Vector4 rhs) { return {lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z, lhs.w + rhs.w}; }
@@ -51,5 +57,9 @@ namespace BNM::Structures::Unity {
         static const Vector4 negativeInfinity;
         static const Vector4 zero;
         static const Vector4 one;
+
+        inline static constexpr float kEpsilon = 1E-05f;
     };
 }
+
+#pragma clang diagnostic pop

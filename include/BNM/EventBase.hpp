@@ -30,6 +30,12 @@ namespace BNM {
         inline EventBase(const EventBase &other) = default;
 
         /**
+            @brief Copy event.
+            @param other Other event
+        */
+        inline EventBase &operator=(const EventBase &other) = default;
+
+        /**
             @brief Create event from il2cpp event.
             @param info Il2cpp event
         */
@@ -53,7 +59,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current EventBase
         */
-        inline EventBase &operator[](void *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline EventBase &operator[](void *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Operator for setting instance.
@@ -67,13 +73,13 @@ namespace BNM {
             @param instance Instance
             @return Reference to current EventBase
         */
-        inline EventBase &operator[](UnityEngine::Object *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline EventBase &operator[](UnityEngine::Object *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Check if event is valid.
             @return State of event
         */
-        [[nodiscard]] inline bool IsValid() const noexcept { return _data; }
+        [[nodiscard]] inline constexpr bool IsValid() const noexcept { return _data != nullptr; }
 
 #ifdef BNM_ALLOW_STR_METHODS
 
@@ -88,7 +94,7 @@ namespace BNM {
             if (!_data) return BNM_OBFUSCATE(DBG_BNM_MSG_EventBase_str_nullptr);
             auto isStatic = _hasAdd ? _add._isStatic : _hasRemove ? _remove._isStatic : _raise._isStatic;
             return Class(_data->parent).str() + BNM_OBFUSCATE(".(") +
-                   ((Structures::Mono::String *)_data->name)->str() +
+                    _data->name +
                    BNM_OBFUSCATE("){" DBG_BNM_MSG_EventBase_str_add ": ") + (_hasAdd ? BNM_OBFUSCATE(DBG_BNM_MSG_EventBase_str_exists) : BNM_OBFUSCATE(DBG_BNM_MSG_EventBase_str_not_exists)) +
                    BNM_OBFUSCATE(", " DBG_BNM_MSG_EventBase_str_remove ": ") + (_hasRemove ? BNM_OBFUSCATE(DBG_BNM_MSG_EventBase_str_exists) : BNM_OBFUSCATE(DBG_BNM_MSG_EventBase_str_not_exists)) +
                    BNM_OBFUSCATE(", " DBG_BNM_MSG_EventBase_str_raise ": ") + (_hasRaise ? BNM_OBFUSCATE(DBG_BNM_MSG_EventBase_str_exists) : BNM_OBFUSCATE(DBG_BNM_MSG_EventBase_str_not_exists)) +
@@ -99,11 +105,38 @@ namespace BNM {
         /**
            @brief Cast event to be able to add, remove and raise it.
         */
-        template<typename NewRet, typename ...NewParameters> inline Event<NewRet, NewParameters...> &cast() const { return (Event<NewRet, NewParameters...> &)*this; }
+        template<typename NewRet, typename ...NewParameters> inline Event<NewRet, NewParameters...> cast() const { return Event<NewRet, NewParameters...>(*this); }
 
         IL2CPP::EventInfo *_data{};
         MethodBase _add{}, _remove{}, _raise{};
         uint8_t _hasAdd : 1 = false, _hasRemove : 1 = false, _hasRaise : 1 = false;
+
+        constexpr EventBase(EventBase &&other) noexcept
+            : _data(other._data), _add(std::move(other._add)), _remove(std::move(other._remove)),
+              _raise(std::move(other._raise)), _hasAdd(other._hasAdd), _hasRemove(other._hasRemove),
+              _hasRaise(other._hasRaise) {
+            other._data = nullptr;
+            other._hasAdd = false;
+            other._hasRemove = false;
+            other._hasRaise = false;
+        }
+
+        constexpr EventBase &operator=(EventBase &&other) noexcept {
+            if (this != &other) {
+                _data = other._data;
+                _add = std::move(other._add);
+                _remove = std::move(other._remove);
+                _raise = std::move(other._raise);
+                _hasAdd = other._hasAdd;
+                _hasRemove = other._hasRemove;
+                _hasRaise = other._hasRaise;
+                other._data = nullptr;
+                other._hasAdd = false;
+                other._hasRemove = false;
+                other._hasRaise = false;
+            }
+            return *this;
+        }
     };
 
 #pragma pack(pop)

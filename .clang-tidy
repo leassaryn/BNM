@@ -1,0 +1,18 @@
+---
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  clang-analyzer-*,
+  modernize-*,
+  -modernize-use-nodiscard,
+  performance-*,
+  readability-identifier-naming
+
+CheckOptions:
+  - key: modernize-use-override.CheckSuggestOverride
+    value: true
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case

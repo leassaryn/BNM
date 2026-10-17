@@ -1,63 +1,87 @@
-cmake_minimum_required(VERSION 3.8...3.26)
+cmake_minimum_required(VERSION 3.14...3.30)
 
+project(BNM LANGUAGES CXX)
 
-project(BNM)
+# Default to Release if not specified
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
 
-# Add dependents to liblog.so
-set(BNM_LINK_LOG OFF)
+# Options
+option(BNM_LINK_LOG "Add dependents to liblog.so" OFF)
+option(BNM_SANITIZERS "Enable ASan + UBSan for the selected build configuration" OFF)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-set(PUBLIC_INCLUDE_DIRS
-    include
-    external/include
+add_library(BNM STATIC
+    src/Class.cpp
+    src/ClassesManagement.cpp
+    src/Coroutine.cpp
+    src/Defaults.cpp
+    src/Delegates.cpp
+    src/EventBase.cpp
+    src/Exceptions.cpp
+    src/FieldBase.cpp
+    src/Hooks.cpp
+    src/Image.cpp
+    src/Internals.cpp
+    src/Loading.cpp
+    src/MethodBase.cpp
+    src/MonoStructures.cpp
+    src/PropertyBase.cpp
+    src/UnityStructures.cpp
+    src/Utils.cpp
 )
 
-set(INCLUDE_DIRS
-    include
-    external/include
-    external
-    external/utf8
-    src/private
+target_compile_features(BNM PUBLIC cxx_std_20)
+
+set_target_properties(BNM PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
 )
 
-add_library(
-        BNM
-        STATIC
-        src/Class.cpp
-        src/ClassesManagement.cpp
-        src/Coroutine.cpp
-        src/Defaults.cpp
-        src/Delegates.cpp
-        src/EventBase.cpp
-        src/Exceptions.cpp
-        src/FieldBase.cpp
-        src/Hooks.cpp
-        src/Image.cpp
-        src/Internals.cpp
-        src/Loading.cpp
-        src/MethodBase.cpp
-        src/MonoStructures.cpp
-        src/PropertyBase.cpp
-        src/UnityStructures.cpp
-        src/Utils.cpp
+# Include directories — PUBLIC for consumers, PRIVATE for implementation
+target_include_directories(BNM
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/utf8
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/private
 )
 
-target_include_directories(
-        BNM
-        PUBLIC
-        ${INCLUDE_DIRS}
+# Compiler warnings
+target_compile_options(BNM PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Wshadow
+    -Wconversion
+    -Wsign-conversion
+    -Wnon-virtual-dtor
+    -Woverloaded-virtual
+    -Wno-dollar-in-identifier-extension
+    -Wno-zero-length-array
 )
 
-if (${BNM_LINK_LOG})
-    target_link_libraries(
-            BNM
-            PUBLIC
-            log
+# Sanitizer support — enable with -DBNM_SANITIZERS=ON
+if(BNM_SANITIZERS)
+    target_compile_options(BNM PUBLIC
+        -fsanitize=address,undefined
+        -fno-omit-frame-pointer
+        -fno-sanitize-recover=all
     )
-endif ()
+    target_link_options(BNM PUBLIC
+        -fsanitize=address,undefined
+    )
+endif()
 
+# Link log
+if(BNM_LINK_LOG)
+    target_link_libraries(BNM PUBLIC log)
+endif()
 
-set_property(TARGET BNM PROPERTY BNM_INCLUDE_DIRECTORIES ${PUBLIC_INCLUDE_DIRS})
+set_property(TARGET BNM PROPERTY
+    BNM_INCLUDE_DIRECTORIES
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/include
+)
 

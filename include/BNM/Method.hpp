@@ -55,7 +55,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current Method
         */
-        inline Method<Ret> &operator[](void *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline Method<Ret> &operator[](void *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Operator for setting instance.
@@ -69,7 +69,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current Method
         */
-        inline Method<Ret> &operator[](UnityEngine::Object *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline Method<Ret> &operator[](UnityEngine::Object *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Call method.
@@ -78,11 +78,11 @@ namespace BNM {
         */
         template<typename ...Parameters>
         Ret Call(Parameters ...parameters) const {
-            if (!_data) { BNM_LOG_ERR(DBG_BNM_MSG_Method_Call_Dead); return BNM::PRIVATE_INTERNAL::ReturnEmpty<Ret>(); }
+            if (!_data || !_data->methodPointer) { BNM_LOG_ERR(DBG_BNM_MSG_Method_Call_Dead); return BNM::PRIVATE_INTERNAL::ReturnEmpty<Ret>(); }
             bool canInfo = true;
             if (sizeof...(Parameters) != _data->parameters_count){
-                canInfo = false;
                 BNM_LOG_WARN(DBG_BNM_MSG_Method_Call_Warn, str().c_str());
+                return BNM::PRIVATE_INTERNAL::ReturnEmpty<Ret>();
             }
             if (!_isStatic && !IsAllocated(_instance)) {
                 BNM_LOG_ERR(DBG_BNM_MSG_Method_Call_Error, str().c_str());
@@ -129,7 +129,9 @@ namespace BNM {
         TryInit();
         auto name = BNM_OBFUSCATE(".ctor");
         auto method = GetMethod(name, sizeof...(Parameters));
+        if (!method.IsValid()) { BNM_LOG_ERR("CreateNewObjectParameters: .ctor with %zu params not found", sizeof...(Parameters)); return nullptr; }
         auto instance = CreateNewInstance();
+        if (!instance) return nullptr;
         method.template cast<void>()[instance](parameters...);
         return instance;
     }
@@ -140,7 +142,9 @@ namespace BNM {
         TryInit();
         auto name = BNM_OBFUSCATE(".ctor");
         auto method = GetMethod(name, parameterNames);
+        if (!method.IsValid()) { BNM_LOG_ERR("CreateNewObjectTypes: .ctor with matching params not found"); return nullptr; }
         auto instance = CreateNewInstance();
+        if (!instance) return nullptr;
         method.template cast<void>()[instance](parameters...);
         return instance;
     }

@@ -52,14 +52,14 @@ MethodBase MethodBase::GetOverride() const {
     }
 
     auto klass = _instance->klass;
-    uint16_t i = 0;
-    NEXT:
-    for (; i < klass->vtable_count; ++i) {
+    for (uint16_t i = 0; i < klass->vtable_count; ++i) {
         auto &vTable = klass->vtable[i];
+        if (!vTable.method) continue;
         auto count = vTable.method->parameters_count;
 
         if (strcmp(vTable.method->name, _data->name) != 0 || count != _data->parameters_count) continue;
 
+        bool matches = true;
         for (uint8_t p = 0; p < count; ++p) {
 #if UNITY_VER < 212
             auto type = (vTable.method->parameters + p)->parameter_type;
@@ -69,9 +69,9 @@ MethodBase MethodBase::GetOverride() const {
             auto type2 = _data->parameters[p];
 #endif
 
-            if (Class(type).GetClass() != Class(type2).GetClass()) goto NEXT;
+            if (Class(type).GetClass() != Class(type2).GetClass()) { matches = false; break; }
         }
-        return MethodBase(vTable.method)[_instance];
+        if (matches) return MethodBase(vTable.method)[_instance];
     }
     return {};
 }

@@ -26,7 +26,7 @@ namespace BNM {
             @brief Create image from il2cpp image.
             @param image Il2cpp image
         */
-        inline Image(const BNM::IL2CPP::Il2CppImage *image) : _data((BNM::IL2CPP::Il2CppImage *) image) {}
+        inline Image(const BNM::IL2CPP::Il2CppImage *image) : _data(const_cast<BNM::IL2CPP::Il2CppImage *>(image)) {}
 
         /**
             @brief Create image from name.
@@ -58,7 +58,7 @@ namespace BNM {
              @brief Get classes count.
              @return Classes count if image is valid, otherwise zero.
          */
-        [[nodiscard]] inline uint32_t GetClassesCount() const { return _data ? _data->typeCount : -1; }
+        [[nodiscard]] inline uint32_t GetClassesCount() const { return _data ? _data->typeCount : 0u; }
 
         /**
             @brief Get Il2CppImage.
@@ -71,9 +71,9 @@ namespace BNM {
             @brief Check if image is valid.
             @return State of image
         */
-        [[nodiscard]] inline bool IsValid() const { return _data != nullptr; }
+        [[nodiscard]] inline constexpr bool IsValid() const { return _data != nullptr; }
 
-        inline operator bool() const { return IsValid(); }
+        inline constexpr operator bool() const { return IsValid(); }
 
 #ifdef BNM_ALLOW_STR_METHODS
 
@@ -90,7 +90,7 @@ namespace BNM {
              @brief Get all images.
              @return Vector of all images
          */
-        static std::vector<BNM::Image> GetImages();
+        [[nodiscard]] static std::vector<BNM::Image> GetImages();
 
         BNM::IL2CPP::Il2CppImage *_data{};
     };

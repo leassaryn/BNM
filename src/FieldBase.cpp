@@ -18,13 +18,16 @@ static bool CheckIsFieldStatic(IL2CPP::FieldInfo *field) {
 }
 
 FieldBase::FieldBase(IL2CPP::FieldInfo *info) {
-    if (!info) return;
+    if (!info || !info->type) return;
 
     _isConst = (info->type->attrs & 0x0040) != 0; // FIELD_ATTRIBUTE_LITERAL
     _isStatic = !_isConst && CheckIsFieldStatic(info);
     _data = info;
     _isThreadStatic = _data->offset == -1;
-    _isInStruct = Class(info->parent).GetIl2CppType()->type == IL2CPP::IL2CPP_TYPE_VALUETYPE;
+    if (info->parent) {
+        auto cls = Class(info->parent);
+        _isInStruct = cls.GetIl2CppType() && cls.GetIl2CppType()->type == IL2CPP::IL2CPP_TYPE_VALUETYPE;
+    }
 }
 
 FieldBase &FieldBase::SetInstance(IL2CPP::Il2CppObject *val)  {
@@ -60,8 +63,8 @@ void *FieldBase::GetFieldPointer() const {
         BNM_LOG_ERR(DBG_BNM_MSG_FieldBase_GetFieldPointer_Error_const_impossible, str().c_str());
         return nullptr;
     }
-    if (_isStatic) return (void *) ((BNM_PTR) _data->parent->static_fields + _data->offset);
-    return (void *) ((BNM_PTR) _instance + _data->offset - (_isInStruct ? sizeof(IL2CPP::Il2CppObject) : 0x0));
+    if (_isStatic) return reinterpret_cast<void *>(reinterpret_cast<BNM_PTR>(_data->parent->static_fields) + static_cast<BNM_PTR>(_data->offset));
+    return reinterpret_cast<void *>(reinterpret_cast<BNM_PTR>(_instance) + static_cast<BNM_PTR>(_data->offset) - (_isInStruct ? sizeof(IL2CPP::Il2CppObject) : 0x0));
 }
 
 BNM::Class FieldBase::GetType() const {

@@ -1,3 +1,8 @@
+#include <cstring>
+#include <string>
+#include <cstdio>
+#include <algorithm>
+
 #include <BNM/UserSettings/GlobalSettings.hpp>
 #include <BNM/Utils.hpp>
 #include <BNM/Method.hpp>
@@ -5,13 +10,40 @@
 
 using namespace BNM;
 
+size_t BNM::ReadableBytes(const void *address, size_t maximum) {
+    if (!address || !maximum) return 0;
+    auto *maps = std::fopen("/proc/self/maps", "r");
+    if (!maps) return 0;
+    const auto target = reinterpret_cast<uintptr_t>(address);
+    uintptr_t cursor = target;
+    size_t remaining = maximum;
+    char line[1024];
+    while (std::fgets(line, sizeof(line), maps)) {
+        unsigned long begin{}, end{};
+        char permissions[5]{};
+        if (std::sscanf(line, "%lx-%lx %4s", &begin, &end, permissions) != 3) continue;
+        if (end <= cursor) continue;
+        if (begin > cursor || permissions[0] != 'r') break;
+        const auto available = std::min(remaining, static_cast<size_t>(end - cursor));
+        remaining -= available;
+        if (!remaining) break;
+        cursor = end;
+    }
+    std::fclose(maps);
+    return maximum - remaining;
+}
+
 Structures::Mono::String *BNM::CreateMonoString(const std::string_view &str) {
-    return Internal::il2cppMethods.il2cpp_string_new(str.data());
+    // il2cpp_string_new expects a null-terminated C string; string_view may not be one.
+    std::string cStr(str);
+    return Internal::il2cppMethods.il2cpp_string_new ? Internal::il2cppMethods.il2cpp_string_new(cStr.c_str()) : nullptr;
 }
 
 void *BNM::GetExternMethod(const std::string_view &str) {
-    auto ret = Internal::il2cppMethods.il2cpp_resolve_icall(str.data());
-    BNM_LOG_WARN_IF(!ret, DBG_BNM_MSG_GetExternMethod_Warn, str.data());
+    // il2cpp_resolve_icall expects a null-terminated C string; string_view may not be one.
+    std::string cStr(str);
+    auto ret = Internal::il2cppMethods.il2cpp_resolve_icall ? Internal::il2cppMethods.il2cpp_resolve_icall(cStr.c_str()) : nullptr;
+    BNM_LOG_WARN_IF(!ret, DBG_BNM_MSG_GetExternMethod_Warn, cStr.c_str());
     return ret;
 }
 
@@ -20,42 +52,41 @@ bool BNM::IsLoaded() {
 }
 
 void *BNM::GetIl2CppLibraryHandle() {
+    std::lock_guard lock(Internal::configurationMutex);
     return Internal::il2cppLibraryHandle;
 }
 
 bool BNM::InvokeHookImpl(IL2CPP::MethodInfo *info, void *newMet, void **oldMet) {
     if (!info) return false;
-    if (oldMet) *oldMet = (void *) info->methodPointer;
-    info->methodPointer = (IL2CPP::Il2CppMethodPointer) newMet;
+    if (oldMet) *oldMet = reinterpret_cast<void *>(info->methodPointer);
+    info->methodPointer = reinterpret_cast<IL2CPP::Il2CppMethodPointer>(newMet);
     return true;
 }
 
 bool BNM::VirtualHookImpl(Class targetClass, IL2CPP::MethodInfo *info, void *newMet, void **oldMet) {
     if (!info || !targetClass) return false;
-    uint16_t i = 0;
-    NEXT:
-    for (; i < targetClass._data->vtable_count; ++i) {
-        auto &vTable = targetClass._data->vtable[i];
-        auto count = vTable.method->parameters_count;
 
-        if (strcmp(vTable.method->name, info->name) != 0 || count != info->parameters_count) continue;
-
+    // Helper lambda to check if methods match
+    auto methodsMatch = [](const IL2CPP::MethodInfo *method1, const IL2CPP::MethodInfo *method2) -> bool {
+        if (strcmp(method1->name, method2->name) != 0 || method1->parameters_count != method2->parameters_count) return false;
+        
+        auto count = method1->parameters_count;
         for (uint8_t p = 0; p < count; ++p) {
-#if UNITY_VER < 212
-            auto type = (vTable.method->parameters + p)->parameter_type;
-            auto type2 = (info->parameters + p)->parameter_type;
-#else
-            auto type = vTable.method->parameters[p];
-            auto type2 = info->parameters[p];
-#endif
-            if (Class(type).GetClass() != Class(type2).GetClass()) goto NEXT;
-
+            auto type = BNM::PRIVATE_INTERNAL::GetMethodParam(method1, p);
+            auto type2 = BNM::PRIVATE_INTERNAL::GetMethodParam(method2, p);
+            if (Class(type).GetClass() != Class(type2).GetClass()) return false;
         }
+        return true;
+    };
 
-        if (oldMet) *oldMet = (void *) vTable.methodPtr;
+    for (uint16_t i = 0; i < targetClass._data->vtable_count; ++i) {
+        auto &vTable = targetClass._data->vtable[i];
+        if (!vTable.method) continue;
+        if (!methodsMatch(vTable.method, info)) continue;
+
+        if (oldMet) *oldMet = reinterpret_cast<void *>(vTable.methodPtr);
         vTable.methodPtr = (void(*)()) newMet;
         return true;
-
     }
     return false;
 }
@@ -81,18 +112,18 @@ static void LogCompileTimeClassInfo(CompileTimeClass::_BaseInfo *info, const Com
             BNM_LOG_ERR("\tNone");
             break;
         case CompileTimeClass::_BaseType::Class: {
-            auto classInfo = (CompileTimeClass::_ClassInfo *) info;
+            auto classInfo = static_cast<CompileTimeClass::_ClassInfo *>(info);
             BNM_LOG_ERR("\tClass( imageName: \"%s\", namespace: \"%s\", name: \"%s\") - %s", classInfo->_imageName, classInfo->_namespace, classInfo->_name, tmp._loadedClass.str().data());
         } break;
         case CompileTimeClass::_BaseType::Inner: {
-            auto innerInfo = (CompileTimeClass::_InnerInfo *) info;
+            auto innerInfo = static_cast<CompileTimeClass::_InnerInfo *>(info);
             BNM_LOG_ERR("\tClass( name: \"%s\") - %s", innerInfo->_name, tmp._loadedClass.str().data());
         } break;
         case CompileTimeClass::_BaseType::Modifier: {
-            BNM_LOG_ERR("\tModifier(\"%s\") - %s", CompileTimeClassModifiers[(uint8_t) ((CompileTimeClass::_ModifierInfo *) info)->_modifierType], tmp._loadedClass.str().data());
+            BNM_LOG_ERR("\tModifier(\"%s\") - %s", CompileTimeClassModifiers[BNM::to_underlying(static_cast<CompileTimeClass::_ModifierInfo *>(info)->_modifierType)], tmp._loadedClass.str().data());
         } break;
         case CompileTimeClass::_BaseType::Generic: {
-            auto genericInfo = (CompileTimeClass::_GenericInfo *) info;
+            auto genericInfo = static_cast<CompileTimeClass::_GenericInfo *>(info);
             BNM_LOG_ERR("\tGeneric: ");
             for (auto type : genericInfo->_types) BNM_LOG_ERR("\t\t%s", type.ToClass().str().data());
             BNM_LOG_ERR("\t%s", tmp._loadedClass.str().data());
@@ -103,7 +134,7 @@ static void LogCompileTimeClassInfo(CompileTimeClass::_BaseInfo *info, const Com
 
 namespace CompileTimeClassProcessors {
     typedef void (*ProcessorType)(CompileTimeClass &target, CompileTimeClass::_BaseInfo *info);
-    extern ProcessorType processors[(uint8_t) CompileTimeClass::_BaseType::MaxCount];
+    extern ProcessorType processors[BNM::to_underlying(CompileTimeClass::_BaseType::MaxCount)];
 }
 
 void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
@@ -116,9 +147,10 @@ void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
     auto current = lastElement->next;
     do {
         auto info = current->value;
-        auto index = (uint8_t) info->_baseType;
-        if (index >= (uint8_t) CompileTimeClass::_BaseType::MaxCount) {
-            BNM_LOG_ERR("\t" DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (size_t)index);
+        auto index = BNM::to_underlying(info->_baseType);
+        if (index >= BNM::to_underlying(CompileTimeClass::_BaseType::MaxCount)) {
+            BNM_LOG_ERR("\t" DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (unsigned long) index);
+            current = current->next;
             continue;
         }
         CompileTimeClassProcessors::processors[index](tmp, info);
@@ -132,24 +164,27 @@ void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
 
 bool BNM::AttachIl2Cpp() {
     if (CurrentIl2CppThread()) return false;
-    Internal::il2cppMethods.il2cpp_thread_attach(Internal::il2cppMethods.il2cpp_domain_get());
-    return true;
+    if (!Internal::il2cppMethods.il2cpp_thread_attach || !Internal::il2cppMethods.il2cpp_domain_get) return false;
+    auto *domain = Internal::il2cppMethods.il2cpp_domain_get();
+    return domain && Internal::il2cppMethods.il2cpp_thread_attach(domain);
 }
 
 IL2CPP::Il2CppThread *BNM::CurrentIl2CppThread() {
-    return Internal::il2cppMethods.il2cpp_thread_current(Internal::il2cppMethods.il2cpp_domain_get());
+    if (!Internal::il2cppMethods.il2cpp_thread_current || !Internal::il2cppMethods.il2cpp_domain_get) return nullptr;
+    auto *domain = Internal::il2cppMethods.il2cpp_domain_get();
+    return domain ? Internal::il2cppMethods.il2cpp_thread_current(domain) : nullptr;
 }
 
 void BNM::DetachIl2Cpp() {
     auto thread = BNM::CurrentIl2CppThread();
-    if (!thread) return;
+    if (!thread || !Internal::il2cppMethods.il2cpp_thread_detach) return;
     Internal::il2cppMethods.il2cpp_thread_detach(thread);
 }
 
 void *BNM::Allocate(size_t size) {
-    return Internal::il2cppMethods.il2cpp_gc_alloc_fixed(size);
+    return Internal::il2cppMethods.il2cpp_gc_alloc_fixed ? Internal::il2cppMethods.il2cpp_gc_alloc_fixed(size) : nullptr;
 }
 
 void BNM::Free(void *ptr) {
-    return Internal::il2cppMethods.il2cpp_gc_free_fixed(ptr);
+    if (ptr && Internal::il2cppMethods.il2cpp_gc_free_fixed) Internal::il2cppMethods.il2cpp_gc_free_fixed(ptr);
 }

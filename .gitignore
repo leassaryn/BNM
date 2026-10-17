@@ -1,0 +1,9 @@
+.agents/
+.agent/
+.opencode
+build/
+.env
+.python
+.cc
+.tinycc
+opencode.jsonc

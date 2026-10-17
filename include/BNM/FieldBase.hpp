@@ -28,6 +28,12 @@ namespace BNM {
         inline FieldBase(const FieldBase &other) = default;
 
         /**
+            @brief Copy field.
+            @param other Other field
+        */
+        inline FieldBase &operator=(const FieldBase &other) = default;
+
+        /**
             @brief Create event from il2cpp field.
             @param info Il2cpp field
         */
@@ -50,7 +56,7 @@ namespace BNM {
             @brief Get field offset.
             @return Field offset if field is valid, otherwise zero.
         */
-        [[nodiscard]] inline BNM_PTR GetOffset() const { return _data ? (BNM_PTR) _data->offset - (_isInStruct && !_isStatic && !_isThreadStatic ? sizeof(IL2CPP::Il2CppObject) : 0x0) : 0; }
+        [[nodiscard]] inline BNM_PTR GetOffset() const { return _data ? static_cast<BNM_PTR>(_data->offset) - (_isInStruct && !_isStatic && !_isThreadStatic ? sizeof(IL2CPP::Il2CppObject) : 0x0) : 0; }
 
         /**
             @brief Get field pointer.
@@ -79,7 +85,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current FieldBase
         */
-        inline FieldBase &operator[](void *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline FieldBase &operator[](void *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Operator for setting instance.
@@ -93,13 +99,13 @@ namespace BNM {
             @param instance Instance
             @return Reference to current FieldBase
         */
-        inline FieldBase &operator[](UnityEngine::Object *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline FieldBase &operator[](UnityEngine::Object *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Check if field is valid.
             @return State of field
         */
-        [[nodiscard]] inline bool IsValid() const noexcept { return _data; }
+        [[nodiscard]] inline constexpr bool IsValid() const noexcept { return _data != nullptr; }
 
 #ifdef BNM_ALLOW_STR_METHODS
 
@@ -119,11 +125,41 @@ namespace BNM {
         /**
            @brief Cast field to be able to get and set it with specified type.
         */
-        template<typename NewType> inline Field<NewType> &cast() const { return (Field<NewType> &)*this; }
+        template<typename NewType> inline Field<NewType> cast() const { return Field<NewType>(*this); }
 
         BNM::IL2CPP::FieldInfo *_data{};
         BNM::IL2CPP::Il2CppObject *_instance{};
         uint8_t _isStatic : 1 = false, _isThreadStatic : 1 = false, _isInStruct : 1 = false, _isConst : 1 = false;
+
+        constexpr FieldBase(FieldBase &&other) noexcept
+            : _data(other._data), _instance(other._instance),
+              _isStatic(other._isStatic), _isThreadStatic(other._isThreadStatic),
+              _isInStruct(other._isInStruct), _isConst(other._isConst) {
+            other._data = nullptr;
+            other._instance = nullptr;
+            other._isStatic = false;
+            other._isThreadStatic = false;
+            other._isInStruct = false;
+            other._isConst = false;
+        }
+
+        constexpr FieldBase &operator=(FieldBase &&other) noexcept {
+            if (this != &other) {
+                _data = other._data;
+                _instance = other._instance;
+                _isStatic = other._isStatic;
+                _isThreadStatic = other._isThreadStatic;
+                _isInStruct = other._isInStruct;
+                _isConst = other._isConst;
+                other._data = nullptr;
+                other._instance = nullptr;
+                other._isStatic = false;
+                other._isThreadStatic = false;
+                other._isInStruct = false;
+                other._isConst = false;
+            }
+            return *this;
+        }
     };
 
 #pragma pack(pop)

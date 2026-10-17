@@ -36,7 +36,7 @@ namespace BNM {
             @brief Create class from il2cpp class.
             @param _class Il2cpp class
         */
-        inline Class(const BNM::IL2CPP::Il2CppClass *_class) : _data((BNM::IL2CPP::Il2CppClass *) _class) {};
+        inline Class(const BNM::IL2CPP::Il2CppClass *_class) : _data(const_cast<BNM::IL2CPP::Il2CppClass *>(_class)) {};
 
         /**
             @brief Create class from il2cpp object.
@@ -400,7 +400,7 @@ namespace BNM {
             @return New array
         */
         template<typename T>
-        BNM::Structures::Mono::Array<T> *NewArray(IL2CPP::il2cpp_array_size_t size = 0) const {
+        [[nodiscard]] BNM::Structures::Mono::Array<T> *NewArray(IL2CPP::il2cpp_array_size_t size = 0) const {
             BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
             if (!_data) return nullptr;
             TryInit();
@@ -417,7 +417,7 @@ namespace BNM {
             @return New list
         */
         template<typename T>
-        Structures::Mono::List<T> *NewList() const;
+        [[nodiscard]] Structures::Mono::List<T> *NewList() const;
 
         /**
             @brief Create list of this type.
@@ -430,11 +430,12 @@ namespace BNM {
             @return New list
         */
         template<typename T>
-        Structures::Mono::List<T> *NewListBNM() const {
+        [[nodiscard]] Structures::Mono::List<T> *NewListBNM() const {
             BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
             if (!_data) return nullptr;
             TryInit();
             BNM::Structures::Mono::Array<T> *array = NewArray<T>(1);
+            if (!array) return nullptr;
             auto *lst = (BNM::Structures::Mono::List<T> *) NewListInstance();
             if (!lst) {
                 BNM_LOG_ERR(DBG_BNM_MSG_Class_NewList_Error, str().c_str());
@@ -454,12 +455,13 @@ namespace BNM {
             @tparam T Non pointer object type
             @return Boxed object
         */
-        template<typename T, typename = std::enable_if<!std::is_pointer_v<T>>>
+        template<typename T>
+            requires (!std::is_pointer_v<T>)
         IL2CPP::Il2CppObject *BoxObject(T obj) const {
             BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
             if (!_data) return nullptr;
             TryInit();
-            return BoxObject(_data, (void *) &obj);
+            return BoxObject(_data, reinterpret_cast<void *>(&obj));
         }
 
         /**
@@ -473,7 +475,7 @@ namespace BNM {
             @return New instance
         */
         template<typename ...Parameters>
-        BNM::IL2CPP::Il2CppObject *CreateNewObjectParameters(Parameters ...parameters) const;
+        [[nodiscard]] BNM::IL2CPP::Il2CppObject *CreateNewObjectParameters(Parameters ...parameters) const;
 
         /**
             @brief Create class instance.
@@ -486,22 +488,13 @@ namespace BNM {
             @return New instance
         */
         template<typename ...Parameters>
-        BNM::IL2CPP::Il2CppObject *CreateNewObjectTypes(const std::initializer_list<std::string_view> &parameterNames, Parameters ...parameters) const;
+        [[nodiscard]] BNM::IL2CPP::Il2CppObject *CreateNewObjectTypes(const std::initializer_list<std::string_view> &parameterNames, Parameters ...parameters) const;
 
         /**
             @brief Check if class is valid.
             @return State of class
         */
-        [[nodiscard]] inline bool IsValid() const { return _data != nullptr; }
-
-        /**
-            @brief Check if class is valid.
-
-            Alias of IsValid().
-
-            @return State of class
-        */
-        [[nodiscard]] inline bool Alive() const { return IsValid(); }
+        [[nodiscard]] inline constexpr bool IsValid() const { return _data != nullptr; }
 
         /**
             @brief Check if class is valid.
@@ -510,7 +503,16 @@ namespace BNM {
 
             @return State of class
         */
-        inline operator bool() const { return IsValid(); }
+        [[nodiscard]] inline constexpr bool Alive() const { return IsValid(); }
+
+        /**
+            @brief Check if class is valid.
+
+            Alias of IsValid().
+
+            @return State of class
+        */
+        inline constexpr operator bool() const { return IsValid(); }
 
 
 #ifdef BNM_ALLOW_STR_METHODS
@@ -563,6 +565,11 @@ namespace BNM {
             None, Array, Pointer, Reference
         };
         inline CompileTimeClass() = default;
+        CompileTimeClass(const CompileTimeClass &other);
+        CompileTimeClass &operator=(const CompileTimeClass &other);
+        CompileTimeClass(CompileTimeClass &&other) noexcept;
+        CompileTimeClass &operator=(CompileTimeClass &&other) noexcept;
+        ~CompileTimeClass();
         inline CompileTimeClass(Defaults::Internal::ClassType *reference) : _reference(reference) { _SetBit(); }
 
         /// @cond
@@ -572,9 +579,10 @@ namespace BNM {
             Defaults::Internal::ClassType *_reference;
         };
 
-        inline bool _IsBit() { return ((uintptr_t)_reference) & 1; }
-        inline void _SetBit() { _reference = (Defaults::Internal::ClassType *) (((uintptr_t)_reference) | 1); }
-        inline void _RemoveBit() { _reference = (Defaults::Internal::ClassType *) (((uintptr_t)_reference) & ~1); }
+        inline uintptr_t _Bits() const { uintptr_t bits{}; std::memcpy(&bits, &_loadedClass, sizeof(bits)); return bits; }
+        inline bool _IsBit() const { return (_Bits() & 1) != 0; }
+        inline void _SetBit() { auto bits = _Bits() | uintptr_t{1}; std::memcpy(&_loadedClass, &bits, sizeof(bits)); }
+        inline void _RemoveBit() { auto bits = _Bits() & ~uintptr_t{1}; std::memcpy(&_loadedClass, &bits, sizeof(bits)); }
         /// @endcond
 
         /**
@@ -590,6 +598,7 @@ namespace BNM {
             @brief Get BNM::Class from CompileTimeClass.
 
             Tries to get BNM::Class from information, that CompileTimeClass has.
+            This version can modify the CompileTimeClass for caching.
 
             @return BNM::Class
         */
@@ -652,6 +661,21 @@ namespace BNM {
     struct CompileTimeClassBuilder {
         CompileTimeClass _data{};
 
+    private:
+        template<class T, class... Args> void AddInfo(Args&&... args) {
+            auto *storage = BNM_malloc(sizeof(T));
+            if (!storage) throw std::bad_alloc();
+            T *info = nullptr;
+            try {
+                info = new (storage) T(std::forward<Args>(args)...);
+                _data._stack.Add(info);
+            } catch (...) {
+                if (info) info->~T();
+                BNM_free(storage);
+                throw;
+            }
+        }
+    public:
         /**
             @brief Create builder.
 
@@ -664,9 +688,7 @@ namespace BNM {
         */
         inline CompileTimeClassBuilder(const char *_namespace, const char *_name, const char *_imageName = nullptr, bool autoFree = true) {
             if (autoFree) _data._SetBit();
-            auto info = (CompileTimeClass::_ClassInfo *) BNM_malloc(sizeof(CompileTimeClass::_ClassInfo));
-            new (info) CompileTimeClass::_ClassInfo{_namespace, _name, _imageName};
-            _data._stack.Add(info);
+            AddInfo<CompileTimeClass::_ClassInfo>(_namespace, _name, _imageName);
         }
 
         /**
@@ -679,9 +701,7 @@ namespace BNM {
             @return Reference to current builder
         */
         inline CompileTimeClassBuilder &Class(const char *_name) {
-            auto info = (CompileTimeClass::_InnerInfo *) BNM_malloc(sizeof(CompileTimeClass::_InnerInfo));
-            new (info) CompileTimeClass::_InnerInfo{_name};
-            _data._stack.Add(info);
+            AddInfo<CompileTimeClass::_InnerInfo>(_name);
             return *this;
         }
 
@@ -695,9 +715,7 @@ namespace BNM {
             @return Reference to current builder
         */
         inline CompileTimeClassBuilder &Modifier(CompileTimeClass::ModifierType type) {
-            auto modifier = (CompileTimeClass::_ModifierInfo *) BNM_malloc(sizeof(CompileTimeClass::_ModifierInfo));
-            new (modifier) CompileTimeClass::_ModifierInfo{type};
-            _data._stack.Add(modifier);
+            AddInfo<CompileTimeClass::_ModifierInfo>(type);
             return *this;
         }
 
@@ -711,9 +729,7 @@ namespace BNM {
             @return Reference to current builder
         */
         inline CompileTimeClassBuilder &Generic(const std::initializer_list<CompileTimeClass> &templateTypes) {
-            auto generic = (CompileTimeClass::_GenericInfo *) BNM_malloc(sizeof(CompileTimeClass::_GenericInfo));
-            new (generic) CompileTimeClass::_GenericInfo{templateTypes};
-            _data._stack.Add(generic);
+            AddInfo<CompileTimeClass::_GenericInfo>(templateTypes);
             return *this;
         }
 
@@ -734,7 +750,7 @@ namespace BNM {
         BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
         if (!_data) return nullptr;
         TryInit();
-        auto lst = (BNM::Structures::Mono::List<T> *) GetListClass().GetGeneric({GetCompileTimeClass()}).CreateNewObjectParameters();
+        auto lst = static_cast<BNM::Structures::Mono::List<T> *>(GetListClass().GetGeneric({GetCompileTimeClass()}).CreateNewObjectParameters());
         if (!lst) {
             BNM_LOG_ERR(DBG_BNM_MSG_Class_NewList_Error, str().c_str());
             return nullptr;
@@ -753,8 +769,9 @@ namespace BNM {
 
         @return True if object is inherited from target class.
     */
-    template<typename T, typename = std::enable_if<std::is_pointer_v<T>>>
-    bool IsA(T object, IL2CPP::Il2CppClass *_class) { return IsA<BNM::IL2CPP::Il2CppObject *>((IL2CPP::Il2CppObject *)object, _class); }
+    template<typename T>
+        requires std::is_pointer_v<T>
+    bool IsA(T object, IL2CPP::Il2CppClass *_class) { return IsA<BNM::IL2CPP::Il2CppObject *>(reinterpret_cast<IL2CPP::Il2CppObject *>(object), _class); }
 
     /**
         @brief Check if Il2CppObject is inherited from class.
@@ -778,7 +795,8 @@ namespace BNM {
 
         @return True if object is inherited from target class.
     */
-    template<typename T, typename = std::enable_if<std::is_pointer<T>::value>>
+    template<typename T>
+        requires std::is_pointer_v<T>
     bool IsA(T object, Class _class) { return IsA(object, _class.GetClass()); }
 
     /**
@@ -792,7 +810,8 @@ namespace BNM {
 
         @return True if object is inherited from target class.
     */
-    template<typename T, typename = std::enable_if<std::is_pointer<T>::value>>
+    template<typename T>
+        requires std::is_pointer_v<T>
     bool IsA(T object, IL2CPP::Il2CppObject *_object) { if (!_object) return false; return IsA(object, _object->klass); }
 
     /**
@@ -806,14 +825,15 @@ namespace BNM {
 
         @return True if object is inherited from target type.
     */
-    template<typename T, typename = std::enable_if<std::is_pointer<T>::value>>
+    template<typename T>
+        requires std::is_pointer_v<T>
     bool IsA(T object, MonoType *_type) { return IsA(object, Class(_type)); }
 
 #ifdef BNM_OLD_GOOD_DAYS
     /**
         @brief For people how love old BNM
     */
-    typedef Class LoadClass;
+    using LoadClass = Class;
 #endif
 
 }

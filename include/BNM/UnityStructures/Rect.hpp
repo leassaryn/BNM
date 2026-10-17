@@ -1,5 +1,9 @@
 #pragma once
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+
 namespace BNM::Structures::Unity {
     struct Rect {
         union {
@@ -15,3 +19,5 @@ namespace BNM::Structures::Unity {
         inline bool operator !=(const Rect& other) const = default;
     };
 }
+
+#pragma clang diagnostic pop

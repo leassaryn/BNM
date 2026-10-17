@@ -166,21 +166,22 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 
 // Shadowhook
 /*
+#include <shadowhook.h>
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
-    if ((void *) ptr != nullptr) return shadowhook_hook_func_addr((void *)ptr, (void *) newMethod, (void **) &oldBytes);
+    if (reinterpret_cast<void *>(ptr) != nullptr) return shadowhook_hook_func_addr(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes));
     return nullptr;
 }
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &&oldBytes) {
-    if ((void *) ptr != nullptr) return shadowhook_hook_func_addr((void *)ptr, (void *) newMethod, (void **) &oldBytes);
+    if (reinterpret_cast<void *>(ptr) != nullptr) return shadowhook_hook_func_addr(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes));
     return nullptr;
 }
 
 template<typename PTR_T>
 inline void Unhook(PTR_T ptr) {
-    if ((void *) ptr != nullptr) shadowhook_unhook((void *)ptr);
+    if (reinterpret_cast<void *>(ptr) != nullptr) shadowhook_unhook(reinterpret_cast<void *>(ptr));
 }
 */
 
@@ -191,42 +192,39 @@ inline void Unhook(PTR_T ptr) {
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
-    if ((void *) ptr != nullptr) DobbyHook((void *)ptr, (void *) newMethod, (void **) &oldBytes);
-    return (void *) ptr;
+    if (!reinterpret_cast<void *>(ptr) || !reinterpret_cast<void *>(newMethod)) return nullptr;
+    if (DobbyHook(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes)) != 0) return nullptr;
+    return reinterpret_cast<void *>(ptr);
 }
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &&oldBytes) {
-    if ((void *) ptr != nullptr) DobbyHook((void *)ptr, (void *) newMethod, (void **) &oldBytes);
-    return (void *) ptr;
+    return BasicHook(ptr, newMethod, oldBytes);
 }
 
 template<typename PTR_T>
 inline void Unhook(PTR_T ptr) {
-    if ((void *) ptr != nullptr) DobbyDestroy((void *)ptr);
+    if (reinterpret_cast<void *>(ptr) != nullptr) DobbyDestroy(reinterpret_cast<void *>(ptr));
 }
 */
 
 // Dummy
 #include <cassert>
 
-static_assert(false, "No hooking software!");
+#error "No hooking backend selected! Uncomment Dobby or ShadowHook in GlobalSettings.hpp above."
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
-inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
-    if ((void *) ptr != nullptr) ((void)0);
+inline void *BasicHook(PTR_T, NEW_T, T_OLD &) {
     return nullptr;
 }
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
-inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &&oldBytes) {
-    if ((void *) ptr != nullptr) ((void)0);
+inline void *BasicHook(PTR_T, NEW_T, T_OLD &&) {
     return nullptr;
 }
 
 template<typename PTR_T>
-inline void Unhook(PTR_T ptr) {
-    if ((void *) ptr != nullptr) ((void)0);
+inline void Unhook(PTR_T) {
 }
 
 #include <dlfcn.h>
@@ -287,12 +285,12 @@ inline void Unhook(PTR_T ptr) {
 
 namespace BNM {
 #if defined(__LP64__)
-    typedef long BNM_INT_PTR;
-    typedef unsigned long BNM_PTR;
+    using BNM_INT_PTR = long;
+    using BNM_PTR = unsigned long;
 #else
-    typedef int BNM_INT_PTR;
-    typedef unsigned int BNM_PTR;
+    using BNM_INT_PTR = int;
+    using BNM_PTR = unsigned int;
 #endif
 }
 
-#define BNM_VER "2.5.3"
+#define BNM_VER "2.5.4-dirty"

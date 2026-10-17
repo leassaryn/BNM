@@ -2,6 +2,10 @@
 
 #include "Vector3.hpp"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+
 namespace BNM::Structures::Unity {
     struct Quaternion {
         union {
@@ -9,10 +13,10 @@ namespace BNM::Structures::Unity {
             float data[4]{0.f, 0.f, 0.f, 0.f};
         };
 
-        inline Quaternion() : x(0), y(0), z(0), w(1) {};
-        inline Quaternion(float data[]) noexcept : x(data[0]), y(data[1]), z(data[2]), w(data[3]) {}
-        inline Quaternion(Vector3 vector, float scalar) noexcept : x(vector.x), y(vector.y), z(vector.z), w(scalar) {};
-        inline Quaternion(float x, float y, float z, float w) noexcept : x(x), y(y), z(z), w(w) {};
+        inline constexpr Quaternion() : x(0), y(0), z(0), w(1) {};
+        inline constexpr Quaternion(float data[]) : x(data[0]), y(data[1]), z(data[2]), w(data[3]) {}
+        inline constexpr Quaternion(Vector3 vector, float scalar) : x(vector.x), y(vector.y), z(vector.z), w(scalar) {};
+        inline constexpr Quaternion(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {};
         inline Quaternion(float Yaw, float Pitch, float Roll) {
             *this = Quaternion::FromEuler(Yaw, Pitch, Roll);
         };
@@ -24,9 +28,9 @@ namespace BNM::Structures::Unity {
         inline static Vector3 Forward(Quaternion q);
         inline static Vector3 Back(Quaternion q);
 
-        inline static float Angle(Quaternion a, Quaternion b);
-        inline static Quaternion Conjugate(Quaternion rotation);
-        inline static float Dot(Quaternion lhs, Quaternion rhs);
+        inline static constexpr float Angle(Quaternion a, Quaternion b);
+        inline static constexpr Quaternion Conjugate(Quaternion rotation);
+        inline static constexpr float Dot(Quaternion lhs, Quaternion rhs);
         inline static Quaternion FromAngleAxis(float angle, Vector3 axis);
         inline static Quaternion FromEuler(Vector3 rotation);
         inline static Quaternion FromEuler(float yaw, float pitch, float roll, bool fromDeg = true);
@@ -36,7 +40,7 @@ namespace BNM::Structures::Unity {
         inline static Quaternion LerpUnclamped(Quaternion a, Quaternion b, float t);
         inline static Quaternion LookRotation(Vector3 forward);
         inline static Quaternion LookRotation(Vector3 forward, Vector3 upwards);
-        inline static float Norm(Quaternion rotation);
+        inline static constexpr float Norm(Quaternion rotation);
         inline static Quaternion Normalize(Quaternion rotation);
         inline static Quaternion RotateTowards(Quaternion from, Quaternion to, float maxRadiansDelta);
         inline static Quaternion Slerp(Quaternion a, Quaternion b, float t);
@@ -69,10 +73,8 @@ namespace BNM::Structures::Unity {
                     lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z};
         }
         inline friend Quaternion operator/(Quaternion lhs, Quaternion rhs) {
-            return {lhs.w / rhs.x + lhs.x / rhs.w + lhs.y / rhs.z - lhs.z / rhs.y,
-                    lhs.w / rhs.y + lhs.y / rhs.w + lhs.z / rhs.x - lhs.x / rhs.z,
-                    lhs.w / rhs.z + lhs.z / rhs.w + lhs.x / rhs.y - lhs.y / rhs.x,
-                    lhs.w / rhs.w - lhs.x / rhs.x - lhs.y / rhs.y - lhs.z / rhs.z};
+            Quaternion inv = Inverse(rhs);
+            return lhs * inv;
         }
         inline static Vector3 RotateVectorByQuaternion(Quaternion lhs, Vector3 rhs);
 
@@ -89,11 +91,7 @@ namespace BNM::Structures::Unity {
     }
 
     inline Quaternion& Quaternion::operator/=(Quaternion rhs) {
-        float tempX = w / rhs.x + x / rhs.w + y / rhs.z - z / rhs.y;
-        float tempY = w / rhs.y + y / rhs.w + z / rhs.x - x / rhs.z;
-        float tempZ = w / rhs.z + z / rhs.w + x / rhs.y - y / rhs.x;
-        float tempW = w / rhs.w - x / rhs.x - y / rhs.y - z / rhs.z;
-        x = tempX; y = tempY; z = tempZ; w = tempW;
+        *this = *this * Inverse(rhs);
         return *this;
     }
 
@@ -109,22 +107,23 @@ namespace BNM::Structures::Unity {
     Vector3 Quaternion::Forward(Quaternion q) { return q * Vector3::forward; }
     Vector3 Quaternion::Back(Quaternion q) { return q * Vector3::back; }
 
-    float Quaternion::Angle(Quaternion a, Quaternion b) {
+    constexpr float Quaternion::Angle(Quaternion a, Quaternion b) {
         float dot = Dot(a, b);
-        return acosf(fminf(fabs(dot), 1)) * 2;
+        return acosf(fminf(fabsf(dot), 1)) * 2;
     }
 
-    Quaternion Quaternion::Conjugate(Quaternion rotation) {
+    constexpr Quaternion Quaternion::Conjugate(Quaternion rotation) {
         return {-rotation.x, -rotation.y, -rotation.z, rotation.w};
     }
 
-    float Quaternion::Dot(Quaternion lhs, Quaternion rhs) {
+    constexpr float Quaternion::Dot(Quaternion lhs, Quaternion rhs) {
         return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z + lhs.w * rhs.w;
     }
 
     Quaternion Quaternion::FromAngleAxis(float angle, Vector3 axis) {
         Quaternion q;
         float m = sqrtf(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z);
+        if (m < Vector3::kEpsilon) return identity;
         float s = sinf(angle / 2) / m;
         q.x = axis.x * s;
         q.y = axis.y * s;
@@ -138,12 +137,12 @@ namespace BNM::Structures::Unity {
     }
 
     Quaternion Quaternion::FromEuler(float yaw, float pitch, float roll, bool fromDeg) {
-        constexpr float deg2Rad = M_PI / 180.f;
+        constexpr float deg2Rad = static_cast<float>(M_PI) / 180.f;
 
         if (fromDeg) {
-            roll *= (float) deg2Rad;
-            pitch *= (float) deg2Rad;
-            yaw *= (float) deg2Rad;
+            roll *= static_cast<float>(deg2Rad);
+            pitch *= static_cast<float>(deg2Rad);
+            yaw *= static_cast<float>(deg2Rad);
         }
         float cY(cosf(yaw / 2.0f));
         float sY(sinf(yaw / 2.0f));
@@ -192,8 +191,8 @@ namespace BNM::Structures::Unity {
             rot.z = 0;
         }
 
-        constexpr float rad2deg = 180.f / M_PI;
-        if (toDeg) rot *= (float) rad2deg;
+        constexpr float rad2deg = 180.f / static_cast<float>(M_PI);
+        if (toDeg) rot *= static_cast<float>(rad2deg);
 
         return rot;
     }
@@ -210,6 +209,7 @@ namespace BNM::Structures::Unity {
 
     Quaternion Quaternion::Inverse(Quaternion rotation) {
         float n = Norm(rotation);
+        if (n < Vector3::kEpsilon) return identity;
         return Conjugate(rotation) / (n * n);
     }
 
@@ -271,18 +271,20 @@ namespace BNM::Structures::Unity {
         return quaternion;
     }
 
-    float Quaternion::Norm(Quaternion rotation) {
+    constexpr float Quaternion::Norm(Quaternion rotation) {
         return sqrtf(rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z + rotation.w * rotation.w);
     }
 
     Quaternion Quaternion::Normalize(Quaternion rotation) {
-        return rotation / Norm(rotation);
+        float n = Norm(rotation);
+        if (n < Vector3::kEpsilon) return identity;
+        return rotation / n;
     }
 
     Quaternion Quaternion::RotateTowards(Quaternion from, Quaternion to, float maxRadiansDelta) {
         float angle = Angle(from, to);
         if (angle == 0) return to;
-        maxRadiansDelta = fmaxf(maxRadiansDelta, angle - (float) M_PI);
+        maxRadiansDelta = fmaxf(maxRadiansDelta, angle - static_cast<float>(M_PI));
         float t = fminf(1, maxRadiansDelta / angle);
         return SlerpUnclamped(from, to, t);
     }
@@ -308,7 +310,7 @@ namespace BNM::Structures::Unity {
     }
 
     void Quaternion::ToAngleAxis(Quaternion rotation, float &angle, Vector3 &axis) {
-        if (rotation.w > 1) rotation = Normalize(rotation);
+        if (fabsf(rotation.w) > 1) rotation = Normalize(rotation);
         angle = 2 * acosf(rotation.w);
         float s = sqrt(1 - rotation.w * rotation.w);
         if (s < 0.00001) {
@@ -343,3 +345,5 @@ namespace BNM::Structures::Unity {
         return res;
     }
 }
+
+#pragma clang diagnostic pop

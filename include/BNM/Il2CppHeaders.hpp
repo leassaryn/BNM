@@ -1,5 +1,8 @@
 #pragma once
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wzero-length-array"
+
 /**
  * @brief Il2Cpp structure headers.
  *
@@ -12,8 +15,6 @@
  * - Unity >= 2022 and Unity 6 (6000.x): full per-patch headers (e.g. `2022.3.33f1.h`,
  *   `6000.0.57f1.h`). `UNITY_PATCH_VER` picks the layout that matches the game's
  *   patch, using the thresholds in the table below.
- * - `Il2CppApi/<version>.h` (same names) holds the il2cpp function list of each
- *   version and is provided for reference only - it is never included automatically.
  *
  * | UNITY_VER | `UNITY_PATCH_VER`        | Included header        |
  * |-----------|--------------------------|------------------------|
@@ -135,5 +136,7 @@ static_assert(false, "Setup UNITY_VER in GlobalSettings.hpp");
     /**
         @brief Redefinition of Il2CppReflectionType for shorter code
     */
-    typedef IL2CPP::Il2CppReflectionType MonoType;
+    using MonoType = IL2CPP::Il2CppReflectionType;
 }
+
+#pragma clang diagnostic pop

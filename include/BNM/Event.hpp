@@ -52,7 +52,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current Event
         */
-        inline Event<Ret, Parameters...> &operator[](void *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline Event<Ret, Parameters...> &operator[](void *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Operator for setting instance.
@@ -66,7 +66,7 @@ namespace BNM {
             @param instance Instance
             @return Reference to current Event
         */
-        inline Event<Ret, Parameters...> &operator[](UnityEngine::Object *instance) { SetInstance((IL2CPP::Il2CppObject *) instance); return *this;}
+        inline Event<Ret, Parameters...> &operator[](UnityEngine::Object *instance) { SetInstance(reinterpret_cast<IL2CPP::Il2CppObject *>(instance)); return *this;}
 
         /**
             @brief Add delegate to event.
@@ -120,7 +120,7 @@ namespace BNM {
             @brief Convert base event to typed event.
             @param other Base event
         */
-        Event<Ret> &operator =(const EventBase &other) {
+        Event<Ret, Parameters...> &operator =(const EventBase &other) {
             _data = other._data;
             _add = other._add;
             _remove = other._remove;

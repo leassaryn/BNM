@@ -1,9 +1,22 @@
 #pragma once
 
-#include <csetjmp>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include <string_view>
 #include <type_traits>
+#include <new>
+#include <utility>
+
+// std::to_underlying is C++23; provide a portable fallback that works everywhere.
+namespace BNM {
+    // Mapping permission check only; callers must still own the object's lifetime.
+    size_t ReadableBytes(const void *address, size_t maximum);
+    template<typename E>
+    constexpr auto to_underlying(E e) noexcept -> std::underlying_type_t<E> {
+        return static_cast<std::underlying_type_t<E>>(e);
+    }
+} // namespace BNM
 
 #include "UserSettings/GlobalSettings.hpp"
 #include "Il2CppHeaders.hpp"
@@ -25,20 +38,12 @@ namespace BNM {
         @brief Macro function for checking if pointer points to valid address.
         @return True if address is valid.
     */
-    template <typename T, typename = std::enable_if<std::is_pointer_v<T>>>
+    template <typename T>
+        requires std::is_pointer_v<T>
     inline bool IsAllocated(T x) {
 #ifdef BNM_ALLOW_SAFE_IS_ALLOCATED
         if (!x) return false;
-
-        static jmp_buf jump;
-        static sighandler_t handler = [](int) { longjmp(jump, 1); }; // NOLINT
-        char c;
-        bool ok = true;
-        sighandler_t old_handler = signal(SIGSEGV, handler);
-        if (!setjmp (jump)) c = *(char *) x; else ok = false; // NOLINT
-        (void)c;
-        signal(SIGSEGV, old_handler);
-        return ok;
+        return ReadableBytes(reinterpret_cast<const void *>(x), 1) == 1;
 #else
         return x != nullptr;
 #endif
@@ -75,10 +80,11 @@ namespace BNM {
         @return Unboxed object of passed type
     */
     template<typename T>
-    inline T UnboxObject(T obj) { return (T)(void *)(((char *)obj) + sizeof(BNM::IL2CPP::Il2CppObject)); }
+    inline T UnboxObject(T obj) { return reinterpret_cast<T>(reinterpret_cast<void *>(reinterpret_cast<char *>(obj) + sizeof(BNM::IL2CPP::Il2CppObject))); }
 
 #ifdef BNM_DEPRECATED
-    template <typename T, typename = std::enable_if<std::is_pointer<T>::value>>
+    template <typename T>
+        requires std::is_pointer_v<T>
     inline T CheckObj(T obj) {
         if (obj && IsAllocated(obj)) return obj;
         return nullptr;
@@ -86,7 +92,7 @@ namespace BNM {
 
     template<typename MET_T, typename PTR_T>
     inline void InitFunc(MET_T& method, PTR_T ptr) {
-        *(void **)&method = (void *)ptr;
+        *reinterpret_cast<void **>(&method) = reinterpret_cast<void *>(ptr);
     }
 #endif
 
@@ -143,7 +149,7 @@ namespace BNM {
         @return Unmarshaled unity object
     */
     inline BNM_INT_PTR UnmarshalUnityObject(BNM_INT_PTR gcHandlePtr) {
-        return *(BNM_INT_PTR *)(gcHandlePtr & ~(BNM_INT_PTR)1);
+        return *reinterpret_cast<BNM_INT_PTR *>(gcHandlePtr & ~static_cast<BNM_INT_PTR>(1));
     }
 #endif
 
@@ -154,12 +160,27 @@ namespace BNM {
 
         inline IL2CPP::Il2CppClass *&GetMethodClass(IL2CPP::MethodInfo *methodInfo) {
 #if UNITY_VER > 174
-#define kls klass
+            return methodInfo->klass;
 #else
-#define kls declaring_type
+            return methodInfo->declaring_type;
 #endif
-            return methodInfo->kls;
-#undef kls
+        }
+
+        // Parameter type access: Unity < 212 uses ParameterInfo struct, >= 212 uses Il2CppType* array
+        inline const IL2CPP::Il2CppType *GetMethodParam(const IL2CPP::MethodInfo *method, uint8_t index) {
+#if UNITY_VER < 212
+            return (method->parameters + index)->parameter_type;
+#else
+            return method->parameters[index];
+#endif
+        }
+
+        inline const IL2CPP::Il2CppType *GetPropertySetParam(const IL2CPP::PropertyInfo *prop) {
+#if UNITY_VER < 212
+            return prop->set->parameters->parameter_type;
+#else
+            return prop->set->parameters[0];
+#endif
         }
     }
     /// @endcond
@@ -186,36 +207,42 @@ namespace BNM {
 
         inline ~ForwardList() { Clear(); }
 
-        inline ForwardList(const ForwardList& other) : lastElement(nullptr) {
-            if (other.IsEmpty()) return;
-
-            auto currentOther = other.lastElement->next;
-            do {
-                Add(currentOther->value);
-                currentOther = currentOther->next;
-            } while (currentOther != other.lastElement->next);
+        inline ForwardList(const ForwardList& other) {
+            ForwardList copy;
+            if (!other.IsEmpty()) {
+                auto *current = other.lastElement->next;
+                do {
+                    copy.Add(current->value);
+                    current = current->next;
+                } while (current != other.lastElement->next);
+            }
+            lastElement = std::exchange(copy.lastElement, nullptr);
         }
 
         inline ForwardList& operator=(const ForwardList& other) {
-            if (this == &other) return *this;
+            if (this != &other) { ForwardList copy(other); *this = std::move(copy); }
+            return *this;
+        }
 
-            Clear();
+        inline ForwardList(ForwardList&& other) noexcept : lastElement(other.lastElement) {
+            other.lastElement = nullptr;
+        }
 
-            if (other.IsEmpty()) return *this;
-
-            auto currentOther = other.lastElement->next;
-            do {
-                Add(currentOther->value);
-                currentOther = currentOther->next;
-            } while (currentOther != other.lastElement->next);
-
+        inline ForwardList& operator=(ForwardList&& other) noexcept {
+            if (this != &other) {
+                Clear();
+                lastElement = other.lastElement;
+                other.lastElement = nullptr;
+            }
             return *this;
         }
 
         [[nodiscard]] inline bool IsEmpty() const { return !lastElement; }
 
         inline void Add(T value) {
-            auto newElement = (Element *) BNM_malloc(sizeof(Element));
+            auto newElement = reinterpret_cast<Element *>(BNM_malloc(sizeof(Element)));
+            if (!newElement) throw std::bad_alloc();
+            new (newElement) Element{};
             newElement->next = nullptr;
             newElement->value = value;
 
@@ -238,6 +265,7 @@ namespace BNM {
             while (current) {
                 auto next = current->next;
                 if (onElementFreed) onElementFreed(current->value);
+                current->~Element();
                 BNM_free(current);
                 current = next;
             }

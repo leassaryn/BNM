@@ -4,6 +4,11 @@
 
 #include <string>
 #include <algorithm>
+#include <cmath>
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
 
 namespace BNM::Structures::Unity {
     struct Vector4;
@@ -26,8 +31,8 @@ namespace BNM::Structures::Unity {
 
             float h_to_floor = H * 6.0f;
 
-            int tmp = (int) floor(h_to_floor);
-            float F = h_to_floor - (float) tmp;
+            int tmp = static_cast<int>(std::floor(h_to_floor));
+            float F = h_to_floor - static_cast<float>(tmp);
 
             float P = (V) * (1 - S);
             float Q = V * (1 - S * F);
@@ -75,3 +80,5 @@ namespace BNM::Structures::Unity {
         };
     };
 }
+
+#pragma clang diagnostic pop

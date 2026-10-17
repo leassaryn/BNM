@@ -49,7 +49,7 @@ namespace BNM {
                 explicit OriginInvokeGetter(const CustomMethod &method) : _origin(method._origin), _originalAddress(method._originalAddress) {}
                 inline RetT Invoke(T *instance, ParametersT ...parameters) {
                     if (!_origin) return PRIVATE_INTERNAL::ReturnEmpty<RetT>();
-                    return ((RetT (*)(T *, ParametersT..., IL2CPP::MethodInfo *))_originalAddress)(instance, parameters..., _origin);
+                    return reinterpret_cast<RetT (*)(T *, ParametersT..., IL2CPP::MethodInfo *)>(_originalAddress)(instance, parameters..., _origin);
                 }
             };
             template<typename RetT, typename ...ParametersT>
@@ -62,7 +62,7 @@ namespace BNM {
 #if UNITY_VER > 174
                     return ((RetT (*)(ParametersT..., IL2CPP::MethodInfo *))_originalAddress)(parameters..., _origin);
 #else
-                    return ((RetT (*)(void *, ParametersT..., IL2CPP::MethodInfo *))_originalAddress)(nullptr, parameters..., _origin);
+                    return reinterpret_cast<RetT (*)(void *, ParametersT..., IL2CPP::MethodInfo *)>(_originalAddress)(nullptr, parameters..., _origin);
 #endif
                 }
             };
@@ -90,12 +90,14 @@ namespace BNM {
 
         namespace _InvokerHelper {
             // Unpack argument
-            template<typename T, std::enable_if_t<std::is_reference_v<T>, bool> = true>
-            inline constexpr T &UnpackArg(void *arg) { return *(std::remove_reference_t<T> *)arg; }
-            template<typename T, std::enable_if_t<!std::is_reference_v<T>, bool> = true>
+            template<typename T>
+                requires std::is_reference_v<T>
+            inline constexpr T &UnpackArg(void *arg) { return *static_cast<std::remove_reference_t<T> *>(arg); }
+            template<typename T>
+                requires (!std::is_reference_v<T>)
             inline constexpr T UnpackArg(void *arg) {
                 if constexpr (std::is_pointer_v<T>) return (T) arg;
-                else return *(T *)arg;
+                else return *static_cast<T *>(arg);
             }
 
 #if UNITY_VER >= 211
@@ -103,16 +105,16 @@ namespace BNM {
 #define ARG_4_INVOKE returnValue
             template<typename T>
             inline void *PackReturnArg(T arg, void *returnValue) {
-                *(T *)returnValue = arg;
+                *static_cast<T *>(returnValue) = arg;
                 return nullptr;
             }
 #else
-#define ARG_4_PACK (const IL2CPP::Il2CppType *) data
-#define ARG_4_INVOKE (void *) method->return_type
+#define ARG_4_PACK reinterpret_cast<const IL2CPP::Il2CppType *>(data)
+#define ARG_4_INVOKE const_cast<void *>(reinterpret_cast<const void *>(method->return_type))
             template<typename T>
             inline void *PackReturnArg(T arg, const IL2CPP::Il2CppType *type) {
                 if constexpr (std::is_pointer_v<T>) return arg;
-                return BNM::Class(type).BoxObject(&arg);
+                else return BNM::Class(type).BoxObject(arg);
             }
 #endif
         }
@@ -133,10 +135,10 @@ namespace BNM {
             static void *Invoke(IL2CPP::MethodInfo *method, void *obj, void **args) {
                 IL2CPP::Il2CppMethodPointer ptr = method->methodPointer;
 #else
-            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *obj, void **args, void *returnValue) {
+            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *obj, void **args, [[maybe_unused]] void *returnValue) {
 #endif
-                auto func = (RetT(*)(T*, ParametersT...))(ptr);
-                auto instance = (T *)(obj);
+                auto func = reinterpret_cast<RetT(*)(T*, ParametersT...)>(ptr);
+                auto instance = static_cast<T *>(obj);
                 auto seq = std::make_index_sequence<sizeof...(ParametersT)>();
                 return InvokeMethod(func, instance, args, ARG_4_INVOKE, seq);
             }
@@ -155,10 +157,10 @@ namespace BNM {
             static void *Invoke(IL2CPP::MethodInfo *method, void *obj, void **args) {
                 IL2CPP::Il2CppMethodPointer ptr = method->methodPointer;
 #else
-            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *obj, void **args, void *returnValue) {
+            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *obj, void **args, [[maybe_unused]] void *returnValue) {
 #endif
-                auto func = (RetT(*)(T*, ParametersT...))(ptr);
-                auto instance = (T *)(obj);
+                auto func = reinterpret_cast<RetT(*)(T*, ParametersT...)>(ptr);
+                auto instance = static_cast<T *>(obj);
                 auto seq = std::make_index_sequence<sizeof...(ParametersT)>();
                 return InvokeMethod(func, instance, args, ARG_4_INVOKE, seq);
             }
@@ -185,9 +187,9 @@ namespace BNM {
             static void *Invoke(IL2CPP::MethodInfo *method, void *, void **args) {
                 IL2CPP::Il2CppMethodPointer ptr = method->methodPointer;
 #else
-            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *, void **args, void *returnValue) {
+            static void *Invoke(IL2CPP::Il2CppMethodPointer ptr, [[maybe_unused]] IL2CPP::MethodInfo *method, void *, void **args, [[maybe_unused]] void *returnValue) {
 #endif
-                auto func = (FuncType) ptr;
+                auto func = reinterpret_cast<FuncType>(ptr);
                 auto seq = std::make_index_sequence<sizeof...(ParametersT)>();
                 return InvokeMethod(func, args, ARG_4_INVOKE, seq);
             }
@@ -308,8 +310,8 @@ inline static _BNMCustomField_##_field_ BNMCustomField_##_field_ __attribute__((
 #define BNM_CustomMethod(_method_, _isStatic_, _type_, _name_, ...) \
 struct _BNMCustomMethod_##_method_ : BNM::MANAGEMENT_STRUCTURES::CustomMethod { \
     inline _BNMCustomMethod_##_method_() : BNM::MANAGEMENT_STRUCTURES::CustomMethod() { \
-        constexpr auto p = &_BNMCustomClassType::_method_; _address = *(void **)&p; \
-        _invoker = (void *) &BNM::MANAGEMENT_STRUCTURES::GetMethodInvoker<_isStatic_, decltype(&_BNMCustomClassType::_method_)>::Invoke; \
+        auto p = &_BNMCustomClassType::_method_; _address = *reinterpret_cast<void **>(&p); \
+        _invoker = reinterpret_cast<void *>(&BNM::MANAGEMENT_STRUCTURES::GetMethodInvoker<_isStatic_, decltype(&_BNMCustomClassType::_method_)>::Invoke); \
         _name = BNM_OBFUSCATE_TMP(_name_); \
         _returnType = _type_; \
         _isStatic = _isStatic_; \

@@ -1,3 +1,6 @@
+#include <cstring>
+#include <utility>
+
 #include <BNM/Class.hpp>
 #include <BNM/FieldBase.hpp>
 #include <BNM/MethodBase.hpp>
@@ -14,19 +17,23 @@ Class::Class(const IL2CPP::Il2CppObject *object) {
 }
 
 Class::Class(const IL2CPP::Il2CppType *type) {
-    if (!type) return;
+    if (!type || !Internal::il2cppMethods.il2cpp_class_from_il2cpp_type) return;
     _data = Internal::il2cppMethods.il2cpp_class_from_il2cpp_type(type);
 }
 
 Class::Class(const MonoType *type) {
-    if (!type) return;
+    if (!type || !Internal::il2cppMethods.il2cpp_class_from_il2cpp_type) return;
     _data = Internal::il2cppMethods.il2cpp_class_from_il2cpp_type(type->type);
 }
 
 Class::Class(const CompileTimeClass &compileTimeClass) { _data = compileTimeClass; }
 
 static IL2CPP::Il2CppClass *TryGetClassWithoutImage(const std::string_view &_namespace, const std::string_view &_name) {
-    auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+    if (!Internal::il2cppMethods.Assembly$$GetAllAssemblies || !Internal::il2cppMethods.il2cpp_assembly_get_image) return nullptr;
+    auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+    if (!assembliesPtr) return nullptr;
+
+    auto &assemblies = *assembliesPtr;
 
     for (auto assembly : assemblies) {
         auto image = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);
@@ -61,7 +68,8 @@ std::vector<Class> Class::GetInnerClasses(bool includeParent) const {
     auto curClass = _data;
 
     do {
-        for (uint16_t i = 0; i < curClass->nested_type_count; ++i) ret.emplace_back(curClass->nestedTypes[i]);
+        auto nestedTypes = Internal::PRIVATE_INTERNAL::ClassNestedTypes(curClass);
+        for (uint16_t i = 0; i < curClass->nested_type_count; ++i) ret.emplace_back(nestedTypes[i]);
         if (includeParent) curClass = curClass->parent;
         else break;
     } while (curClass);
@@ -110,8 +118,9 @@ std::vector<PropertyBase> Class::GetProperties(bool includeParent) const {
     auto curClass = _data;
 
     do {
-        auto end = curClass->properties + curClass->property_count;
-        for (auto currentProperty = curClass->properties; currentProperty != end; ++currentProperty) ret.emplace_back(currentProperty);
+        auto properties = Internal::PRIVATE_INTERNAL::ClassProperties(curClass);
+        auto end = properties + curClass->property_count;
+        for (auto currentProperty = properties; currentProperty != end; ++currentProperty) ret.emplace_back(currentProperty);
         if (includeParent) curClass = curClass->parent;
         else break;
     } while (curClass);
@@ -127,8 +136,9 @@ std::vector<EventBase> Class::GetEvents(bool includeParent) const {
     auto curClass = _data;
 
     do {
-        auto end = curClass->events + curClass->event_count;
-        for (auto currentEvent = curClass->events; currentEvent != end; ++currentEvent) ret.emplace_back(currentEvent);
+        auto events = Internal::PRIVATE_INTERNAL::ClassEvents(curClass);
+        auto end = events + curClass->event_count;
+        for (auto currentEvent = events; currentEvent != end; ++currentEvent) ret.emplace_back(currentEvent);
         if (includeParent) curClass = curClass->parent;
         else break;
     } while (curClass);
@@ -156,7 +166,8 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
     if (!_data) return {};
     TryInit();
 
-    auto parameters = (uint8_t) parameterNames.size();
+    if (parameterNames.size() > 255) { BNM_LOG_ERR("GetMethod: parameter count %zu exceeds uint8_t max", parameterNames.size()); return {}; }
+    auto parameters = static_cast<uint8_t>(parameterNames.size());
 
     auto method = Internal::IterateMethods(*this, [&name, &parameters, &parameterNames](IL2CPP::MethodInfo *method) {
         if (name != method->name || method->parameters_count != parameters) return false;
@@ -174,17 +185,13 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
-    auto parameters = (uint8_t) parameterTypes.size();
+    if (parameterTypes.size() > 255) { BNM_LOG_ERR("GetMethod: parameter count %zu exceeds uint8_t max", parameterTypes.size()); return {}; }
+    auto parameters = static_cast<uint8_t>(parameterTypes.size());
 
     auto method = Internal::IterateMethods(*this, [&name, parameters, &parameterTypes](IL2CPP::MethodInfo *method) {
         if (name != method->name || method->parameters_count != parameters) return false;
         for (uint8_t i = 0; i < parameters; ++i) {
-#if UNITY_VER < 212
-            auto param = (method->parameters + i)->parameter_type;
-#else
-            auto param = method->parameters[i];
-#endif
-
+            auto param = BNM::PRIVATE_INTERNAL::GetMethodParam(method, i);
             if (Class(param).GetClass() != parameterTypes.begin()[i].ToIl2CppClass()) return false;
         }
         return true;
@@ -203,8 +210,9 @@ PropertyBase Class::GetProperty(const std::string_view &name) const {
     auto curClass = _data;
 
     do {
-        auto end = curClass->properties + curClass->property_count;
-        for (auto currentProperty = curClass->properties; currentProperty != end; ++currentProperty) if (name == currentProperty->name) return currentProperty;
+        auto properties = Internal::PRIVATE_INTERNAL::ClassProperties(curClass);
+        auto end = properties + curClass->property_count;
+        for (auto currentProperty = properties; currentProperty != end; ++currentProperty) if (name == currentProperty->name) return currentProperty;
         curClass = curClass->parent;
     } while (curClass);
 
@@ -221,8 +229,9 @@ PropertyBase Class::GetProperty(const std::string_view& name, const CompileTimeC
     auto typeClass = type.ToIl2CppClass();
 
     do {
-        auto end = curClass->properties + curClass->property_count;
-        for (auto currentProperty = curClass->properties; currentProperty != end; ++currentProperty)
+        auto properties = Internal::PRIVATE_INTERNAL::ClassProperties(curClass);
+        auto end = properties + curClass->property_count;
+        for (auto currentProperty = properties; currentProperty != end; ++currentProperty)
             if (name == currentProperty->name && PropertyBase{currentProperty}.GetType() == typeClass) return currentProperty;
         curClass = curClass->parent;
     } while (curClass);
@@ -239,7 +248,7 @@ Class Class::GetInnerClass(const std::string_view &name) const {
 
     do {
         for (uint16_t i = 0; i < curClass->nested_type_count; ++i) {
-            auto cls = curClass->nestedTypes[i];
+            auto cls = Internal::PRIVATE_INTERNAL::ClassNestedTypes(curClass)[i];
             if (name == cls->name) return cls;
         }
         curClass = curClass->parent;
@@ -275,8 +284,9 @@ EventBase Class::GetEvent(const std::string_view &name) const {
     auto curClass = _data;
 
     do {
-        auto end = curClass->events + curClass->event_count;
-        for (auto currentEvent = curClass->events; currentEvent != end; ++currentEvent) {
+        auto events = Internal::PRIVATE_INTERNAL::ClassEvents(curClass);
+        auto end = events + curClass->event_count;
+        for (auto currentEvent = events; currentEvent != end; ++currentEvent) {
             if (name != currentEvent->name) continue;
             return currentEvent;
         }
@@ -327,9 +337,9 @@ IL2CPP::Il2CppType *Class::GetIl2CppType() const {
     if (!_data) return nullptr;
     TryInit();
 #if UNITY_VER > 174
-    return (IL2CPP::Il2CppType *)&_data->byval_arg;
+    return reinterpret_cast<IL2CPP::Il2CppType *>(&_data->byval_arg);
 #else
-    return (IL2CPP::Il2CppType *)_data->byval_arg;
+    return const_cast<IL2CPP::Il2CppType *>(_data->byval_arg);
 #endif
 }
 
@@ -337,11 +347,12 @@ MonoType *Class::GetMonoType() const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
-    return (MonoType *) Internal::il2cppMethods.il2cpp_type_get_object(GetIl2CppType());
+    return reinterpret_cast<MonoType *>(Internal::il2cppMethods.il2cpp_type_get_object(GetIl2CppType()));
 }
 
 CompileTimeClass Class::GetCompileTimeClass() const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
+    if (!_data) return {};
     TryInit();
     CompileTimeClass result{};
     result._loadedClass = *this;
@@ -366,12 +377,19 @@ IL2CPP::Il2CppObject *Class::CreateNewInstance() const {
         BNM_LOG_WARN(DBG_BNM_MSG_Class_CreateNewInstance_Abstract_Warn, str().c_str());
 
     auto obj = Internal::il2cppMethods.il2cpp_object_new(_data);
-    if (obj) memset((char*)obj + sizeof(IL2CPP::Il2CppObject), 0, _data->instance_size - sizeof(IL2CPP::Il2CppObject));
+    if (obj && _data->instance_size > sizeof(IL2CPP::Il2CppObject))
+        memset(reinterpret_cast<char *>(obj) + sizeof(IL2CPP::Il2CppObject), 0, _data->instance_size - sizeof(IL2CPP::Il2CppObject));
     return obj;
 }
 
 // Try initializing the class if it is alive
-void Class::TryInit() const { if (_data) Internal::il2cppMethods.Class$$Init(_data); }
+// Uses external set to track initialized classes (keeps Class struct layout unchanged)
+void Class::TryInit() const {
+    if (!_data) return;
+    // IL2CPP owns initialization synchronization and recursive initialization.
+    // A separate cache can publish a class before the runtime has finished.
+    if (Internal::il2cppMethods.Class$$Init) Internal::il2cppMethods.Class$$Init(_data);
+}
 
 IL2CPP::Il2CppObject *Class::BoxObject(IL2CPP::Il2CppClass *_data, void *data) {
     return Internal::il2cppMethods.il2cpp_value_box(_data, data);
@@ -398,7 +416,7 @@ namespace CompileTimeClassProcessors {
     
     // _ClassInfo
     static void ProcessClassInfo(CompileTimeClass &target, CompileTimeClass::_BaseInfo *info) {
-        auto classInfo = (CompileTimeClass::_ClassInfo *) info;
+        auto classInfo = static_cast<CompileTimeClass::_ClassInfo *>(info);
 
         auto _namespace = classInfo->_namespace ? classInfo->_namespace : std::string_view{};
 
@@ -409,12 +427,16 @@ namespace CompileTimeClassProcessors {
 
         BNM::Image image{};
 
-        auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
-        for (auto assembly: assemblies) {
-            auto currentImage = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);
-            if (!Internal::CompareImageName(currentImage, classInfo->_imageName)) continue;
-            image = currentImage;
-            break;
+        if (!Internal::il2cppMethods.Assembly$$GetAllAssemblies || !Internal::il2cppMethods.il2cpp_assembly_get_image) return;
+        auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
+        if (assembliesPtr) {
+            auto &assemblies = *assembliesPtr;
+            for (auto assembly: assemblies) {
+                auto currentImage = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);
+                if (!Internal::CompareImageName(currentImage, classInfo->_imageName)) continue;
+                image = currentImage;
+                break;
+            }
         }
 
         target._loadedClass = Internal::TryGetClassInImage(image, _namespace, classInfo->_name);
@@ -427,7 +449,7 @@ namespace CompileTimeClassProcessors {
             return;
         }
 
-        auto innerInfo = (CompileTimeClass::_InnerInfo *) info;
+        auto innerInfo = static_cast<CompileTimeClass::_InnerInfo *>(info);
 
         if (!target._loadedClass) return;
         target._loadedClass = target._loadedClass.GetInnerClass(innerInfo->_name);
@@ -440,7 +462,7 @@ namespace CompileTimeClassProcessors {
             return;
         }
         
-        auto modifierInfo = (CompileTimeClass::_ModifierInfo *) info;
+        auto modifierInfo = static_cast<CompileTimeClass::_ModifierInfo *>(info);
         
         switch (modifierInfo->_modifierType) {
             case CompileTimeClass::ModifierType::Pointer: {
@@ -463,13 +485,9 @@ namespace CompileTimeClassProcessors {
             return;
         }
         
-        auto genericInfo = (CompileTimeClass::_GenericInfo *) info;
+        auto genericInfo = static_cast<CompileTimeClass::_GenericInfo *>(info);
 
-        // Save memory, even if the user does not want to
-        for (auto &type : genericInfo->_types) if (!type._stack.IsEmpty()) ((BNM::CompileTimeClass &)type)._SetBit();
         target._loadedClass = Internal::TryMakeGenericClass(target._loadedClass, genericInfo->_types);
-        genericInfo->_types.clear();
-        genericInfo->_types.shrink_to_fit();
     }
 
     ProcessorType processors[(uint8_t) CompileTimeClass::_BaseType::MaxCount] = {
@@ -485,13 +503,14 @@ Class CompileTimeClass::ToClass() {
     // No reference or autoFree
     if (!_IsBit()) {
         if (_loadedClass) return _loadedClass;
-        if (_stack.IsEmpty()) return {(IL2CPP::Il2CppClass *) nullptr};
+        if (_stack.IsEmpty()) return {static_cast<IL2CPP::Il2CppClass *>(nullptr)};
     }
 
     // If stack is empty, but bit is set - we have reference
     if (_stack.IsEmpty()) {
         _RemoveBit();
-        auto ref = _reference ? *_reference : nullptr;
+        auto *reference = reinterpret_cast<Defaults::Internal::ClassType *>(_Bits());
+        auto ref = reference ? *reference : nullptr;
         _loadedClass = ref;
         _loadedClass.TryInit();
         return _loadedClass;
@@ -507,10 +526,11 @@ Class CompileTimeClass::ToClass() {
 
         auto index = (uint8_t) info->_baseType;
         if (index >= (uint8_t) _BaseType::MaxCount) {
-            BNM_LOG_WARN(DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (size_t) index);
+            BNM_LOG_WARN(DBG_BNM_MSG_CompileTimeClass_ToClass_OoB_Warn, (unsigned long) index);
+            current = current->next;
             continue;
         }
-        CompileTimeClassProcessors::processors[index](*this, (_BaseInfo *) info);
+        CompileTimeClassProcessors::processors[index](*this, static_cast<_BaseInfo *>(info));
 
         current = current->next;
     } while (current != lastElement->next);
@@ -520,7 +540,12 @@ Class CompileTimeClass::ToClass() {
     _loadedClass.TryInit();
     return _loadedClass;
 }
-Class CompileTimeClass::ToClass() const { return ((CompileTimeClass *)this)->ToClass(); }
+
+Class CompileTimeClass::ToClass() const {
+    // Copies own independent descriptors, including generic arguments.
+    CompileTimeClass temp = *this;
+    return temp.ToClass();
+}
 CompileTimeClass::operator Class() const { return ToClass(); }
 
 IL2CPP::Il2CppType *CompileTimeClass::ToIl2CppType() const { return ToClass().GetIl2CppType(); }
@@ -532,6 +557,61 @@ void CompileTimeClass::Free() {
     if (_stack.IsEmpty()) return;
 
     _stack.Clear([](_BaseInfo *info) {
-        BNM_free((void *) info);
+        if (info->_baseType == _BaseType::Generic) static_cast<_GenericInfo *>(info)->~_GenericInfo();
+        BNM_free(info);
     });
 }
+
+namespace {
+    template<class T> CompileTimeClass::_BaseInfo *CloneDescriptor(const CompileTimeClass::_BaseInfo *info) {
+        auto *storage = BNM_malloc(sizeof(T));
+        if (!storage) throw std::bad_alloc();
+        try { return new (storage) T(*static_cast<const T *>(info)); }
+        catch (...) { BNM_free(storage); throw; }
+    }
+}
+
+CompileTimeClass::CompileTimeClass(const CompileTimeClass &other) {
+    // Copy the tagged union's representation without accessing an inactive member.
+    std::memcpy(&_loadedClass, &other._loadedClass, sizeof(_loadedClass));
+    if (other._stack.IsEmpty()) return;
+    auto *current = other._stack.lastElement->next;
+    try {
+        do {
+            _BaseInfo *copy{};
+            switch (current->value->_baseType) {
+                case _BaseType::Class: copy = CloneDescriptor<_ClassInfo>(current->value); break;
+                case _BaseType::Inner: copy = CloneDescriptor<_InnerInfo>(current->value); break;
+                case _BaseType::Modifier: copy = CloneDescriptor<_ModifierInfo>(current->value); break;
+                case _BaseType::Generic: copy = CloneDescriptor<_GenericInfo>(current->value); break;
+                default: copy = CloneDescriptor<_BaseInfo>(current->value); break;
+            }
+            try { _stack.Add(copy); }
+            catch (...) {
+                if (copy->_baseType == _BaseType::Generic) static_cast<_GenericInfo *>(copy)->~_GenericInfo();
+                BNM_free(copy);
+                throw;
+            }
+            current = current->next;
+        } while (current != other._stack.lastElement->next);
+    } catch (...) { Free(); throw; }
+}
+
+CompileTimeClass &CompileTimeClass::operator=(const CompileTimeClass &other) {
+    if (this != &other) { CompileTimeClass copy(other); *this = std::move(copy); }
+    return *this;
+}
+CompileTimeClass::CompileTimeClass(CompileTimeClass &&other) noexcept : _stack(std::move(other._stack)) {
+    std::memcpy(&_loadedClass, &other._loadedClass, sizeof(_loadedClass));
+    other._loadedClass = {};
+}
+CompileTimeClass &CompileTimeClass::operator=(CompileTimeClass &&other) noexcept {
+    if (this != &other) {
+        Free();
+        _stack = std::move(other._stack);
+        std::memcpy(&_loadedClass, &other._loadedClass, sizeof(_loadedClass));
+        other._loadedClass = {};
+    }
+    return *this;
+}
+CompileTimeClass::~CompileTimeClass() { Free(); }

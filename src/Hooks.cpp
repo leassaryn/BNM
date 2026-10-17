@@ -20,16 +20,16 @@ IL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectio
 
     if (states.state) return klass;
 
-    if (!Internal::il2cppMethods.il2cpp_domain_get) {
-        Internal::il2cppMethods.il2cpp_domain_get = (decltype(Internal::il2cppMethods.il2cpp_domain_get)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get));
-        Internal::il2cppMethods.il2cpp_thread_current = (decltype(Internal::il2cppMethods.il2cpp_thread_current)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_thread_current));
-    }
-
-    auto domain = Internal::il2cppMethods.il2cpp_domain_get();
-    auto thread = Internal::il2cppMethods.il2cpp_thread_current(domain);
+    // Keep probing functions local: the regular init hook may be filling the API table.
+    auto getDomain = reinterpret_cast<decltype(il2cppMethods.il2cpp_domain_get)>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get)));
+    auto getThread = reinterpret_cast<decltype(il2cppMethods.il2cpp_thread_current)>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_thread_current)));
+    if (!getDomain || !getThread) return klass;
+    auto domain = getDomain();
+    if (!domain) return klass;
+    auto thread = getThread(domain);
 
     // Will be true after il2cpp_init
-    if (!thread || !thread->internal_thread || (void *) domain->default_context != (void *) thread->internal_thread->current_appcontext) return klass;
+    if (!thread || !thread->internal_thread || reinterpret_cast<void *>(domain->default_context) != reinterpret_cast<void *>(thread->internal_thread->current_appcontext)) return klass;
 
     Unhook(BNM_il2cpp_init_origin);
     Unhook(BNM_Class$$FromIl2CppType_origin);
@@ -41,7 +41,7 @@ IL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectio
 
 void Internal::Image$$GetTypes(const IL2CPP::Il2CppImage *image, bool, std::vector<BNM::IL2CPP::Il2CppClass *> *target) {
     // Get non-BNM classes
-    if (image->nameToClassHashTable != (decltype(image->nameToClassHashTable))-0x424e4d)
+    if (image->nameToClassHashTable != reinterpret_cast<decltype(image->nameToClassHashTable)>(-0x424e4d))
         il2cppMethods.orig_Image$$GetTypes(image, false, target);
 
 #ifdef BNM_CLASSES_MANAGEMENT
@@ -60,7 +60,7 @@ IL2CPP::Il2CppClass *Internal::ClassesManagement::Class$$FromIl2CppType(IL2CPP::
     if (!type) return nullptr;
 
     // Check if type is BNM created
-    if (type->num_mods == 31) return (IL2CPP::Il2CppClass *)type->data.dummy;
+    if (type->num_mods == 31) return reinterpret_cast<IL2CPP::Il2CppClass *>(type->data.dummy);
 
     return old_Class$$FromIl2CppType(type);
 }
@@ -70,7 +70,7 @@ IL2CPP::Il2CppClass *Internal::ClassesManagement::Type$$GetClassOrElementClass(I
     if (!type) return nullptr;
 
     // Check if type is BNM created
-    if (type->num_mods == 31) return (IL2CPP::Il2CppClass *)type->data.dummy;
+    if (type->num_mods == 31) return reinterpret_cast<IL2CPP::Il2CppClass *>(type->data.dummy);
 
     return old_Type$$GetClassOrElementClass(type);
 }
@@ -82,7 +82,7 @@ IL2CPP::Il2CppClass *Internal::ClassesManagement::Class$$FromName(IL2CPP::Il2Cpp
     IL2CPP::Il2CppClass *ret = nullptr;
 
     // Check if image is BNM created
-    if (image->nameToClassHashTable != (decltype(image->nameToClassHashTable)) -0x424e4d)
+    if (image->nameToClassHashTable != reinterpret_cast<decltype(image->nameToClassHashTable)>(-0x424e4d))
         ret = old_Class$$FromName(image, namespace_, name);
 
     // If through BNM, we are looking for a class
@@ -106,7 +106,7 @@ IL2CPP::Il2CppImage *Internal::ClassesManagement::new_GetImageFromIndex(IL2CPP::
         IL2CPP::Il2CppImage *ret = nullptr;
 
         // Go through all the images and check if the number matches
-        bnmClassesMap.ForEach([index, &ret](IL2CPP::Il2CppImage *img, const std::vector<IL2CPP::Il2CppClass *> &classes) -> bool {
+        bnmClassesMap.ForEach([index, &ret](IL2CPP::Il2CppImage *img, [[maybe_unused]] const std::vector<IL2CPP::Il2CppClass *> &classes) -> bool {
             if (img->assemblyIndex == index) {
                 ret = img;
                 return true;
@@ -124,7 +124,10 @@ IL2CPP::Il2CppImage *Internal::ClassesManagement::new_GetImageFromIndex(IL2CPP::
 // In Unity 2017 and below, the names are stored as a number in the metadata, so we can't use them
 // But we can check the name by images
 IL2CPP::Il2CppAssembly *Internal::ClassesManagement::Assembly$$Load(const char *name) {
-    auto &assemblies = *il2cppMethods.Assembly$$GetAllAssemblies();
+    auto assembliesPtr = il2cppMethods.Assembly$$GetAllAssemblies();
+    if (!assembliesPtr) return nullptr;
+
+    auto &assemblies = *assembliesPtr;
 
     for (auto assembly : assemblies) {
 
@@ -132,7 +135,7 @@ IL2CPP::Il2CppAssembly *Internal::ClassesManagement::Assembly$$Load(const char *
         auto image = new_GetImageFromIndex(assembly->imageIndex);
 
         // Check if the names match
-        if (CompareImageName(image, name)) return assembly;
+        if (image && CompareImageName(image, name)) return assembly;
     }
 
     return nullptr;
