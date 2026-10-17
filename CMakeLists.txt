@@ -9,7 +9,7 @@ endif()
 
 # Options
 option(BNM_LINK_LOG "Add dependents to liblog.so" OFF)
-option(BNM_SANITIZERS "Enable ASan + UBSan (debug builds)" OFF)
+option(BNM_SANITIZERS "Enable ASan + UBSan for the selected build configuration" OFF)
 
 add_library(BNM STATIC
     src/Class.cpp

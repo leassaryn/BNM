@@ -6,6 +6,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- Independent ownership for copied compile-time class descriptors and generic arguments.
+- Runtime class initialization publication, internal cache synchronization, null-symbol scanning, signed x86 decoding, and hook failure propagation.
+- JNI error checks, local-reference cleanup, and installed split-APK discovery.
+- Array size overflow, collection allocation failures, removed dictionary entries, and invalid vector type punning.
+- Coroutine frame ownership, null-yield scheduling, completion, and native callback construction.
+- Custom metadata counter validation and checked allocation; partial OOM rollback remains a documented limitation.
+
+### Changed
+- Typed `cast()` returns a value; coroutine return wrappers are move-only. Rebuild all consumers and see `docs/REFACTOR.md`.
+- Existing class instance-layout growth/reparenting and method calls with mismatched argument counts are rejected.
+- Debug pointer checks inspect readable mappings; this does not establish object lifetime.
+
+### Added
+- Native core regression fixtures and before/after audit tooling, with separate Unity runtime verification requirements.
+
 ## [2.5.4-dirty] - 2026-09-20
 
 ### Fixed

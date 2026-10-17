@@ -1,0 +1,835 @@
+{
+  "date": "2026-10-17",
+  "commit": "bfc76e5bdef9447f6260aa566df6cc8c80ff2101",
+  "configuration": {
+    "unity_ver": 222,
+    "unity_patch_ver": 32,
+    "android_api": 21,
+    "ndk": "29.0.14206865",
+    "compiler": "Android Clang 21.0.0 llvm-custom",
+    "backend": "Dobby configuration, always-failing audit stub",
+    "native_probe_host": "Android ARM64 Termux",
+    "sanitizers": [
+      "ASan",
+      "UBSan"
+    ],
+    "leak_detection": false
+  },
+  "notes": [
+    "Probe nonzero exits are observed failures, not passing tests.",
+    "Scanner x86_64 algorithm exercised on ARM64 with renamed preprocessor symbols and signed char.",
+    "Unity runtime, real hooks, GC, CheckJNI and ThreadSanitizer were not exercised.",
+    "Matrix: 38 API syntax selections, six also compile all production translation units."
+  ],
+  "production_inputs_changed": [],
+  "records": [
+    {
+      "name": "analyze-Class",
+      "exit_code": 0,
+      "warnings": 2,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Class.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-ClassesManagement",
+      "exit_code": 0,
+      "warnings": 9,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-ClassesManagement.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-Coroutine",
+      "exit_code": 0,
+      "warnings": 2,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Coroutine.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-Defaults",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Defaults.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-Delegates",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Delegates.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-EventBase",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-EventBase.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-Exceptions",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Exceptions.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-FieldBase",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-FieldBase.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-Hooks",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Hooks.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-Image",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Image.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-Internals",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Internals.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-Loading",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Loading.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-MethodBase",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-MethodBase.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-MonoStructures",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-MonoStructures.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-PropertyBase",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-PropertyBase.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-UnityStructures",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-UnityStructures.log",
+      "translation_units": 1
+    },
+    {
+      "name": "analyze-Utils",
+      "exit_code": 0,
+      "warnings": 2,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/analyze-Utils.log",
+      "translation_units": 1
+    },
+    {
+      "name": "arm64-v8a-debug-build",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/arm64-v8a-debug-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "arm64-v8a-debug-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/arm64-v8a-debug-configure.log",
+      "translation_units": 0
+    },
+    {
+      "name": "arm64-v8a-release-build",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/arm64-v8a-release-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "arm64-v8a-release-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/arm64-v8a-release-configure.log",
+      "translation_units": 0
+    },
+    {
+      "name": "armeabi-v7a-debug-build",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/armeabi-v7a-debug-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "armeabi-v7a-debug-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/armeabi-v7a-debug-configure.log",
+      "translation_units": 0
+    },
+    {
+      "name": "armeabi-v7a-release-build",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/armeabi-v7a-release-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "armeabi-v7a-release-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/armeabi-v7a-release-configure.log",
+      "translation_units": 0
+    },
+    {
+      "name": "compiler-version",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/compiler-version.log",
+      "translation_units": 0
+    },
+    {
+      "name": "consumer-build",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/consumer-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "consumer-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/consumer-configure.log",
+      "translation_units": 0
+    },
+    {
+      "name": "ndk-debug",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/ndk-debug.log",
+      "translation_units": 0
+    },
+    {
+      "name": "ndk-release",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/ndk-release.log",
+      "translation_units": 0
+    },
+    {
+      "name": "original-syntax",
+      "exit_code": 1,
+      "warnings": 0,
+      "errors": 1,
+      "log": "build/audit-phase23/logs/original-syntax.log",
+      "translation_units": 1,
+      "excerpt": "include/BNM/UserSettings/GlobalSettings.hpp:213:2: error: \"No hooking backend selected! Uncomment one of DobbyHook, ShadowHook, or XOFHook in GlobalSettings.hpp above.\""
+    },
+    {
+      "name": "probe-array-overflow",
+      "exit_code": -6,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-array-overflow.log",
+      "translation_units": 0,
+      "excerpt": "=================================================================\n==31071==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x004317f90130 at pc 0x0061180712c4 bp 0x007fc3945a30 sp 0x007fc3945a28\nWRITE of size 8 at 0x004317f90130 thread T0\n    #0 0x0061180712c0 in main tools/audit/probes.cpp:113:27\n    #1 0x007e26d1b9cc in __libc_init (/apex/com.android.runtime/lib64/bionic/libc.so+0x8d9cc) (BuildId: 3d54e8645276c301285abd1dd0ea86ef)\n    #2 0x00611806f708 in _start_main crtbegin.c\n\n0x004317f90130 is located 0 bytes after 32-byte region [0x004317f90110,0x004317f90130)\nallocated by thread T0 here:"
+    },
+    {
+      "name": "probe-class-publication",
+      "exit_code": 1,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-class-publication.log",
+      "translation_units": 0,
+      "excerpt": "second GetClass returned before first Class$$Init completed"
+    },
+    {
+      "name": "probe-const-generic",
+      "exit_code": 1,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-const-generic.log",
+      "translation_units": 0,
+      "excerpt": "generic arguments before=1 after=0"
+    },
+    {
+      "name": "probe-copy-lifetime",
+      "exit_code": -6,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-copy-lifetime.log",
+      "translation_units": 0,
+      "excerpt": "=================================================================\n==31047==ERROR: AddressSanitizer: heap-use-after-free on address 0x00434ee10110 at pc 0x00614ef106a4 bp 0x007fcf1ec5b0 sp 0x007fcf1ec5a8\nREAD of size 1 at 0x00434ee10110 thread T0\n    #0 0x00614ef106a0 in BNM::CompileTimeClass::ToClass() build/audit-phase23/snapshot/src/Class.cpp:529:38\n    #1 0x00614eef4e78 in main tools/audit/probes.cpp:67:20\n    #2 0x00743b29f9cc in __libc_init (/apex/com.android.runtime/lib64/bionic/libc.so+0x8d9cc) (BuildId: 3d54e8645276c301285abd1dd0ea86ef)\n\n0x00434ee10110 is located 0 bytes inside of 32-byte region [0x00434ee10110,0x00434ee10130)\nfreed by thread T0 here:"
+    },
+    {
+      "name": "probe-coroutine-temporary",
+      "exit_code": -6,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-coroutine-temporary.log",
+      "translation_units": 0,
+      "excerpt": "=================================================================\n==31079==ERROR: AddressSanitizer: stack-use-after-scope on address 0x007a94013270 at pc 0x005fe4b19364 bp 0x007fdc2dcab0 sp 0x007fdc2dcaa8\nREAD of size 8 at 0x007a94013270 thread T0\n    #0 0x005fe4b19360 in main tools/audit/probes.cpp:128:40\n    #1 0x007a961439cc in __libc_init (/apex/com.android.runtime/lib64/bionic/libc.so+0x8d9cc) (BuildId: 3d54e8645276c301285abd1dd0ea86ef)\n    #2 0x005fe4b17708 in _start_main crtbegin.c\n\nAddress 0x007a94013270 is located in stack of thread T0 at offset 624 in frame\n    #0 0x005fe4b17894 in main tools/audit/probes.cpp:46"
+    },
+    {
+      "name": "probe-coroutine-yield",
+      "exit_code": 1,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-coroutine-yield.log",
+      "translation_units": 0,
+      "excerpt": "progress=2 klass=0x0"
+    },
+    {
+      "name": "probe-custom-method-limit",
+      "exit_code": -6,
+      "warnings": 0,
+      "errors": 1,
+      "log": "build/audit-phase23/logs/probe-custom-method-limit.log",
+      "translation_units": 0,
+      "excerpt": "build/audit-phase23/snapshot/include/BNM/Utils.hpp:164:32: runtime error: member access within null pointer of type 'IL2CPP::MethodInfo' (aka 'BNM::IL2CPP::MethodInfo')\n    #0 0x00621fc81ed8 in BNM::PRIVATE_INTERNAL::GetMethodClass(BNM::IL2CPP::MethodInfo*) build/audit-phase23/snapshot/include/BNM/Utils.hpp:164:32\n    #1 0x00621fc6bb24 in ModifyClass(BNM::MANAGEMENT_STRUCTURES::CustomClass*, BNM::Class) build/audit-phase23/snapshot/src/ClassesManagement.cpp:126:13\n    #2 0x00621fc69258 in BNM::ClassesManagement::ProcessClassRuntime(BNM::MANAGEMENT_STRUCTURES::CustomClass*) build/audit-phase23/snapshot/src/ClassesManagement.cpp:80:22\n    #3 0x00621fc1dc34 in main tools/audit/probes.cpp:144:9\n    #4 0x00710a8969cc in __libc_init (/apex/com.android.runtime/lib64/bionic/libc.so+0x8d9cc) (BuildId: 3d54e8645276c301285abd1dd0ea86ef)\n\nSUMMARY: UndefinedBehaviorSanitizer: undefined-behavior build/audit-phase23/snapshot/include/BNM/Utils.hpp:164:32 "
+    },
+    {
+      "name": "probe-dictionary-holes",
+      "exit_code": 1,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-dictionary-holes.log",
+      "translation_units": 0,
+      "excerpt": "live=1 GetSize=2 GetKeys=2"
+    },
+    {
+      "name": "probe-hook-failure",
+      "exit_code": 1,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-hook-failure.log",
+      "translation_units": 0,
+      "excerpt": "stub hook fails; loader result=1 original=0x0"
+    },
+    {
+      "name": "probe-mapped-not-readable",
+      "exit_code": 1,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-mapped-not-readable.log",
+      "translation_units": 0,
+      "excerpt": "PROT_NONE mapping accepted=1"
+    },
+    {
+      "name": "probe-missing-symbol",
+      "exit_code": -6,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-missing-symbol.log",
+      "translation_units": 0,
+      "excerpt": "AddressSanitizer:DEADLYSIGNAL\n=================================================================\n==31090==ERROR: AddressSanitizer: SEGV on unknown address 0x000000000000 (pc 0x007f9489fe54 bp 0x007fff72cd40 sp 0x007fff72c530 T0)\n==31090==The signal is caused by a READ memory access.\n==31090==Hint: address points to the zero page.\n    #0 0x007f9489fe54 in __memcpy_aarch64_simd libc_init_dynamic.cpp\n    #1 0x007f927381a4 in __asan_memcpy out/lib/compiler-rt-aarch64-ndk-cxx/out/llvm-project/compiler-rt/lib/asan/asan_interceptors_memintrinsics.cpp:63:3\n    #2 0x005e3e9e3114 in std::__ndk1::basic_string<char, std::__ndk1::char_traits<char>, std::__ndk1::allocator<char>> AssemblerUtils::ReadMemory<4ul>(unsigned long) build/audit-phase23/snapshot/src/Loading.cpp:211:9\n    #3 0x005e3e9dea08 in AssemblerUtils::FindNextJump(unsigned long, unsigned char) build/audit-phase23/snapshot/src/Loading.cpp:258:30"
+    },
+    {
+      "name": "probe-positive",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probe-positive.log",
+      "translation_units": 0,
+      "excerpt": "list and class lookup control=1"
+    },
+    {
+      "name": "probes-compile",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/probes-compile.log",
+      "translation_units": 1
+    },
+    {
+      "name": "sanitized-build",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/sanitized-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "sanitized-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/sanitized-configure.log",
+      "translation_units": 0
+    },
+    {
+      "name": "scanner-compile",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/scanner-compile.log",
+      "translation_units": 1
+    },
+    {
+      "name": "scanner-rel32",
+      "exit_code": 1,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/scanner-rel32.log",
+      "translation_units": 0,
+      "excerpt": "expected=0x1000 actual=0x100001000"
+    },
+    {
+      "name": "scanner-signed-char",
+      "exit_code": -6,
+      "warnings": 0,
+      "errors": 1,
+      "log": "build/audit-phase23/logs/scanner-signed-char.log",
+      "translation_units": 0,
+      "excerpt": "build/audit-phase23/scanner.cpp:56:22: runtime error: load of address 0x005be7b27bfe with insufficient space for an object of type 'const char'\n0x005be7b27bfe: note: pointer points here\n 00 00 00 00 00 00  30 31 32 33 34 35 36 37  38 39 41 42 43 44 45 46  00 00 00 00 00 00 00 00  00 00\n             ^ \nSUMMARY: UndefinedBehaviorSanitizer: undefined-behavior build/audit-phase23/scanner.cpp:56:22 "
+    },
+    {
+      "name": "unity-171-0",
+      "exit_code": 0,
+      "warnings": 1,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-171-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-172-0",
+      "exit_code": 0,
+      "warnings": 821,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-172-0.log",
+      "translation_units": 18
+    },
+    {
+      "name": "unity-181-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-181-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-182-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-182-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-183-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-183-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-191-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-191-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-193-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-193-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-194-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-194-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-201-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-201-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-202-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-202-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-203-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-203-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-211-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-211-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-211-24",
+      "exit_code": 0,
+      "warnings": 769,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-211-24.log",
+      "translation_units": 18
+    },
+    {
+      "name": "unity-212-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-212-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-213-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-213-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-221-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-221-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-221-8",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-221-8.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-222-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-222-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-222-9",
+      "exit_code": 0,
+      "warnings": 769,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-222-9.log",
+      "translation_units": 18
+    },
+    {
+      "name": "unity-223-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-223-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-223-33",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-223-33.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-223-8",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-223-8.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-231-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-231-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-231-10",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-231-10.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-232-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-232-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-56-0",
+      "exit_code": 0,
+      "warnings": 818,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-56-0.log",
+      "translation_units": 18
+    },
+    {
+      "name": "unity-6000-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6000-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6000-10",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6000-10.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6000-44",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6000-44.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6000-57",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6000-57.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6001-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6001-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6002-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6002-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6002-2",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6002-2.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6003-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6003-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6003-3",
+      "exit_code": 0,
+      "warnings": 769,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6003-3.log",
+      "translation_units": 18
+    },
+    {
+      "name": "unity-6004-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6004-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6005-0",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6005-0.log",
+      "translation_units": 1
+    },
+    {
+      "name": "unity-6005-1",
+      "exit_code": 0,
+      "warnings": 769,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/unity-6005-1.log",
+      "translation_units": 18
+    },
+    {
+      "name": "variant-dotnet35",
+      "exit_code": 0,
+      "warnings": 4,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/variant-dotnet35.log",
+      "translation_units": 2
+    },
+    {
+      "name": "variant-minimal",
+      "exit_code": 0,
+      "warnings": 3,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/variant-minimal.log",
+      "translation_units": 19
+    },
+    {
+      "name": "variant-sync",
+      "exit_code": 0,
+      "warnings": 4,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/variant-sync.log",
+      "translation_units": 19
+    },
+    {
+      "name": "variant-unsupported-6006",
+      "exit_code": 1,
+      "warnings": 4,
+      "errors": 2,
+      "log": "build/audit-phase23/logs/variant-unsupported-6006.log",
+      "translation_units": 2,
+      "excerpt": "build/audit-phase23/variants/unsupported-6006/include/BNM/Il2CppHeaders.hpp:131:15: error: static assertion failed: Setup UNITY_VER in GlobalSettings.hpp\nbuild/audit-phase23/variants/unsupported-6006/include/BNM/Il2CppHeaders.hpp:131:15: error: static assertion failed: Setup UNITY_VER in GlobalSettings.hpp"
+    },
+    {
+      "name": "x86-debug-build",
+      "exit_code": 0,
+      "warnings": 17,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/x86-debug-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "x86-debug-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/x86-debug-configure.log",
+      "translation_units": 0
+    },
+    {
+      "name": "x86-release-build",
+      "exit_code": 0,
+      "warnings": 18,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/x86-release-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "x86-release-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/x86-release-configure.log",
+      "translation_units": 0
+    },
+    {
+      "name": "x86_64-debug-build",
+      "exit_code": 0,
+      "warnings": 17,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/x86_64-debug-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "x86_64-debug-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/x86_64-debug-configure.log",
+      "translation_units": 0
+    },
+    {
+      "name": "x86_64-release-build",
+      "exit_code": 0,
+      "warnings": 18,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/x86_64-release-build.log",
+      "translation_units": 0
+    },
+    {
+      "name": "x86_64-release-configure",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "build/audit-phase23/logs/x86_64-release-configure.log",
+      "translation_units": 0
+    }
+  ]
+}

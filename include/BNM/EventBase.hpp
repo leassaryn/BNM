@@ -105,7 +105,7 @@ namespace BNM {
         /**
            @brief Cast event to be able to add, remove and raise it.
         */
-        template<typename NewRet, typename ...NewParameters> inline Event<NewRet, NewParameters...> &cast() const { return const_cast<Event<NewRet, NewParameters...> &>(static_cast<const Event<NewRet, NewParameters...> &>(*this)); }
+        template<typename NewRet, typename ...NewParameters> inline Event<NewRet, NewParameters...> cast() const { return Event<NewRet, NewParameters...>(*this); }
 
         IL2CPP::EventInfo *_data{};
         MethodBase _add{}, _remove{}, _raise{};

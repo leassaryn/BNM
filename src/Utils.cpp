@@ -1,5 +1,7 @@
 #include <cstring>
 #include <string>
+#include <cstdio>
+#include <algorithm>
 
 #include <BNM/UserSettings/GlobalSettings.hpp>
 #include <BNM/Utils.hpp>
@@ -8,16 +10,39 @@
 
 using namespace BNM;
 
+size_t BNM::ReadableBytes(const void *address, size_t maximum) {
+    if (!address || !maximum) return 0;
+    auto *maps = std::fopen("/proc/self/maps", "r");
+    if (!maps) return 0;
+    const auto target = reinterpret_cast<uintptr_t>(address);
+    uintptr_t cursor = target;
+    size_t remaining = maximum;
+    char line[1024];
+    while (std::fgets(line, sizeof(line), maps)) {
+        unsigned long begin{}, end{};
+        char permissions[5]{};
+        if (std::sscanf(line, "%lx-%lx %4s", &begin, &end, permissions) != 3) continue;
+        if (end <= cursor) continue;
+        if (begin > cursor || permissions[0] != 'r') break;
+        const auto available = std::min(remaining, static_cast<size_t>(end - cursor));
+        remaining -= available;
+        if (!remaining) break;
+        cursor = end;
+    }
+    std::fclose(maps);
+    return maximum - remaining;
+}
+
 Structures::Mono::String *BNM::CreateMonoString(const std::string_view &str) {
     // il2cpp_string_new expects a null-terminated C string; string_view may not be one.
     std::string cStr(str);
-    return Internal::il2cppMethods.il2cpp_string_new(cStr.c_str());
+    return Internal::il2cppMethods.il2cpp_string_new ? Internal::il2cppMethods.il2cpp_string_new(cStr.c_str()) : nullptr;
 }
 
 void *BNM::GetExternMethod(const std::string_view &str) {
     // il2cpp_resolve_icall expects a null-terminated C string; string_view may not be one.
     std::string cStr(str);
-    auto ret = Internal::il2cppMethods.il2cpp_resolve_icall(cStr.c_str());
+    auto ret = Internal::il2cppMethods.il2cpp_resolve_icall ? Internal::il2cppMethods.il2cpp_resolve_icall(cStr.c_str()) : nullptr;
     BNM_LOG_WARN_IF(!ret, DBG_BNM_MSG_GetExternMethod_Warn, cStr.c_str());
     return ret;
 }
@@ -27,6 +52,7 @@ bool BNM::IsLoaded() {
 }
 
 void *BNM::GetIl2CppLibraryHandle() {
+    std::lock_guard lock(Internal::configurationMutex);
     return Internal::il2cppLibraryHandle;
 }
 
@@ -138,24 +164,27 @@ void Utils::LogCompileTimeClass(const CompileTimeClass &compileTimeClass) {
 
 bool BNM::AttachIl2Cpp() {
     if (CurrentIl2CppThread()) return false;
-    Internal::il2cppMethods.il2cpp_thread_attach(Internal::il2cppMethods.il2cpp_domain_get());
-    return true;
+    if (!Internal::il2cppMethods.il2cpp_thread_attach || !Internal::il2cppMethods.il2cpp_domain_get) return false;
+    auto *domain = Internal::il2cppMethods.il2cpp_domain_get();
+    return domain && Internal::il2cppMethods.il2cpp_thread_attach(domain);
 }
 
 IL2CPP::Il2CppThread *BNM::CurrentIl2CppThread() {
-    return Internal::il2cppMethods.il2cpp_thread_current(Internal::il2cppMethods.il2cpp_domain_get());
+    if (!Internal::il2cppMethods.il2cpp_thread_current || !Internal::il2cppMethods.il2cpp_domain_get) return nullptr;
+    auto *domain = Internal::il2cppMethods.il2cpp_domain_get();
+    return domain ? Internal::il2cppMethods.il2cpp_thread_current(domain) : nullptr;
 }
 
 void BNM::DetachIl2Cpp() {
     auto thread = BNM::CurrentIl2CppThread();
-    if (!thread) return;
+    if (!thread || !Internal::il2cppMethods.il2cpp_thread_detach) return;
     Internal::il2cppMethods.il2cpp_thread_detach(thread);
 }
 
 void *BNM::Allocate(size_t size) {
-    return Internal::il2cppMethods.il2cpp_gc_alloc_fixed(size);
+    return Internal::il2cppMethods.il2cpp_gc_alloc_fixed ? Internal::il2cppMethods.il2cpp_gc_alloc_fixed(size) : nullptr;
 }
 
 void BNM::Free(void *ptr) {
-    return Internal::il2cppMethods.il2cpp_gc_free_fixed(ptr);
+    if (ptr && Internal::il2cppMethods.il2cpp_gc_free_fixed) Internal::il2cppMethods.il2cpp_gc_free_fixed(ptr);
 }

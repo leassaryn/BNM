@@ -10,11 +10,7 @@ int Internal::BNM_il2cpp_init(const char *domain_name) {
 
     Unhook(BNM_il2cpp_init_origin);
 
-    // Use atomic flag to prevent multiple threads from calling Load() simultaneously
-    bool expected = false;
-    if (isLoading.compare_exchange_strong(expected, true)) {
-        Load();
-    }
+    Load();
 
     return ret;
 }
@@ -24,13 +20,13 @@ IL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectio
 
     if (states.state) return klass;
 
-    if (!Internal::il2cppMethods.il2cpp_domain_get) {
-        Internal::il2cppMethods.il2cpp_domain_get = reinterpret_cast<decltype(Internal::il2cppMethods.il2cpp_domain_get)>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get)));
-        Internal::il2cppMethods.il2cpp_thread_current = reinterpret_cast<decltype(Internal::il2cppMethods.il2cpp_thread_current)>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_thread_current)));
-    }
-
-    auto domain = Internal::il2cppMethods.il2cpp_domain_get();
-    auto thread = Internal::il2cppMethods.il2cpp_thread_current(domain);
+    // Keep probing functions local: the regular init hook may be filling the API table.
+    auto getDomain = reinterpret_cast<decltype(il2cppMethods.il2cpp_domain_get)>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get)));
+    auto getThread = reinterpret_cast<decltype(il2cppMethods.il2cpp_thread_current)>(GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_thread_current)));
+    if (!getDomain || !getThread) return klass;
+    auto domain = getDomain();
+    if (!domain) return klass;
+    auto thread = getThread(domain);
 
     // Will be true after il2cpp_init
     if (!thread || !thread->internal_thread || reinterpret_cast<void *>(domain->default_context) != reinterpret_cast<void *>(thread->internal_thread->current_appcontext)) return klass;
@@ -38,11 +34,7 @@ IL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectio
     Unhook(BNM_il2cpp_init_origin);
     Unhook(BNM_Class$$FromIl2CppType_origin);
 
-    // Use atomic flag to prevent multiple threads from calling Load() simultaneously
-    bool expected = false;
-    if (isLoading.compare_exchange_strong(expected, true)) {
-        Load();
-    }
+    Load();
 
     return klass;
 }

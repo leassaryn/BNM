@@ -210,8 +210,8 @@ namespace BNM::Structures::Mono {
         */
         bool CopyFrom(T *arr, IL2CPP::il2cpp_array_size_t size) {
             BNM_CHECK_SELF(false);
-            if (size > capacity) return false;
-            memcpy(&m_Items[0], arr, size * sizeof(T));
+            if (size > capacity || (size && !arr)) return false;
+            if (size) memcpy(&m_Items[0], arr, size * sizeof(T));
             return true;
         }
 
@@ -242,12 +242,14 @@ namespace BNM::Structures::Mono {
             @return New array
         */
         static Array<T> *Create(size_t capacity, bool _forceUseAlloc = false) {
+            if (capacity > (SIZE_MAX - sizeof(Array)) / sizeof(T)) return nullptr;
             auto cls = _forceUseAlloc ? BNM::Defaults::DefaultTypeRef{} : BNM::Defaults::Get<T>();
 #ifndef  BNM_USE_IL2CPP_ALLOCATOR
             auto monoArr = reinterpret_cast<Array<T> *>(cls.IsValid() ? __Internal_Array::ArrayFromClass(cls, capacity) : BNM_malloc(sizeof(Array) + sizeof(T) * capacity));
 #else
             auto monoArr = reinterpret_cast<Array<T> *>(cls.IsValid() ? __Internal_Array::ArrayFromClass(cls, capacity) : BNM::Allocate(sizeof(Array) + sizeof(T) * capacity));
 #endif
+            if (!monoArr) return nullptr;
             // Only clear the header for BNM-allocated arrays. il2cpp-allocated arrays (cls.IsValid())
             // already have klass/bounds set and elements zeroed by the GC; memset would wipe the klass.
             if (!cls.IsValid()) {
@@ -279,7 +281,7 @@ namespace BNM::Structures::Mono {
         */
         static Array<T> *Create(T *arr, size_t size, bool _forceUseAlloc = false) {
             Array<T> *monoArr = Create(size, _forceUseAlloc);
-            monoArr->CopyFrom(arr, size);
+            if (monoArr) monoArr->CopyFrom(arr, size);
             return monoArr;
         }
 
@@ -404,6 +406,7 @@ namespace BNM::Structures::Mono {
         */
         void Add(T val) {
             GrowIfNeeded(1);
+            if (!items || size < 0 || static_cast<size_t>(size) >= items->capacity) return;
             items->m_Items[size] = val;
             size++;
             version++;
@@ -444,8 +447,9 @@ namespace BNM::Structures::Mono {
         */
         bool Resize(int newCapacity) {
             BNM_CHECK_SELF(false);
-            if (newCapacity <= items->capacity) return false;
-            auto nItems = Array<T>::Create(newCapacity);
+            if (!items || newCapacity < 0 || static_cast<size_t>(newCapacity) <= items->capacity) return false;
+            auto nItems = Array<T>::Create(static_cast<size_t>(newCapacity));
+            if (!nItems) return false;
             nItems->klass = items->klass;
             nItems->monitor = items->monitor;
             nItems->bounds = items->bounds;
@@ -486,9 +490,11 @@ namespace BNM::Structures::Mono {
         */
         bool CopyFrom(T *arr, int arrSize) {
             BNM_CHECK_SELF(false);
+            if (!items || arrSize < 0 || (arrSize && !arr)) return false;
             // Resize only if needed (skip old data copy if we're about to overwrite)
-            if (arrSize > items->capacity) {
-                auto nItems = Array<T>::Create(arrSize);
+            if (static_cast<size_t>(arrSize) > items->capacity) {
+                auto nItems = Array<T>::Create(static_cast<size_t>(arrSize));
+                if (!nItems) return false;
                 nItems->klass = items->klass;
                 nItems->monitor = items->monitor;
                 nItems->bounds = items->bounds;
@@ -496,7 +502,7 @@ namespace BNM::Structures::Mono {
                 if (!items->klass) items->Destroy();
                 items = nItems;
             }
-            memcpy(items->m_Items, arr, arrSize * sizeof(T));
+            if (arrSize) memmove(items->m_Items, arr, static_cast<size_t>(arrSize) * sizeof(T));
             size = arrSize;
             ++version;
             return true;
@@ -554,8 +560,9 @@ namespace BNM::Structures::Mono {
             @param item New element value
         */
         void Insert(int index, T item) {
-            if (index < 0 || index > size) return;
-            if (size == items->capacity) GrowIfNeeded(1);
+            if (!items || index < 0 || index > size) return;
+            GrowIfNeeded(1);
+            if (static_cast<size_t>(size) >= items->capacity) return;
             if (index < size) memmove(items->m_Items + index + 1, items->m_Items + index, (size - index) * sizeof(T));
             items->m_Items[index] = item;
             ++size;
@@ -582,11 +589,13 @@ namespace BNM::Structures::Mono {
             @param n Number of additional elements
         */
         void GrowIfNeeded(int n) {
-            if (size + n > items->capacity) {
-                // Geometric growth (1.5x) — less over-allocation than 2x
-                int newCap = items->capacity > 0 ? items->capacity + items->capacity / 2 : 4;
-                if (newCap < size + n) newCap = size + n;
-                Resize(newCap);
+            if (!items || size < 0 || n < 0 || n > INT32_MAX - size) return;
+            const auto required = static_cast<size_t>(size + n);
+            if (required > items->capacity) {
+                auto newCap = items->capacity > 0 ? items->capacity + items->capacity / 2 : 4;
+                if (newCap < required) newCap = required;
+                if (newCap > INT32_MAX) newCap = INT32_MAX;
+                Resize(static_cast<int>(newCap));
             }
         }
 
@@ -633,7 +642,7 @@ namespace BNM::Structures::Mono {
         constexpr std::size_t WrappedTypeNamePrefixLength() { return WrappedTypeName<void>().find("void"); }
         constexpr std::size_t WrappedTypeNameSuffixLength() { return WrappedTypeName<void>().length() - WrappedTypeNamePrefixLength() - 4; }
         constexpr uint32_t FNV1a(const char* str, size_t n, uint32_t hash = 2166136261U) {
-            return n == 0 ? hash : FNV1a(str + 1, n - 1, (hash ^ str[0]) * 19777619U);
+            return n == 0 ? hash : FNV1a(str + 1, n - 1, (hash ^ static_cast<unsigned char>(str[0])) * 19777619U);
         }
         constexpr uint32_t FNV1a(const std::string_view &str) { return FNV1a(str.data(), str.size()); }
         template <typename T>

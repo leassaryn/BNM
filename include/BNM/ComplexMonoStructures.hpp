@@ -96,7 +96,9 @@ namespace BNM::Structures::Mono {
         */
         std::map<TKey, TValue> ToMap() const {
             std::map<TKey, TValue> ret{};
-            for (auto it = (Entry *)&entries->m_Items; it != ((Entry *)&entries->m_Items + count); ++it) ret.emplace(std::make_pair(it->key, it->value));
+            if (!entries) return ret;
+            for (int i = 0; i < count && static_cast<size_t>(i) < entries->capacity; ++i)
+                if (entries->m_Items[i].hashCode >= 0) ret.emplace(entries->m_Items[i].key, entries->m_Items[i].value);
             return ret;
         }
 
@@ -106,7 +108,9 @@ namespace BNM::Structures::Mono {
         */
         std::vector<TKey> GetKeys() const {
             std::vector<TKey> ret{};
-            for (int i = 0; i < count; ++i) ret.emplace_back(entries->m_Items[i].key);
+            if (!entries) return ret;
+            for (int i = 0; i < count && static_cast<size_t>(i) < entries->capacity; ++i)
+                if (entries->m_Items[i].hashCode >= 0) ret.emplace_back(entries->m_Items[i].key);
             return ret;
         }
 
@@ -116,7 +120,9 @@ namespace BNM::Structures::Mono {
         */
         std::vector<TValue> GetValues() const {
             std::vector<TValue> ret{};
-            for (int i = 0; i < count; ++i) ret.emplace_back(entries->m_Items[i].value);
+            if (!entries) return ret;
+            for (int i = 0; i < count && static_cast<size_t>(i) < entries->capacity; ++i)
+                if (entries->m_Items[i].hashCode >= 0) ret.emplace_back(entries->m_Items[i].value);
             return ret;
         }
 #endif
@@ -125,7 +131,13 @@ namespace BNM::Structures::Mono {
             @brief Get dictionary size.
             @return Dictionary entries count
         */
-        [[nodiscard]] int GetSize() const { return count; }
+        [[nodiscard]] int GetSize() const {
+#ifdef BNM_DOTNET35
+            return count;
+#else
+            return count - freeCount;
+#endif
+        }
 
         /**
             @brief Get dictionary version.

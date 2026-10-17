@@ -125,7 +125,7 @@ namespace BNM {
         /**
            @brief Cast field to be able to get and set it with specified type.
         */
-        template<typename NewType> inline Field<NewType> &cast() const { return const_cast<Field<NewType> &>(static_cast<const Field<NewType> &>(*this)); }
+        template<typename NewType> inline Field<NewType> cast() const { return Field<NewType>(*this); }
 
         BNM::IL2CPP::FieldInfo *_data{};
         BNM::IL2CPP::Il2CppObject *_instance{};

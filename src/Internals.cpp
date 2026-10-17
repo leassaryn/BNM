@@ -2,6 +2,8 @@
 
 namespace BNM::Internal {
     States states{};
+    std::recursive_mutex configurationMutex{};
+    std::mutex eventsMutex{};
     void *il2cppLibraryHandle{};
     std::atomic<bool> isLoading{false};
 
@@ -35,9 +37,7 @@ namespace BNM::Internal {
 
 #ifdef BNM_CLASSES_MANAGEMENT
     namespace ClassesManagement {
-#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
         std::shared_mutex classesFindAccessMutex{};
-#endif
         // A list with all the classes that BNM should create/modify
         std::vector<MANAGEMENT_STRUCTURES::CustomClass *> *classesManagementVector = nullptr;
 
@@ -119,6 +119,7 @@ Class Internal::TryMakeGenericClass(Class genericType, const std::vector<Compile
     if (!vmData.RuntimeType$$MakeGenericType.IsValid()) return {};
     auto monoType = genericType.GetMonoType();
     auto monoGenericsList = Structures::Mono::Array<MonoType *>::Create(templateTypes.size(), true);
+    if (!monoGenericsList) return {};
     for (IL2CPP::il2cpp_array_size_t i = 0; i < static_cast<IL2CPP::il2cpp_array_size_t>(templateTypes.size()); ++i)
         (*monoGenericsList)[i] = templateTypes[i].ToClass().GetMonoType();
 
@@ -139,6 +140,7 @@ MethodBase Internal::TryMakeGenericMethod(const MethodBase &genericMethod, const
     reflectionMethod.object.klass = BNM::PRIVATE_INTERNAL::GetMethodClass(vmData.RuntimeMethodInfo$$MakeGenericMethod_impl._data);
 #endif
     auto monoGenericsList = Structures::Mono::Array<MonoType *>::Create(templateTypes.size(), true);
+    if (!monoGenericsList) return {};
     for (IL2CPP::il2cpp_array_size_t i = 0; i < static_cast<IL2CPP::il2cpp_array_size_t>(templateTypes.size()); ++i) (*monoGenericsList)[i] = templateTypes[i].ToClass().GetMonoType();
 
     MethodBase typedGenericMethod = vmData.RuntimeMethodInfo$$MakeGenericMethod_impl[reinterpret_cast<void *>(&reflectionMethod)](monoGenericsList)->method;

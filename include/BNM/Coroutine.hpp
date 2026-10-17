@@ -5,6 +5,8 @@
 #if defined(BNM_CLASSES_MANAGEMENT) && defined(BNM_COROUTINE)
 
 #include <functional>
+#include <exception>
+#include <utility>
 
 #if __has_include(<coroutine>)
 #include <coroutine>
@@ -102,13 +104,28 @@ namespace BNM::Coroutine {
             inline IEnumerator get_return_object() { return IEnumerator(std::coroutine_handle<promise_type>::from_promise(*this)); }
             inline std::suspend_always initial_suspend() noexcept { return {}; }
             inline std::suspend_always final_suspend() noexcept { return {}; }
-            inline void unhandled_exception() {}
+            std::exception_ptr _exception{};
+            inline void unhandled_exception() noexcept { _exception = std::current_exception(); }
             inline std::suspend_always await_transform() = delete;
             [[nodiscard]] inline Coroutine::YieldInstruction value() const noexcept { return _currentValue; }
             inline std::suspend_always yield_value(const Coroutine::YieldInstruction &val) { _currentValue = val; return {}; }
             inline void return_void() {}
         };
         /// @endcond
+
+        IEnumerator(const IEnumerator &) = delete;
+        IEnumerator &operator=(const IEnumerator &) = delete;
+        IEnumerator(IEnumerator &&other) noexcept : BNM::IL2CPP::Il2CppObject(),
+            _current(std::exchange(other._current, nullptr)), _coroutine(std::exchange(other._coroutine, {})) {}
+        IEnumerator &operator=(IEnumerator &&other) noexcept {
+            if (this != &other) {
+                Finalize();
+                _current = std::exchange(other._current, nullptr);
+                _coroutine = std::exchange(other._coroutine, {});
+            }
+            return *this;
+        }
+        ~IEnumerator() { Finalize(); }
 
         /**
             @brief Create IEnumerator that can be passed to Unity.

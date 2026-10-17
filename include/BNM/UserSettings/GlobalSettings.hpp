@@ -166,6 +166,7 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 
 // Shadowhook
 /*
+#include <shadowhook.h>
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
     if (reinterpret_cast<void *>(ptr) != nullptr) return shadowhook_hook_func_addr(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes));
@@ -191,14 +192,14 @@ inline void Unhook(PTR_T ptr) {
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &oldBytes) {
-    if (reinterpret_cast<void *>(ptr) != nullptr) DobbyHook(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes));
+    if (!reinterpret_cast<void *>(ptr) || !reinterpret_cast<void *>(newMethod)) return nullptr;
+    if (DobbyHook(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes)) != 0) return nullptr;
     return reinterpret_cast<void *>(ptr);
 }
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T ptr, NEW_T newMethod, T_OLD &&oldBytes) {
-    if (reinterpret_cast<void *>(ptr) != nullptr) DobbyHook(reinterpret_cast<void *>(ptr), reinterpret_cast<void *>(newMethod), reinterpret_cast<void **>(&oldBytes));
-    return reinterpret_cast<void *>(ptr);
+    return BasicHook(ptr, newMethod, oldBytes);
 }
 
 template<typename PTR_T>
@@ -210,7 +211,7 @@ inline void Unhook(PTR_T ptr) {
 // Dummy
 #include <cassert>
 
-#error "No hooking backend selected! Uncomment one of DobbyHook, ShadowHook, or XOFHook in GlobalSettings.hpp above."
+#error "No hooking backend selected! Uncomment Dobby or ShadowHook in GlobalSettings.hpp above."
 
 template<typename PTR_T, typename NEW_T, typename T_OLD>
 inline void *BasicHook(PTR_T, NEW_T, T_OLD &) {

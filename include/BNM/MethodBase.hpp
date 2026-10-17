@@ -139,7 +139,7 @@ namespace BNM {
         /**
            @brief Cast method to be able to call it.
         */
-        template<typename NewType> inline Method<NewType> &cast() const { return const_cast<Method<NewType> &>(static_cast<const Method<NewType> &>(*this)); }
+        template<typename NewType> inline Method<NewType> cast() const { return Method<NewType>(*this); }
 
         IL2CPP::MethodInfo *_data{};
         IL2CPP::Il2CppObject *_instance{};

@@ -111,7 +111,7 @@ namespace BNM {
         /**
            @brief Cast event to be able to get and set it.
         */
-        template<typename NewRet> inline Property<NewRet> &cast() const { return const_cast<Property<NewRet> &>(static_cast<const Property<NewRet> &>(*this)); }
+        template<typename NewRet> inline Property<NewRet> cast() const { return Property<NewRet>(*this); }
 
         IL2CPP::PropertyInfo *_data{};
         MethodBase _getter{}, _setter{};

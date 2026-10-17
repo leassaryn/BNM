@@ -1,5 +1,5 @@
 #include <cstring>
-#include <unordered_set>
+#include <utility>
 
 #include <BNM/Class.hpp>
 #include <BNM/FieldBase.hpp>
@@ -17,18 +17,19 @@ Class::Class(const IL2CPP::Il2CppObject *object) {
 }
 
 Class::Class(const IL2CPP::Il2CppType *type) {
-    if (!type) return;
+    if (!type || !Internal::il2cppMethods.il2cpp_class_from_il2cpp_type) return;
     _data = Internal::il2cppMethods.il2cpp_class_from_il2cpp_type(type);
 }
 
 Class::Class(const MonoType *type) {
-    if (!type) return;
+    if (!type || !Internal::il2cppMethods.il2cpp_class_from_il2cpp_type) return;
     _data = Internal::il2cppMethods.il2cpp_class_from_il2cpp_type(type->type);
 }
 
 Class::Class(const CompileTimeClass &compileTimeClass) { _data = compileTimeClass; }
 
 static IL2CPP::Il2CppClass *TryGetClassWithoutImage(const std::string_view &_namespace, const std::string_view &_name) {
+    if (!Internal::il2cppMethods.Assembly$$GetAllAssemblies || !Internal::il2cppMethods.il2cpp_assembly_get_image) return nullptr;
     auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
     if (!assembliesPtr) return nullptr;
 
@@ -385,10 +386,9 @@ IL2CPP::Il2CppObject *Class::CreateNewInstance() const {
 // Uses external set to track initialized classes (keeps Class struct layout unchanged)
 void Class::TryInit() const {
     if (!_data) return;
-    static std::unordered_set<IL2CPP::Il2CppClass *> initialized;
-    if (initialized.insert(_data).second) {
-        Internal::il2cppMethods.Class$$Init(_data);
-    }
+    // IL2CPP owns initialization synchronization and recursive initialization.
+    // A separate cache can publish a class before the runtime has finished.
+    if (Internal::il2cppMethods.Class$$Init) Internal::il2cppMethods.Class$$Init(_data);
 }
 
 IL2CPP::Il2CppObject *Class::BoxObject(IL2CPP::Il2CppClass *_data, void *data) {
@@ -427,6 +427,7 @@ namespace CompileTimeClassProcessors {
 
         BNM::Image image{};
 
+        if (!Internal::il2cppMethods.Assembly$$GetAllAssemblies || !Internal::il2cppMethods.il2cpp_assembly_get_image) return;
         auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
         if (assembliesPtr) {
             auto &assemblies = *assembliesPtr;
@@ -486,11 +487,7 @@ namespace CompileTimeClassProcessors {
         
         auto genericInfo = static_cast<CompileTimeClass::_GenericInfo *>(info);
 
-        // Save memory, even if the user does not want to
-        for (auto &type : genericInfo->_types) if (!type._stack.IsEmpty()) static_cast<BNM::CompileTimeClass &>(type)._SetBit();
         target._loadedClass = Internal::TryMakeGenericClass(target._loadedClass, genericInfo->_types);
-        genericInfo->_types.clear();
-        genericInfo->_types.shrink_to_fit();
     }
 
     ProcessorType processors[(uint8_t) CompileTimeClass::_BaseType::MaxCount] = {
@@ -512,7 +509,8 @@ Class CompileTimeClass::ToClass() {
     // If stack is empty, but bit is set - we have reference
     if (_stack.IsEmpty()) {
         _RemoveBit();
-        auto ref = _reference ? *_reference : nullptr;
+        auto *reference = reinterpret_cast<Defaults::Internal::ClassType *>(_Bits());
+        auto ref = reference ? *reference : nullptr;
         _loadedClass = ref;
         _loadedClass.TryInit();
         return _loadedClass;
@@ -544,13 +542,8 @@ Class CompileTimeClass::ToClass() {
 }
 
 Class CompileTimeClass::ToClass() const {
-    // Process a temporary copy so this const method does not mutate *this.
-    // The copy's ForwardList shares the heap-allocated _BaseInfo objects with
-    // *this, so clear the autoFree bit to stop the copy from freeing them.
-    // (When the stack is empty - i.e. a DefaultTypeRef - keep the bit, since
-    // that path only dereferences _reference and never frees anything.)
+    // Copies own independent descriptors, including generic arguments.
     CompileTimeClass temp = *this;
-    if (!temp._stack.IsEmpty()) temp._RemoveBit();
     return temp.ToClass();
 }
 CompileTimeClass::operator Class() const { return ToClass(); }
@@ -564,6 +557,61 @@ void CompileTimeClass::Free() {
     if (_stack.IsEmpty()) return;
 
     _stack.Clear([](_BaseInfo *info) {
-        BNM_free(reinterpret_cast<void *>(info));
+        if (info->_baseType == _BaseType::Generic) static_cast<_GenericInfo *>(info)->~_GenericInfo();
+        BNM_free(info);
     });
 }
+
+namespace {
+    template<class T> CompileTimeClass::_BaseInfo *CloneDescriptor(const CompileTimeClass::_BaseInfo *info) {
+        auto *storage = BNM_malloc(sizeof(T));
+        if (!storage) throw std::bad_alloc();
+        try { return new (storage) T(*static_cast<const T *>(info)); }
+        catch (...) { BNM_free(storage); throw; }
+    }
+}
+
+CompileTimeClass::CompileTimeClass(const CompileTimeClass &other) {
+    // Copy the tagged union's representation without accessing an inactive member.
+    std::memcpy(&_loadedClass, &other._loadedClass, sizeof(_loadedClass));
+    if (other._stack.IsEmpty()) return;
+    auto *current = other._stack.lastElement->next;
+    try {
+        do {
+            _BaseInfo *copy{};
+            switch (current->value->_baseType) {
+                case _BaseType::Class: copy = CloneDescriptor<_ClassInfo>(current->value); break;
+                case _BaseType::Inner: copy = CloneDescriptor<_InnerInfo>(current->value); break;
+                case _BaseType::Modifier: copy = CloneDescriptor<_ModifierInfo>(current->value); break;
+                case _BaseType::Generic: copy = CloneDescriptor<_GenericInfo>(current->value); break;
+                default: copy = CloneDescriptor<_BaseInfo>(current->value); break;
+            }
+            try { _stack.Add(copy); }
+            catch (...) {
+                if (copy->_baseType == _BaseType::Generic) static_cast<_GenericInfo *>(copy)->~_GenericInfo();
+                BNM_free(copy);
+                throw;
+            }
+            current = current->next;
+        } while (current != other._stack.lastElement->next);
+    } catch (...) { Free(); throw; }
+}
+
+CompileTimeClass &CompileTimeClass::operator=(const CompileTimeClass &other) {
+    if (this != &other) { CompileTimeClass copy(other); *this = std::move(copy); }
+    return *this;
+}
+CompileTimeClass::CompileTimeClass(CompileTimeClass &&other) noexcept : _stack(std::move(other._stack)) {
+    std::memcpy(&_loadedClass, &other._loadedClass, sizeof(_loadedClass));
+    other._loadedClass = {};
+}
+CompileTimeClass &CompileTimeClass::operator=(CompileTimeClass &&other) noexcept {
+    if (this != &other) {
+        Free();
+        _stack = std::move(other._stack);
+        std::memcpy(&_loadedClass, &other._loadedClass, sizeof(_loadedClass));
+        other._loadedClass = {};
+    }
+    return *this;
+}
+CompileTimeClass::~CompileTimeClass() { Free(); }

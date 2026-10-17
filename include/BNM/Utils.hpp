@@ -5,9 +5,13 @@
 
 #include <string_view>
 #include <type_traits>
+#include <new>
+#include <utility>
 
 // std::to_underlying is C++23; provide a portable fallback that works everywhere.
 namespace BNM {
+    // Mapping permission check only; callers must still own the object's lifetime.
+    size_t ReadableBytes(const void *address, size_t maximum);
     template<typename E>
     constexpr auto to_underlying(E e) noexcept -> std::underlying_type_t<E> {
         return static_cast<std::underlying_type_t<E>>(e);
@@ -39,12 +43,7 @@ namespace BNM {
     inline bool IsAllocated(T x) {
 #ifdef BNM_ALLOW_SAFE_IS_ALLOCATED
         if (!x) return false;
-        // Use mincore() to check if the address is in a valid mapped page.
-        // mincore is async-signal-safe and does not cause SIGSEGV on invalid addresses.
-        unsigned char vec;
-        uintptr_t addr = reinterpret_cast<uintptr_t>(x);
-        uintptr_t pageAddr = addr & ~static_cast<uintptr_t>(getpagesize() - 1);
-        return mincore(reinterpret_cast<void *>(pageAddr), 1, &vec) == 0;
+        return ReadableBytes(reinterpret_cast<const void *>(x), 1) == 1;
 #else
         return x != nullptr;
 #endif
@@ -208,31 +207,20 @@ namespace BNM {
 
         inline ~ForwardList() { Clear(); }
 
-        inline ForwardList(const ForwardList& other) : lastElement(nullptr) {
-            if (other.IsEmpty()) return;
-
-            // Properly copy circular list: iterate from first element to last
-            auto currentOther = other.lastElement->next; // Start from first element
-            do {
-                Add(currentOther->value);
-                currentOther = currentOther->next;
-            } while (currentOther != other.lastElement->next);
+        inline ForwardList(const ForwardList& other) {
+            ForwardList copy;
+            if (!other.IsEmpty()) {
+                auto *current = other.lastElement->next;
+                do {
+                    copy.Add(current->value);
+                    current = current->next;
+                } while (current != other.lastElement->next);
+            }
+            lastElement = std::exchange(copy.lastElement, nullptr);
         }
 
         inline ForwardList& operator=(const ForwardList& other) {
-            if (this == &other) return *this;
-
-            Clear();
-
-            if (other.IsEmpty()) return *this;
-
-            // Properly copy circular list: iterate from first element to last
-            auto currentOther = other.lastElement->next; // Start from first element
-            do {
-                Add(currentOther->value);
-                currentOther = currentOther->next;
-            } while (currentOther != other.lastElement->next);
-
+            if (this != &other) { ForwardList copy(other); *this = std::move(copy); }
             return *this;
         }
 
@@ -253,6 +241,8 @@ namespace BNM {
 
         inline void Add(T value) {
             auto newElement = reinterpret_cast<Element *>(BNM_malloc(sizeof(Element)));
+            if (!newElement) throw std::bad_alloc();
+            new (newElement) Element{};
             newElement->next = nullptr;
             newElement->value = value;
 
@@ -275,6 +265,7 @@ namespace BNM {
             while (current) {
                 auto next = current->next;
                 if (onElementFreed) onElementFreed(current->value);
+                current->~Element();
                 BNM_free(current);
                 current = next;
             }

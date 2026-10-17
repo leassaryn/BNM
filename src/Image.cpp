@@ -55,8 +55,10 @@ std::vector<BNM::Class> BNM::Image::GetClasses(bool includeInner) const {
     });
 #endif
 
-    // BNM::Class is layout-compatible with Il2CppClass*, so this is a safe reinterpret.
-    return *reinterpret_cast<std::vector<BNM::Class> *>(&classes);
+    std::vector<Class> result;
+    result.reserve(classes.size());
+    for (auto *klass : classes) result.emplace_back(klass);
+    return result;
 }
 
 std::vector<BNM::Image> BNM::Image::GetImages() {

@@ -37,6 +37,7 @@ void BNM::MulticastDelegateBase::Add(BNM::DelegateBase *delegate)  {
     auto delegates = reinterpret_cast<Structures::Mono::Array<DelegateBase *> *>(this->delegates);
     if (!delegates) return;
     auto arr = BNM::Class(delegates->klass->element_class).NewArray<DelegateBase *>(this->delegates->max_length + 1);
+    if (!arr) return;
     arr->CopyFrom(delegates->m_Items, delegates->capacity);
     arr->m_Items[delegates->capacity] = delegate;
     this->delegates = reinterpret_cast<decltype(this->delegates)>(arr);
@@ -58,6 +59,7 @@ void BNM::MulticastDelegateBase::Remove(BNM::DelegateBase *delegate)  {
     }
     if (!found) return;
     auto arr = BNM::Class(delegates->klass->element_class).NewArray<DelegateBase *>(delegates->capacity - 1);
+    if (!arr) return;
     // Copy elements before the removed index
     if (index > 0) memcpy(arr->m_Items, delegates->m_Items, index * sizeof(void *));
     // Copy elements after the removed index

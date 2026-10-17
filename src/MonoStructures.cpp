@@ -53,16 +53,21 @@ void *PRIVATE_MonoListData::CompareExchange4List(void *syncRoot) {
 
 // Method for getting and creating types for each list type
 BNM::IL2CPP::Il2CppClass *BNM::Structures::Mono::PRIVATE_MonoListData::TryGetMonoListClass(uint32_t typeHash, std::array<PRIVATE_MonoListData::MethodData, 16> &data) {
+    static std::recursive_mutex cacheMutex;
+    std::lock_guard lock(cacheMutex);
     auto &klass = Internal::customListsMap[typeHash];
     if (klass) return klass;
 
     std::map<size_t, BNM::IL2CPP::MethodInfo *> createdMethods{};
     auto templateClass = Internal::customListTemplateClass.GetClass();
+    if (!templateClass) return nullptr;
     auto size = sizeof(IL2CPP::Il2CppClass) + templateClass->vtable_count * sizeof(IL2CPP::VirtualInvokeData);
     auto typedClass = reinterpret_cast<IL2CPP::Il2CppClass *>(BNM_malloc(size));
+    if (!typedClass) return nullptr;
     memcpy(typedClass, templateClass, size);
     for (uint16_t i = 4 /* Skipping virtual methods from System.Object */; i < typedClass->vtable_count; ++i) {
         auto &cur = typedClass->vtable[i];
+        if (!cur.method || !cur.method->name) continue;
         auto name = std::string_view(cur.method->name);
         auto dot = name.rfind('.');
         if (dot != std::string_view::npos) name = name.substr(dot + 1);
@@ -75,6 +80,11 @@ BNM::IL2CPP::Il2CppClass *BNM::Structures::Mono::PRIVATE_MonoListData::TryGetMon
 
         if (methodInfo == nullptr) {
             methodInfo = reinterpret_cast<IL2CPP::MethodInfo *>(BNM_malloc(sizeof(IL2CPP::MethodInfo)));
+            if (!methodInfo) {
+                for (auto &[hash, allocated] : createdMethods) BNM_free(allocated);
+                BNM_free(typedClass);
+                return nullptr;
+            }
             *methodInfo = *cur.method;
             methodInfo->methodPointer = reinterpret_cast<decltype(methodInfo->methodPointer)>(iterator->ptr);
         }

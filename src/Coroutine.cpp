@@ -12,6 +12,7 @@ namespace Classes {
 
 namespace IEnumeratorData {
     static BNM::MANAGEMENT_STRUCTURES::CustomClass customClass{};
+    static BNM::MANAGEMENT_STRUCTURES::CustomField currentField{};
     static BNM::MANAGEMENT_STRUCTURES::CustomMethod customMethod_Finalize{}, customMethod_MoveNext{}, customMethod_Reset{}, customMethod_Current{};
 }
 
@@ -23,8 +24,15 @@ namespace CustomWaitData {
 struct CustomWait : BNM::IL2CPP::Il2CppObject {
     std::function<bool()> _func{};
     bool _isUntil = false;
-    void Finalize() { this->~CustomWait(); }
-    [[nodiscard]] bool MoveNext() const { return _isUntil == !_func(); }
+    bool _constructed = false;
+    void Finalize() {
+        if (_constructed) { _func.~function(); _constructed = false; }
+    }
+    [[nodiscard]] bool MoveNext() const {
+        if (!_constructed || !_func) return false;
+        try { return _isUntil == !_func(); }
+        catch (...) { BNM_LOG_ERR("Coroutine predicate threw an exception"); return false; }
+    }
     void Reset() {}
     [[nodiscard]] static Il2CppObject *Current() { return nullptr; }
 };
@@ -39,6 +47,13 @@ struct BNM::Coroutine::_IEnumeratorInit {
     inline static void Init() {
         using namespace IEnumeratorData;
         customClass._size = sizeof(IEnumerator);
+        // Expose the current yielded object to the managed GC descriptor.
+        currentField._name = "_current";
+        currentField._size = sizeof(BNM::IL2CPP::Il2CppObject *);
+        currentField._type = BNM::Defaults::Get<BNM::IL2CPP::Il2CppObject *>();
+        IEnumerator layout;
+        currentField.offset = reinterpret_cast<BNM_PTR>(&layout._current) - reinterpret_cast<BNM_PTR>(&layout);
+        customClass._fields = {&currentField};
         customClass._targetType = BNM::CompileTimeClassBuilder(BNM_OBFUSCATE_TMP("BNM.Coroutine"), BNM_OBFUSCATE_TMP("IEnumerator")).Build();
         customClass._baseType = {};
         customClass._owner = {};
@@ -160,41 +175,53 @@ BNM::Coroutine::WaitForSecondsRealtime::WaitForSecondsRealtime(float seconds) { 
 BNM::Coroutine::WaitUntil::WaitUntil(const std::function<bool()> &function) {
     auto obj = reinterpret_cast<CustomWait *>(BNM::Class(CustomWaitData::customClass.myClass).CreateNewInstance());
     if (!obj) return;
-    obj->_func = function; obj->_isUntil = true; _object = obj;
+    new (&obj->_func) std::function<bool()>(function);
+    obj->_constructed = true; obj->_isUntil = true; _object = obj;
 }
 
 BNM::Coroutine::WaitWhile::WaitWhile(const std::function<bool()> &function) {
     auto obj = reinterpret_cast<CustomWait *>(BNM::Class(CustomWaitData::customClass.myClass).CreateNewInstance());
     if (!obj) return;
-    obj->_func = function; obj->_isUntil = false; _object = obj;
+    new (&obj->_func) std::function<bool()>(function);
+    obj->_constructed = true; obj->_isUntil = false; _object = obj;
 }
 
 BNM::Coroutine::IEnumerator *BNM::Coroutine::IEnumerator::Get() {
-    _current = nullptr;
-    while (MoveNext()) {
-        _current = Current();
-        if (_current) break;
-    }
-    return this;
+    if (!_coroutine) return reinterpret_cast<IEnumerator *>(_current);
+    auto *object = reinterpret_cast<IEnumerator *>(Class(IEnumeratorData::customClass.myClass).CreateNewInstance());
+    if (!object) return nullptr;
+    // IL2CPP owns the proxy; its finalizer owns the transferred native frame.
+    // Do not advance here: Unity's first MoveNext must observe the first yield,
+    // including a null yield (wait one frame).
+    new (&object->_coroutine) std::coroutine_handle<promise_type>(std::exchange(_coroutine, {}));
+    object->_current = nullptr;
+    _current = object;
+    return object;
 }
 
 void BNM::Coroutine::IEnumerator::Finalize() {
     if (_coroutine) { _coroutine.destroy(); _coroutine = {}; }
+    _current = nullptr;
 }
 
 bool BNM::Coroutine::IEnumerator::MoveNext() {
-    if (!_coroutine) return false;
-    if (_coroutine.done()) return false;
+    if (!_coroutine || _coroutine.done()) return false;
     _coroutine.resume();
-    return true;
+    _current = _coroutine.done() ? nullptr : _coroutine.promise().value()._object;
+    if (_coroutine.promise()._exception) {
+        BNM_LOG_ERR("Coroutine body threw an exception; enumeration stopped");
+        return false;
+    }
+    return !_coroutine.done();
 }
 
 void BNM::Coroutine::IEnumerator::Reset() {
     if (_coroutine) { _coroutine.destroy(); _coroutine = {}; }
+    _current = nullptr;
 }
 
 BNM::Coroutine::IEnumerator::Il2CppObject *BNM::Coroutine::IEnumerator::Current() {
-    if (!_coroutine) return nullptr;
+    if (!_coroutine || _coroutine.done()) return nullptr;
     return _coroutine.promise().value()._object;
 }
 

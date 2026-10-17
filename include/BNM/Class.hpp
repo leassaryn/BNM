@@ -565,6 +565,11 @@ namespace BNM {
             None, Array, Pointer, Reference
         };
         inline CompileTimeClass() = default;
+        CompileTimeClass(const CompileTimeClass &other);
+        CompileTimeClass &operator=(const CompileTimeClass &other);
+        CompileTimeClass(CompileTimeClass &&other) noexcept;
+        CompileTimeClass &operator=(CompileTimeClass &&other) noexcept;
+        ~CompileTimeClass();
         inline CompileTimeClass(Defaults::Internal::ClassType *reference) : _reference(reference) { _SetBit(); }
 
         /// @cond
@@ -574,9 +579,10 @@ namespace BNM {
             Defaults::Internal::ClassType *_reference;
         };
 
-        inline bool _IsBit() { return reinterpret_cast<uintptr_t>(_reference) & 1; }
-        inline void _SetBit() { _reference = reinterpret_cast<Defaults::Internal::ClassType *>(reinterpret_cast<uintptr_t>(_reference) | 1); }
-        inline void _RemoveBit() { _reference = reinterpret_cast<Defaults::Internal::ClassType *>(reinterpret_cast<uintptr_t>(_reference) & ~static_cast<uintptr_t>(1)); }
+        inline uintptr_t _Bits() const { uintptr_t bits{}; std::memcpy(&bits, &_loadedClass, sizeof(bits)); return bits; }
+        inline bool _IsBit() const { return (_Bits() & 1) != 0; }
+        inline void _SetBit() { auto bits = _Bits() | uintptr_t{1}; std::memcpy(&_loadedClass, &bits, sizeof(bits)); }
+        inline void _RemoveBit() { auto bits = _Bits() & ~uintptr_t{1}; std::memcpy(&_loadedClass, &bits, sizeof(bits)); }
         /// @endcond
 
         /**
@@ -655,6 +661,21 @@ namespace BNM {
     struct CompileTimeClassBuilder {
         CompileTimeClass _data{};
 
+    private:
+        template<class T, class... Args> void AddInfo(Args&&... args) {
+            auto *storage = BNM_malloc(sizeof(T));
+            if (!storage) throw std::bad_alloc();
+            T *info = nullptr;
+            try {
+                info = new (storage) T(std::forward<Args>(args)...);
+                _data._stack.Add(info);
+            } catch (...) {
+                if (info) info->~T();
+                BNM_free(storage);
+                throw;
+            }
+        }
+    public:
         /**
             @brief Create builder.
 
@@ -667,9 +688,7 @@ namespace BNM {
         */
         inline CompileTimeClassBuilder(const char *_namespace, const char *_name, const char *_imageName = nullptr, bool autoFree = true) {
             if (autoFree) _data._SetBit();
-            auto info = static_cast<CompileTimeClass::_ClassInfo *>(BNM_malloc(sizeof(CompileTimeClass::_ClassInfo)));
-            new (info) CompileTimeClass::_ClassInfo{_namespace, _name, _imageName};
-            _data._stack.Add(info);
+            AddInfo<CompileTimeClass::_ClassInfo>(_namespace, _name, _imageName);
         }
 
         /**
@@ -682,9 +701,7 @@ namespace BNM {
             @return Reference to current builder
         */
         inline CompileTimeClassBuilder &Class(const char *_name) {
-            auto info = static_cast<CompileTimeClass::_InnerInfo *>(BNM_malloc(sizeof(CompileTimeClass::_InnerInfo)));
-            new (info) CompileTimeClass::_InnerInfo{_name};
-            _data._stack.Add(info);
+            AddInfo<CompileTimeClass::_InnerInfo>(_name);
             return *this;
         }
 
@@ -698,9 +715,7 @@ namespace BNM {
             @return Reference to current builder
         */
         inline CompileTimeClassBuilder &Modifier(CompileTimeClass::ModifierType type) {
-            auto modifier = static_cast<CompileTimeClass::_ModifierInfo *>(BNM_malloc(sizeof(CompileTimeClass::_ModifierInfo)));
-            new (modifier) CompileTimeClass::_ModifierInfo{type};
-            _data._stack.Add(modifier);
+            AddInfo<CompileTimeClass::_ModifierInfo>(type);
             return *this;
         }
 
@@ -714,9 +729,7 @@ namespace BNM {
             @return Reference to current builder
         */
         inline CompileTimeClassBuilder &Generic(const std::initializer_list<CompileTimeClass> &templateTypes) {
-            auto generic = static_cast<CompileTimeClass::_GenericInfo *>(BNM_malloc(sizeof(CompileTimeClass::_GenericInfo)));
-            new (generic) CompileTimeClass::_GenericInfo{templateTypes};
-            _data._stack.Add(generic);
+            AddInfo<CompileTimeClass::_GenericInfo>(templateTypes);
             return *this;
         }
 
