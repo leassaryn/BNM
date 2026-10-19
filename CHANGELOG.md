@@ -9,12 +9,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- Managed reference stores in fields, arrays, lists, delegates and coroutine proxies use GC write barriers; value-type copies mark embedded reference fields when runtime metadata is available.
+- Temporary List class/method metadata uses RAII and enters the cache only after successful construction.
+- Per-descriptor metadata transactions roll back native allocation failures, owner changes, method/vtable edits and newly published assemblies; old buffers are freed only after commit.
+- Virtual override lookup and vtable hooks resolve metadata slots and exact interface offsets, avoiding collisions with hidden methods and explicit interface implementations.
+- Invalid virtual hook targets and null replacements leave the original-output pointer unchanged; checked method rebinding clears stale instances and accepts resolved virtual interfaces.
 - Independent ownership for copied compile-time class descriptors and generic arguments.
 - Runtime class initialization publication, internal cache synchronization, null-symbol scanning, signed x86 decoding, and hook failure propagation.
 - JNI error checks, local-reference cleanup, and installed split-APK discovery.
 - Array size overflow, collection allocation failures, removed dictionary entries, and invalid vector type punning.
 - Coroutine frame ownership, null-yield scheduling, completion, and native callback construction.
-- Custom metadata counter validation and checked allocation; partial OOM rollback remains a documented limitation.
+- Custom metadata counter validation and checked allocation; runtime-owned state and backend unhook failures remain outside native rollback.
 
 ### Changed
 - Typed `cast()` returns a value; coroutine return wrappers are move-only. Rebuild all consumers and see `docs/REFACTOR.md`.
@@ -22,6 +27,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - Debug pointer checks inspect readable mappings; this does not establish object lifetime.
 
 ### Added
+- `ScopedIl2CppThread`, a non-copyable, thread-affine attachment guard with nested/borrowed attachment support.
+- Managed store/copy helpers, required GC barrier symbol resolution, native OOM sweeps and thread/barrier regression fixtures.
 - Native core regression fixtures and before/after audit tooling, with separate Unity runtime verification requirements.
 
 ## [2.5.4-dirty] - 2026-09-20

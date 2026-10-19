@@ -441,7 +441,7 @@ namespace BNM {
                 BNM_LOG_ERR(DBG_BNM_MSG_Class_NewList_Error, str().c_str());
                 return nullptr;
             }
-            lst->items = array;
+            if (!StoreManagedValue(lst, &lst->items, array)) return nullptr;
             BNM::Structures::Mono::PRIVATE_MonoListData::InitMonoListVTable(lst);
             return lst;
         }

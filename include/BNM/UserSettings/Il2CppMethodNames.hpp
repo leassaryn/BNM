@@ -31,3 +31,5 @@
 #define BNM_IL2CPP_API_il2cpp_thread_detach "il2cpp_thread_detach"
 #define BNM_IL2CPP_API_il2cpp_gc_alloc_fixed "il2cpp_gc_alloc_fixed"
 #define BNM_IL2CPP_API_il2cpp_gc_free_fixed "il2cpp_gc_free_fixed"
+
+#define BNM_IL2CPP_API_il2cpp_gc_wbarrier_set_field "il2cpp_gc_wbarrier_set_field"

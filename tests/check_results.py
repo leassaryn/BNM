@@ -28,7 +28,7 @@ for case in ['positive', 'copy-lifetime', 'const-generic', 'class-publication',
              'dictionary-holes', 'array-overflow', 'coroutine-yield', 'coroutine-temporary',
              'missing-symbol', 'hook-failure', 'custom-method-limit', 'mapped-not-readable',
              'reflection', 'copy-move', 'list-boundaries', 'layout-rejection', 'jni-errors',
-             'invoke-hook', 'custom-class', 'metadata-oom']:
+             'invoke-hook', 'custom-class', 'metadata-oom', 'virtual-dispatch', 'thread-scope', 'write-barriers', 'metadata-rollback-create', 'metadata-rollback-modify', 'metadata-hook-rollback', 'list-metadata-rollback']:
     require('regression-' + case)
 for case in ['rel32', 'signed-char', 'bounds']:
     require('scanner-' + case)

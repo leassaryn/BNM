@@ -90,11 +90,23 @@ namespace BNM {
                 BNM_LOG_ERR(DBG_BNM_MSG_Field_Set_const_Error, str().c_str());
                 return;
             }
-            if (_isThreadStatic) {
+            if (_isStatic || _isThreadStatic) {
                 PRIVATE_FieldUtils::SetStaticValue(_data, reinterpret_cast<void *>(&value));
                 return;
             }
-            if (auto ptr = GetPointer(); ptr != nullptr) *ptr = value;
+            if (auto ptr = GetPointer(); ptr != nullptr) {
+                auto *owner = _isInStruct ? nullptr : _instance;
+                if constexpr (std::is_pointer_v<T>) {
+                    // Native pointers/byrefs are not managed object references.
+                    if (_data->type->type == IL2CPP::IL2CPP_TYPE_PTR || _data->type->byref) {
+                        *ptr = value;
+                        return;
+                    }
+                }
+                IL2CPP::Il2CppClass *valueClass{};
+                if constexpr (std::is_class_v<T>) valueClass = GetType().GetClass();
+                (void)StoreManagedValue(owner, ptr, value, valueClass);
+            }
         }
 
         /**

@@ -395,6 +395,7 @@ bool Internal::SetupBNM() {
     INIT_IL2CPP_API(il2cpp_thread_detach);
     INIT_IL2CPP_API(il2cpp_gc_alloc_fixed);
     INIT_IL2CPP_API(il2cpp_gc_free_fixed);
+    INIT_IL2CPP_API(il2cpp_gc_wbarrier_set_field);
 
 #undef INIT_IL2CPP_API
     if (!il2cppMethods.il2cpp_get_corlib || !il2cppMethods.il2cpp_class_from_name ||
@@ -406,7 +407,7 @@ bool Internal::SetupBNM() {
         !il2cppMethods.il2cpp_string_new || !il2cppMethods.il2cpp_resolve_icall ||
         !il2cppMethods.il2cpp_runtime_invoke || !il2cppMethods.il2cpp_domain_get ||
         !il2cppMethods.il2cpp_thread_current || !il2cppMethods.il2cpp_thread_attach ||
-        !il2cppMethods.il2cpp_thread_detach) return false;
+        !il2cppMethods.il2cpp_thread_detach || !il2cppMethods.il2cpp_gc_wbarrier_set_field) return false;
 #ifdef BNM_USE_IL2CPP_ALLOCATOR
     if (!il2cppMethods.il2cpp_gc_alloc_fixed || !il2cppMethods.il2cpp_gc_free_fixed) return false;
 #endif

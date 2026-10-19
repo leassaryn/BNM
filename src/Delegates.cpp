@@ -38,9 +38,9 @@ void BNM::MulticastDelegateBase::Add(BNM::DelegateBase *delegate)  {
     if (!delegates) return;
     auto arr = BNM::Class(delegates->klass->element_class).NewArray<DelegateBase *>(this->delegates->max_length + 1);
     if (!arr) return;
-    arr->CopyFrom(delegates->m_Items, delegates->capacity);
-    arr->m_Items[delegates->capacity] = delegate;
-    this->delegates = reinterpret_cast<decltype(this->delegates)>(arr);
+    if (!arr->CopyFrom(delegates->m_Items, delegates->capacity)) return;
+    if (!arr->Set(delegates->capacity, delegate)) return;
+    (void)StoreManagedValue(&this->delegate.object, &this->delegates, reinterpret_cast<decltype(this->delegates)>(arr));
 }
 
 void BNM::MulticastDelegateBase::Remove(BNM::DelegateBase *delegate)  {
@@ -61,10 +61,10 @@ void BNM::MulticastDelegateBase::Remove(BNM::DelegateBase *delegate)  {
     auto arr = BNM::Class(delegates->klass->element_class).NewArray<DelegateBase *>(delegates->capacity - 1);
     if (!arr) return;
     // Copy elements before the removed index
-    if (index > 0) memcpy(arr->m_Items, delegates->m_Items, index * sizeof(void *));
+    if (index > 0 && !arr->CopyRange(delegates->m_Items, index)) return;
     // Copy elements after the removed index
-    if (index < delegates->capacity - 1) memcpy(arr->m_Items + index, delegates->m_Items + index + 1, (delegates->capacity - index - 1) * sizeof(void *));
-    this->delegates = reinterpret_cast<decltype(this->delegates)>(arr);
+    if (index < delegates->capacity - 1 && !arr->CopyRange(delegates->m_Items + index + 1, delegates->capacity - index - 1, index)) return;
+    (void)StoreManagedValue(&this->delegate.object, &this->delegates, reinterpret_cast<decltype(this->delegates)>(arr));
 }
 
 BNM::DelegateBase *BNM::MulticastDelegateBase::Add(BNM::MethodBase method) {

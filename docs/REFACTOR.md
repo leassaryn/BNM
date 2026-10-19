@@ -15,7 +15,7 @@ Backend dummy tetap menolak kompilasi; stub pada pengujian **bukan backend game*
 menambahkan include publik karena `LOCAL_EXPORT_C_INCLUDES` belum disediakan.
 
 Bangun ulang BNM dan seluruh konsumennya bersama. `CompileTimeClass` kini memiliki
-destructor/copy/move khusus, dan layout proxy coroutine berubah. Jangan mencampur
+destructor/copy/move khusus, dan layout proxy coroutine serta `DataIterator` berubah. Jangan mencampur
 objek/library hasil kompilasi header lama dan baru.
 
 ## Loading dan threading
@@ -38,6 +38,19 @@ objek/library hasil kompilasi header lama dan baru.
   caller bertanggung jawab menanganinya. Utamakan Context eksplisit. Pencarian
   split APK memakai `ApplicationInfo.splitSourceDirs`.
 
+`ScopedIl2CppThread` melakukan attach hanya jika thread belum terpasang. Guard
+bersarang meminjam attachment; hanya guard pemilik melakukan detach saat scope
+berakhir, termasuk saat exception C++ keluar. Guard tidak dapat disalin atau
+dipindahkan dan harus dihancurkan di thread pembuatnya sebelum runtime berhenti.
+Jangan melakukan detach manual selama guard aktif. Periksa `operator bool()`;
+API/domain tidak tersedia atau attach gagal menghasilkan guard kosong.
+
+```cpp
+BNM::ScopedIl2CppThread scope;
+if (!scope) return;
+// Panggil API managed di thread ini.
+```
+
 ## Class, method, field, dan koleksi
 
 `CompileTimeClass` memiliki descriptor sendiri pada setiap copy; `Free()` hanya
@@ -53,10 +66,54 @@ wrapper `base` tidak ikut berubah. Pemanggilan berantai tetap didukung.
 `Method::Call` menolak jumlah argumen yang salah dan methodPointer null.
 Template tipe parameter/return tetap harus cocok dengan signature IL2CPP.
 
+`GetOverride()` dan `VirtualHook()` memakai slot metadata, bukan pencocokan nama
+atau parameter. Method class harus berasal dari class target atau parent-nya;
+method interface memakai pasangan interface/offset yang persis tercatat pada
+class target. Ini membedakan method `new virtual` dengan signature sama dan
+mendukung nama implementasi interface eksplisit yang berbeda. Resolusi memanggil
+inisialisasi class runtime sebelum membaca vtable. Interface variance dan
+inflasi method generic tidak ditambahkan oleh resolver ini; jangan menganggapnya
+pengganti seluruh mekanisme dispatch runtime IL2CPP.
+
+`VirtualHook()` menolak replacement null, slot tidak valid, method nonvirtual,
+class tidak terkait, dan entry tanpa method/pointer. Kegagalan tidak mengubah
+`oldMet`. `GetOverride()` tetap mengembalikan metadata method dengan instance
+terikat; hook vtable hanya mengubah `methodPtr` pada vtable, bukan `methodPointer`
+pada metadata. Pemanggilan langsung wrapper tidak otomatis melewati hook vtable.
+Pada mode pemeriksaan tipe, binding method virtual menerima interface yang
+tercatat; binding null atau ditolak menghapus instance lama.
+
 Array mengembalikan null saat ukuran overflow atau alokasi gagal. List tidak
 menulis melewati kapasitas jika pertumbuhannya gagal. Dictionary non-DOTNET35
 menghitung `count - freeCount` dan melewati entry dengan hash negatif sesuai
 layout header yang direpresentasikan. Tidak ada klaim untuk layout .NET lain.
+
+## Write barrier GC
+
+Loader kini mewajibkan simbol `il2cpp_gc_wbarrier_set_field`; finder kustom harus
+menyediakannya. Store referensi tanpa API barrier gagal tanpa menulis slot.
+`StoreManagedReference(owner, slot, value)` mengembalikan status untuk caller
+level rendah. `StoreManagedValue` dan `CopyManagedRange` mendukung data trivially
+copyable; reference-free bulk copy tetap memakai `memmove`.
+
+`Field<T>::Set` melewatkan field static/thread-static ke setter IL2CPP. Instance
+reference memakai barrier, sedangkan value type dengan metadata ditelusuri untuk
+reference field di dalamnya. Array `Set`, `CopyFrom`, `CopyRange`, assignment
+`array[i] = value`, serta mutasi List memakai jalur yang sama, termasuk pergeseran,
+pembersihan slot, dan penggantian backing array. Pertumbuhan list managed memakai
+allocator array runtime; tidak lagi menempelkan `klass` pada buffer native.
+Delegate dan field current proxy coroutine juga memakai barrier.
+
+Reference type dibedakan dari native value melalui tipe wrapper/metadata.
+Struct native tanpa metadata IL2CPP tidak dapat dipindai untuk referensi tersembunyi;
+berikan class value type yang sesuai ke `StoreManagedValue`/`CopyManagedValue`.
+`GetData()`, `GetPointer()`, `m_Items`, dereference iterator, dan konversi ke `T&`
+tetap merupakan akses langsung yang melewati barrier; gunakan setter untuk
+menulis referensi. Barrier tidak membuat pointer native menjadi GC root dan tidak
+menjadikan koleksi thread-safe. Dictionary memakai mutator managed yang sudah ada.
+
+[Dokumentasi Unity](https://docs.unity.cn/Manual/performance-incremental-garbage-collection.html)
+menjelaskan kebutuhan barrier ketika referensi berubah selama incremental GC.
 
 ## ClassesManagement
 
@@ -69,6 +126,24 @@ Gunakan class baru dengan layout yang ditentukan sebelum instance dibuat.
 Mengganti angka `instance_size` tidak memperbesar objek lama atau memperbarui
 layout turunan/GC. Tidak ada opsi yang diam-diam mengaktifkan kembali perilaku ini.
 Periksa `CustomClass::myClass`/`CustomMethod::myInfo` sesudah pemrosesan.
+
+Pemrosesan **satu descriptor** sekarang memakai transaksi metadata native:
+alokasi baru dicatat, metadata/owner/method/vtable disalin sebelum mutasi, dan
+buffer lama baru dibebaskan setelah commit. Cache class List juga memakai RAII:
+class/method sementara dibebaskan jika pembuatan gagal, dan cache baru diisi
+sesudah konstruksi selesai. Kegagalan alokasi atau hook membatalkan
+perubahan, menarik assembly baru, membersihkan reservasi map kosong, serta
+memulihkan `myInfo`, `_origin`, dan `_originalAddress`. Parameter/target descriptor
+tetap tersedia saat gagal; descriptor yang sudah commit tidak diproses ulang.
+Hook native yang terpasang dibatalkan memakai handle yang dikembalikan backend.
+
+Transaksi bukan rollback seluruh batch loading: descriptor sebelumnya yang sudah
+commit tetap berlaku. Cache/alokasi internal IL2CPP dan kegagalan unhook backend
+bukan resource yang dapat dipulihkan oleh jurnal native. Retry descriptor setelah
+OOM native didukung; jika ada hook mesin, pastikan backend benar-benar berhasil
+melepas hook sebelum mencoba lagi. Tetap gunakan safe point tanpa pembaca metadata
+bersamaan. Semua alokasi native untuk class baru diselesaikan sebelum inisialisasi
+class oleh runtime.
 
 ## Coroutine
 
@@ -96,8 +171,8 @@ bukan bukti lifetime objek, sinkronisasi, atau keselamatan dereference kemudian.
 Pemeriksaan mapping memakai `/proc/self/maps`, tidak cocok untuk signal handler.
 Mode Release tanpa flag pemeriksaan tetap hanya memeriksa null.
 
-Alokasi metadata kini diperiksa sebelum dereference dan error ditahan di boundary
-pemrosesan. Rollback penuh seluruh perubahan metadata/hook pada OOM belum
-tersedia; sebagian alokasi bisa bertahan sampai proses selesai. Jangan mengulang
-mutasi descriptor setelah OOM. Jalankan uji Android/Unity dengan backend nyata,
-full Unity patch version, ABI dan konfigurasi GC yang dipakai aplikasi.
+Uji kegagalan alokasi native mencakup pembuatan class/image dan modifikasi class,
+termasuk owner serta invoke hook sebelum alokasi berikutnya gagal. Uji ini tidak
+mensimulasikan OOM internal IL2CPP, collector, atau kegagalan backend saat unhook.
+Jalankan uji Android/Unity dengan backend nyata, full Unity patch version, ABI,
+dan konfigurasi GC yang dipakai aplikasi.

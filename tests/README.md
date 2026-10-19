@@ -22,8 +22,18 @@ preparation refuses to overwrite a snapshot.
 
 `regression` builds the actual 17-source library with ASan/UBSan, compiles
 `core_regressions.cpp`, and returns nonzero on any compile or runtime failure.
-Each case runs in a separate process. Array allocation-failure injection uses
-the fixture API table. A linker `--wrap=malloc` probe also fails the first metadata allocation; it is not a full failure sweep. Class synchronization tests model a blocking runtime
+Each case runs in a separate process. The `virtual-dispatch` fixture covers hidden
+methods with identical signatures, explicit interface implementations, instance
+preservation, slot bounds, unrelated classes, missing entries and rejected hook
+output preservation. It exercises synthetic metadata, not Unity's generic or
+variant-interface dispatch.
+ Array allocation-failure injection uses
+the fixture API table. Linker `--wrap=malloc` probes fail successive native
+allocations while creating a class/image and modifying an existing class. Each
+failed attempt verifies owner/method/assembly restoration and retries the same
+descriptor until commit. The List metadata cache has separate allocation-failure
+checks. A hook-failure case checks that an earlier invoke hook is restored.
+Class synchronization tests model a blocking runtime
 initializer; they are not evidence of real IL2CPP locking or a TSan run.
 
 The scanner test extracts the actual implementation and selects x64 decoding
@@ -60,4 +70,8 @@ normal/late initialization, overloads/generics/value types on each shipped ABI,
 CheckJNI and split APK loading, coroutine collection/finalization, and incremental
 GC write barriers. Keep metadata writers at an application-controlled safe point.
 Leak detection is disabled for native fixtures because published IL2CPP metadata
-has process lifetime. Full allocation-failure rollback is not covered.
+has process lifetime. Runtime-owned allocations, collector behavior, and successful
+machine-code hook installation/unhook failures are not covered by native OOM probes.
+Thread guard tests cover borrowed/nested attachments, exception unwinding and failed
+attach. Barrier tests observe the API callback, including overlapping copies, list
+growth/clearing, instance/static fields and references embedded in value types.

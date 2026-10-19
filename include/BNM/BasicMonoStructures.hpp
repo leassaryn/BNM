@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <string_view>
+#include <limits>
 
 #include "UserSettings/GlobalSettings.hpp"
 #include "Il2CppHeaders.hpp"
@@ -23,9 +24,13 @@ namespace BNM::Utils {
     template<typename T>
     struct DataIterator {
         T *value{};
+        IL2CPP::Il2CppObject *owner{};
+        IL2CPP::Il2CppClass *valueClass{};
         /// @cond
         constexpr DataIterator() = default;
-        constexpr DataIterator(const T *value) : value((T *)value) {}
+        constexpr DataIterator(const T *value, IL2CPP::Il2CppObject *owner = nullptr,
+                               IL2CPP::Il2CppClass *valueClass = nullptr)
+            : value(const_cast<T *>(value)), owner(owner), valueClass(valueClass) {}
         inline T& operator *() {
             BNM_LOG_ERR_IF(!value, DBG_BNM_MSG_DataIterator_Error);
             return *value;
@@ -51,13 +56,11 @@ namespace BNM::Utils {
             return *value;
         }
         inline DataIterator &operator=(T t) {
-            BNM_LOG_ERR_IF(!t, DBG_BNM_MSG_DataIterator_Error);
-            *this->value = t;
+            if (value) (void)StoreManagedValue(owner, value, t, valueClass);
             return *this;
         }
-        inline DataIterator &operator=(T t) const {
-            BNM_LOG_ERR_IF(!t, DBG_BNM_MSG_DataIterator_Error);
-            *this->value = t;
+        inline const DataIterator &operator=(T t) const {
+            if (value) (void)StoreManagedValue(owner, value, t, valueClass);
             return *this;
         }
         /// @endcond
@@ -198,7 +201,7 @@ namespace BNM::Structures::Mono {
             @param vec Source vector
             @return True if vector size is the same or less than array's size.
         */
-        inline bool CopyFrom(const std::vector<T> &vec) { BNM_CHECK_SELF(false); if (vec.empty()) return false; return CopyFrom((T *)vec.data(), (IL2CPP::il2cpp_array_size_t)vec.size()); }
+        inline bool CopyFrom(const std::vector<T> &vec) { BNM_CHECK_SELF(false); if (vec.empty() || vec.size() > static_cast<size_t>(std::numeric_limits<IL2CPP::il2cpp_array_size_t>::max())) return false; return CopyFrom(const_cast<T *>(vec.data()), static_cast<IL2CPP::il2cpp_array_size_t>(vec.size())); }
 
         /**
             @brief Copy data from pointer to current array.
@@ -210,9 +213,21 @@ namespace BNM::Structures::Mono {
         */
         bool CopyFrom(T *arr, IL2CPP::il2cpp_array_size_t size) {
             BNM_CHECK_SELF(false);
-            if (size > capacity || (size && !arr)) return false;
-            if (size) memcpy(&m_Items[0], arr, size * sizeof(T));
-            return true;
+            return CopyRange(arr, size);
+        }
+
+        // All writes performed by BNM pass through this path, including overlapping copies.
+        bool CopyRange(const T *source, IL2CPP::il2cpp_array_size_t count,
+                       IL2CPP::il2cpp_array_size_t destination = 0) {
+            if (std::cmp_less(count, 0) || std::cmp_less(destination, 0) || destination > capacity ||
+                count > capacity - destination) return false;
+            return CopyManagedRange(this, m_Items + destination, source, static_cast<size_t>(count),
+                                    klass ? klass->element_class : nullptr);
+        }
+
+        bool Set(IL2CPP::il2cpp_array_size_t index, const T &value) {
+            if (std::cmp_less(index, 0) || index >= capacity) return false;
+            return StoreManagedValue(this, m_Items + index, value, klass ? klass->element_class : nullptr);
         }
 
         /**
@@ -224,7 +239,7 @@ namespace BNM::Structures::Mono {
             @brief Get element at index.
             @return DataIterator of target element if array is valid and index isn't out of bounds, otherwise empty DataIterator.
         */
-        inline Utils::DataIterator<T> At(IL2CPP::il2cpp_array_size_t index) const { BNM_CHECK_SELF({}); if (index >= GetCapacity()) return {}; return &m_Items[index]; }
+        inline Utils::DataIterator<T> At(IL2CPP::il2cpp_array_size_t index) const { BNM_CHECK_SELF({}); if (std::cmp_less(index, 0) || index >= GetCapacity()) return {}; return {&m_Items[index], const_cast<Array *>(this), klass ? klass->element_class : nullptr}; }
         inline Utils::DataIterator<T> operator[] (IL2CPP::il2cpp_array_size_t index) const { return At(index); }
 
         /**
@@ -242,7 +257,8 @@ namespace BNM::Structures::Mono {
             @return New array
         */
         static Array<T> *Create(size_t capacity, bool _forceUseAlloc = false) {
-            if (capacity > (SIZE_MAX - sizeof(Array)) / sizeof(T)) return nullptr;
+            if (capacity > (SIZE_MAX - sizeof(Array)) / sizeof(T) ||
+                capacity > static_cast<size_t>(std::numeric_limits<IL2CPP::il2cpp_array_size_t>::max())) return nullptr;
             auto cls = _forceUseAlloc ? BNM::Defaults::DefaultTypeRef{} : BNM::Defaults::Get<T>();
 #ifndef  BNM_USE_IL2CPP_ALLOCATOR
             auto monoArr = reinterpret_cast<Array<T> *>(cls.IsValid() ? __Internal_Array::ArrayFromClass(cls, capacity) : BNM_malloc(sizeof(Array) + sizeof(T) * capacity));
@@ -281,7 +297,10 @@ namespace BNM::Structures::Mono {
         */
         static Array<T> *Create(T *arr, size_t size, bool _forceUseAlloc = false) {
             Array<T> *monoArr = Create(size, _forceUseAlloc);
-            if (monoArr) monoArr->CopyFrom(arr, size);
+            if (monoArr && !monoArr->CopyFrom(arr, static_cast<IL2CPP::il2cpp_array_size_t>(size))) {
+                monoArr->Destroy();
+                return nullptr;
+            }
             return monoArr;
         }
 
@@ -407,7 +426,7 @@ namespace BNM::Structures::Mono {
         void Add(T val) {
             GrowIfNeeded(1);
             if (!items || size < 0 || static_cast<size_t>(size) >= items->capacity) return;
-            items->m_Items[size] = val;
+            if (!items->Set(size, val)) return;
             size++;
             version++;
         }
@@ -448,18 +467,12 @@ namespace BNM::Structures::Mono {
         bool Resize(int newCapacity) {
             BNM_CHECK_SELF(false);
             if (!items || newCapacity < 0 || static_cast<size_t>(newCapacity) <= items->capacity) return false;
-            auto nItems = Array<T>::Create(static_cast<size_t>(newCapacity));
+            auto *nItems = NewStorage(newCapacity);
             if (!nItems) return false;
-            nItems->klass = items->klass;
-            nItems->monitor = items->monitor;
-            nItems->bounds = items->bounds;
-            nItems->capacity = newCapacity;
-            // Do not copy if the array is empty
-            if (items->capacity > 0)
-                memcpy(&nItems->m_Items[0], &items->m_Items[0], items->capacity * sizeof(T));
-            // Free old array to prevent memory leak (only for BNM-created arrays)
-            if (!items->klass) items->Destroy();
-            items = nItems;
+            if (!nItems->CopyRange(items->m_Items, size)) { nItems->Destroy(); return false; }
+            auto *previous = items;
+            if (!StoreManagedValue(this, &items, nItems)) { nItems->Destroy(); return false; }
+            previous->Destroy();
             return true;
         }
 
@@ -470,7 +483,7 @@ namespace BNM::Structures::Mono {
 
             @return DataIterator of target element if index isn't out of bounds, otherwise empty DataIterator.
         */
-        [[nodiscard]] Utils::DataIterator<T> At(int index) const { if (index < 0 || index >= size) return {}; return &items->m_Items[index]; }
+        [[nodiscard]] Utils::DataIterator<T> At(int index) const { if (index < 0 || index >= size) return {}; return items->At(index); }
         Utils::DataIterator<T> operator[] (int index) const { return At(index); }
 
         /**
@@ -478,7 +491,7 @@ namespace BNM::Structures::Mono {
             @param vec Source vector
             @return True if vector size is the same or less than array's size.
         */
-        inline bool CopyFrom(const std::vector<T> &vec) { return CopyFrom(const_cast<T *>(vec.data()), static_cast<int>(vec.size())); }
+        inline bool CopyFrom(const std::vector<T> &vec) { if (vec.size() > INT32_MAX) return false; return CopyFrom(const_cast<T *>(vec.data()), static_cast<int>(vec.size())); }
 
         /**
             @brief Copy data from pointer to current list.
@@ -491,18 +504,18 @@ namespace BNM::Structures::Mono {
         bool CopyFrom(T *arr, int arrSize) {
             BNM_CHECK_SELF(false);
             if (!items || arrSize < 0 || (arrSize && !arr)) return false;
-            // Resize only if needed (skip old data copy if we're about to overwrite)
-            if (static_cast<size_t>(arrSize) > items->capacity) {
-                auto nItems = Array<T>::Create(static_cast<size_t>(arrSize));
+            if (static_cast<size_t>(arrSize) > static_cast<size_t>(items->capacity)) {
+                auto *nItems = NewStorage(arrSize);
                 if (!nItems) return false;
-                nItems->klass = items->klass;
-                nItems->monitor = items->monitor;
-                nItems->bounds = items->bounds;
-                nItems->capacity = arrSize;
-                if (!items->klass) items->Destroy();
-                items = nItems;
+                // Copy before releasing old storage: arr may point inside it.
+                if (!nItems->CopyRange(arr, arrSize)) { nItems->Destroy(); return false; }
+                auto *previous = items;
+                if (!StoreManagedValue(this, &items, nItems)) { nItems->Destroy(); return false; }
+                previous->Destroy();
+            } else {
+                if (!items->CopyRange(arr, arrSize)) return false;
+                for (int i = arrSize; i < size; ++i) if (!items->Set(i, T{})) return false;
             }
-            if (arrSize) memmove(items->m_Items, arr, static_cast<size_t>(arrSize) * sizeof(T));
             size = arrSize;
             ++version;
             return true;
@@ -512,7 +525,7 @@ namespace BNM::Structures::Mono {
             @brief Remove all list elements.
         */
         void Clear() {
-            if (size > 0) memset(items->m_Items, 0, size * sizeof(T));
+            for (int i = 0; i < size; ++i) if (!items->Set(i, T{})) return;
             ++version; size = 0;
         }
 
@@ -550,7 +563,7 @@ namespace BNM::Structures::Mono {
         */
         void set_Item(int index, T item) {
             if (index < 0 || index >= size) return;
-            items->m_Items[index] = item;
+            if (!items->Set(index, item)) return;
             ++version;
         }
 
@@ -563,15 +576,15 @@ namespace BNM::Structures::Mono {
             if (!items || index < 0 || index > size) return;
             GrowIfNeeded(1);
             if (static_cast<size_t>(size) >= items->capacity) return;
-            if (index < size) memmove(items->m_Items + index + 1, items->m_Items + index, (size - index) * sizeof(T));
-            items->m_Items[index] = item;
+            if (index < size && !items->CopyRange(items->m_Items + index, size - index, index + 1)) return;
+            if (!items->Set(index, item)) return;
             ++size;
             ++version;
         }
 
         /// @cond
         void *get_SyncRoot() {
-            if (!syncRoot) syncRoot = PRIVATE_MonoListData::CompareExchange4List(syncRoot);
+            if (!syncRoot) { auto *value = PRIVATE_MonoListData::CompareExchange4List(syncRoot); (void)StoreManagedValue(this, &syncRoot, value); }
             return syncRoot;
         }
         bool get_false() const { return false; }
@@ -581,13 +594,19 @@ namespace BNM::Structures::Mono {
             @brief Copy data from current list to some array.
         */
         void CopyTo(Array<T>* arr, int arrIndex) const {
-            memcpy(arr->m_Items + arrIndex, items->m_Items, size * sizeof(T));
+            if (arr && arrIndex >= 0) (void)arr->CopyRange(items->m_Items, size, arrIndex);
         }
 
         /**
             @brief Check if list has capacity for n elements.
             @param n Number of additional elements
         */
+        Array<T> *NewStorage(int capacity) const {
+            if (items && items->klass)
+                return static_cast<Array<T> *>(__Internal_Array::ArrayFromClass(items->klass->element_class, capacity));
+            return Array<T>::Create(static_cast<size_t>(capacity), true);
+        }
+
         void GrowIfNeeded(int n) {
             if (!items || size < 0 || n < 0 || n > INT32_MAX - size) return;
             const auto required = static_cast<size_t>(size + n);
@@ -605,10 +624,19 @@ namespace BNM::Structures::Mono {
             @param delta Move delta
         */
         void Shift(int start, int delta) {
-            if (delta < 0) start -= delta;
-            if (start < size) memmove(items->m_Items + start + delta, items->m_Items + start, (size - start) * sizeof(T));
-            size += delta;
-            if (delta < 0) memset(items->m_Items + size, 0, -delta * sizeof(T));
+            if (!items || size < 0 || start < 0 || start > size) return;
+            const auto newSize = static_cast<int64_t>(size) + delta;
+            const auto source = static_cast<int64_t>(start) - (delta < 0 ? static_cast<int64_t>(delta) : 0);
+            const auto destination = source + delta;
+            if (newSize < 0 || newSize > INT32_MAX ||
+                static_cast<uint64_t>(newSize) > static_cast<uint64_t>(items->capacity) ||
+                source > size || destination < 0) return;
+            if (source < size && !items->CopyRange(items->m_Items + source,
+                static_cast<IL2CPP::il2cpp_array_size_t>(size - source),
+                static_cast<IL2CPP::il2cpp_array_size_t>(destination))) return;
+            const auto previousSize = size;
+            size = static_cast<int>(newSize);
+            for (int i = size; i < previousSize; ++i) (void)items->Set(i, T{});
         }
 
 #ifdef BNM_ALLOW_SELF_CHECKS

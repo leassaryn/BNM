@@ -73,7 +73,9 @@ namespace BNM {
         [[nodiscard]] MethodBase GetGeneric(const std::initializer_list<CompileTimeClass> &templateTypes) const;
 
         /**
-            @brief Get overridden method of current virtual method.
+            @brief Get overridden method by metadata slot (or exact interface offset).
+            The instance class must derive from the declaring class or contain the exact interface.
+            Returns method metadata; direct calls do not dispatch through a hooked vtable.
             @return Overridden method if method is valid and virtual, otherwise empty method.
         */
         [[nodiscard]] MethodBase GetOverride() const;

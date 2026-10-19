@@ -53,8 +53,10 @@ ndk-build Debug/Release also passed. Full source checks cover six representative
 Unity selections, not every ABI/version/feature combination.
 
 These checks use synthetic runtime fixtures and a hook stub that always fails.
-Real Unity loading, backend behavior, GC/finalization, and complete metadata
-rollback on allocation failure remain unverified. API 21 is the test target,
+Real Unity loading, backend behavior, GC/finalization, and runtime-owned allocation
+failures remain unverified. Native metadata now has per-descriptor rollback; managed
+stores use write barriers and `ScopedIl2CppThread` owns native thread attachments.
+See the [updated contracts](docs/REFACTOR.md) for scope and migration requirements. API 21 is the test target,
 not a newly imposed minimum. Reproduce the checks using the
 [test guide](tests/README.md); inspect the [audit report](REVIEW.md) and
 [recorded results](tools/audit/refactor-results.json) for evidence and limitations.

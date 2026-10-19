@@ -10,13 +10,20 @@
 #include <atomic>
 #include <chrono>
 #include <mutex>
+#include <memory>
 #include <BNM/Field.hpp>
 
 using namespace BNM;
 static std::atomic<bool> failNextAllocation{false};
+static int failAllocationAfter = -1;
+static bool allocationFailed = false;
 extern "C" void *__real_malloc(size_t);
 extern "C" void *__wrap_malloc(size_t size) {
     if (failNextAllocation.exchange(false)) return nullptr;
+    if (failAllocationAfter >= 0 && failAllocationAfter-- == 0) {
+        allocationFailed = true;
+        return nullptr;
+    }
     return __real_malloc(size);
 }
 static IL2CPP::Il2CppClass fixtureClass{};
@@ -25,8 +32,17 @@ static IL2CPP::Il2CppAssembly fixtureAssembly{};
 static IL2CPP::Il2CppObject yieldedObject{};
 static std::vector<IL2CPP::Il2CppAssembly*> assemblies{&fixtureAssembly};
 
+static size_t barrierCalls{};
+static IL2CPP::Il2CppObject *lastBarrierOwner{};
+static void *lastBarrierSlot{};
+static void BarrierFixture(IL2CPP::Il2CppObject *owner, void **slot, void *value) {
+    ++barrierCalls; lastBarrierOwner = owner; lastBarrierSlot = slot;
+    std::memcpy(slot, &value, sizeof(value));
+}
+
 static void Setup()
 {
+    Internal::il2cppMethods.il2cpp_gc_wbarrier_set_field = BarrierFixture;
     fixtureClass.name = "Fixture";
     fixtureClass.namespaze = "Audit";
     fixtureClass.image = &fixtureImage;
@@ -39,6 +55,346 @@ static void Setup()
     Internal::il2cppMethods.Class$$Init = +[](IL2CPP::Il2CppClass*) {};
     Internal::il2cppMethods.il2cpp_gc_alloc_fixed = +[](size_t size) { return std::malloc(size); };
     Internal::il2cppMethods.il2cpp_gc_free_fixed = +[](void* ptr) { std::free(ptr); };
+}
+
+static IL2CPP::Il2CppThread attachedThread{};
+static IL2CPP::Il2CppDomain threadDomain{};
+static bool attached{}, attachFails{};
+static int attachCalls{}, detachCalls{};
+static int ThreadScopeRegression() {
+    auto &api = Internal::il2cppMethods;
+    api.il2cpp_domain_get = +[] { return &threadDomain; };
+    api.il2cpp_thread_current = +[](IL2CPP::Il2CppDomain *) { return attached ? &attachedThread : nullptr; };
+    api.il2cpp_thread_attach = +[](IL2CPP::Il2CppDomain *) -> IL2CPP::Il2CppThread * {
+        ++attachCalls; attached = !attachFails; return attached ? &attachedThread : nullptr;
+    };
+    api.il2cpp_thread_detach = +[](IL2CPP::Il2CppThread *thread) {
+        if (thread != &attachedThread) std::abort();
+        ++detachCalls; attached = false;
+    };
+    static_assert(!std::is_copy_constructible_v<ScopedIl2CppThread>);
+    static_assert(!std::is_move_constructible_v<ScopedIl2CppThread>);
+    {
+        ScopedIl2CppThread outer;
+        if (!outer || !outer.OwnsAttachment() || outer.Get() != &attachedThread) return 1;
+        { ScopedIl2CppThread inner; if (!inner || inner.OwnsAttachment()) return 1; }
+        if (detachCalls || attachCalls != 1) return 1;
+    }
+    if (attached || detachCalls != 1) return 1;
+    attached = true;
+    { ScopedIl2CppThread borrowed; if (!borrowed || borrowed.OwnsAttachment()) return 1; }
+    if (!attached || detachCalls != 1 || attachCalls != 1) return 1;
+    attached = false;
+    try { ScopedIl2CppThread guard; throw std::runtime_error("unwind"); }
+    catch (const std::runtime_error &) {}
+    if (attached || detachCalls != 2) return 1;
+    attachFails = true;
+    { ScopedIl2CppThread failed; if (failed) return 1; }
+    if (detachCalls != 2) return 1;
+    api.il2cpp_thread_attach = nullptr;
+    { ScopedIl2CppThread unavailable; if (unavailable) return 1; }
+    api.il2cpp_domain_get = +[]() -> IL2CPP::Il2CppDomain * { return nullptr; };
+    { ScopedIl2CppThread noDomain; if (noDomain) return 1; }
+    return 0;
+}
+
+static int BarrierRegression() {
+    using namespace Structures::Mono;
+    auto *array = Array<IL2CPP::Il2CppObject *>::Create(6, true);
+    if (!array) return 1;
+    IL2CPP::Il2CppObject a{}, b{}, c{};
+    IL2CPP::Il2CppObject *values[] = {&a, &b, &c};
+    if (!array->CopyRange(values, 3) || barrierCalls != 3 || lastBarrierOwner != array) return 1;
+    if (!array->CopyRange(array->m_Items, 3, 1)) return 1;
+    if (array->m_Items[1] != &a || array->m_Items[2] != &b || array->m_Items[3] != &c) return 1;
+    (*array)[0] = &c;
+    if (array->m_Items[0] != &c || lastBarrierSlot != &array->m_Items[0]) return 1;
+    List<IL2CPP::Il2CppObject *> list{};
+    list.items = array; list.size = 4;
+    list.Insert(1, &b);
+    if (list.size != 5 || list.get_Item(1) != &b || list.get_Item(2) != &a) return 1;
+    list.RemoveAt(1);
+    if (list.size != 4 || list.get_Item(1) != &a || list.items->m_Items[4]) return 1;
+    if (!list.Resize(10) || lastBarrierOwner != &list || lastBarrierSlot != &list.items) return 1;
+    if (!list.CopyFrom(values, 1) || list.size != 1 || list.items->m_Items[1]) return 1;
+    list.Clear();
+    if (list.size || list.items->m_Items[0]) return 1;
+    auto barrier = Internal::il2cppMethods.il2cpp_gc_wbarrier_set_field;
+    Internal::il2cppMethods.il2cpp_gc_wbarrier_set_field = nullptr;
+    if (list.items->Set(0, &a) || list.items->m_Items[0]) return 1;
+    Internal::il2cppMethods.il2cpp_gc_wbarrier_set_field = barrier;
+    list.items->Destroy();
+
+    // A managed backing array must grow through the runtime's allocator.
+    static IL2CPP::Il2CppClass arrayClass{};
+    static int managedAllocations{};
+    arrayClass.element_class = &fixtureClass;
+    Internal::il2cppMethods.il2cpp_array_new = +[](const IL2CPP::Il2CppClass *element,
+        IL2CPP::il2cpp_array_size_t capacity) -> IL2CPP::Il2CppArray * {
+        if (element != &fixtureClass) return nullptr;
+        ++managedAllocations;
+        auto *result = static_cast<Array<IL2CPP::Il2CppObject *> *>(
+            std::calloc(1, sizeof(Array<IL2CPP::Il2CppObject *>) + capacity * sizeof(void *)));
+        if (result) { result->klass = &arrayClass; result->capacity = capacity; }
+        return reinterpret_cast<IL2CPP::Il2CppArray *>(result);
+    };
+    auto *oldManaged = static_cast<Array<IL2CPP::Il2CppObject *> *>(
+        __Internal_Array::ArrayFromClass(&fixtureClass, 1));
+    if (!oldManaged) return 1;
+    list.items = oldManaged; list.size = 0;
+    list.Add(&a); list.Add(&b);
+    if (managedAllocations != 2 || list.items->klass != &arrayClass || list.size != 2 ||
+        list.get_Item(0) != &a || list.get_Item(1) != &b) return 1;
+    std::free(oldManaged); // Fixture owns the mock GC allocations.
+    std::free(list.items);
+
+    // Value-type copies must also mark embedded reference fields.
+    struct Value { int number; IL2CPP::Il2CppObject *reference; };
+    IL2CPP::Il2CppClass valueClass{};
+    valueClass.has_references = 1;
+    IL2CPP::Il2CppType referenceType{};
+    referenceType.type = IL2CPP::IL2CPP_TYPE_OBJECT;
+    IL2CPP::FieldInfo referenceField{};
+    referenceField.type = &referenceType;
+    referenceField.offset = static_cast<int32_t>(sizeof(IL2CPP::Il2CppObject) + offsetof(Value, reference));
+    valueClass.field_count = 1; valueClass.fields = &referenceField;
+    Value source{42, &b}, destination{};
+    auto before = barrierCalls;
+    if (!StoreManagedValue(&a, &destination, source, &valueClass) || barrierCalls != before + 1 ||
+        destination.number != 42 || destination.reference != &b || lastBarrierSlot != &destination.reference) return 1;
+
+    struct Outer { Value nested; } outerSource{{17, &c}}, outerDestination{};
+    IL2CPP::Il2CppClass outerClass{};
+    outerClass.has_references = 1;
+    IL2CPP::Il2CppType nestedType{};
+    nestedType.type = IL2CPP::IL2CPP_TYPE_VALUETYPE;
+    nestedType.data.dummy = &valueClass;
+    valueClass.byval_arg.valuetype = 1;
+    IL2CPP::FieldInfo nestedField{};
+    nestedField.type = &nestedType;
+    nestedField.offset = sizeof(IL2CPP::Il2CppObject);
+    outerClass.fields = &nestedField; outerClass.field_count = 1;
+    Internal::il2cppMethods.il2cpp_class_from_il2cpp_type = +[](const IL2CPP::Il2CppType *type) {
+        return static_cast<IL2CPP::Il2CppClass *>(type->data.dummy);
+    };
+    before = barrierCalls;
+    if (!StoreManagedValue(&a, &outerDestination, outerSource, &outerClass) ||
+        barrierCalls != before + 1 || outerDestination.nested.reference != &c ||
+        lastBarrierSlot != &outerDestination.nested.reference) return 1;
+
+    // Instance fields go through the barrier; static fields go through the VM setter.
+    struct Object { IL2CPP::Il2CppObject header; IL2CPP::Il2CppObject *reference; } object{};
+    object.header.klass = &fixtureClass;
+    referenceField.offset = offsetof(Object, reference);
+    referenceField.parent = &fixtureClass;
+    Field<IL2CPP::Il2CppObject *> field(&referenceField);
+    field[&object.header].Set(&c);
+    if (object.reference != &c || lastBarrierOwner != &object.header) return 1;
+    referenceType.attrs = 0x0010;
+    static void *staticValue{};
+    Internal::il2cppMethods.il2cpp_field_static_set_value = +[](const IL2CPP::FieldInfo *, void *value) {
+        std::memcpy(&staticValue, value, sizeof(staticValue));
+    };
+    Field<IL2CPP::Il2CppObject *> staticField(&referenceField);
+    staticField.Set(&b);
+    return staticValue == &b ? 0 : 1;
+}
+
+static int ListMetadataRollbackRegression() {
+    using namespace Structures::Mono::PRIVATE_MonoListData;
+    std::unique_ptr<IL2CPP::Il2CppClass, decltype(&std::free)> storage(
+        static_cast<IL2CPP::Il2CppClass *>(std::calloc(1, sizeof(IL2CPP::Il2CppClass) + 5 * sizeof(IL2CPP::VirtualInvokeData))), &std::free);
+    if (!storage) return 1;
+    storage->vtable_count = 5;
+    IL2CPP::MethodInfo count{}; count.name = "get_Count";
+    const auto original = +[]() {};
+    const auto replacement = +[]() {};
+    count.methodPointer = original;
+    storage->vtable[4] = {original, &count};
+    Internal::customListTemplateClass = storage.get();
+    std::array<MethodData, 16> data{};
+    data[0].methodName = "get_Count";
+    data[0].ptr = reinterpret_cast<void *>(replacement);
+    constexpr uint32_t hash = 0x12121212;
+    for (int fail = 0; fail < 2; ++fail) {
+        allocationFailed = false; failAllocationAfter = fail;
+        auto *result = TryGetMonoListClass(hash, data);
+        failAllocationAfter = -1;
+        if (result || !allocationFailed || Internal::customListsMap.contains(hash) ||
+            storage->vtable[4].methodPtr != original) return 1;
+    }
+    auto *result = TryGetMonoListClass(hash, data);
+    if (!result || result->vtable[4].method == &count || result->vtable[4].methodPtr != replacement) return 1;
+    return TryGetMonoListClass(hash, data) == result ? 0 : 1;
+}
+
+static int MetadataHookFailureRegression() {
+    using namespace MANAGEMENT_STRUCTURES;
+    IL2CPP::MethodInfo first{}, second{};
+    const auto original = +[]() {};
+    first.name = "First"; second.name = "Second";
+    first.methodPointer = second.methodPointer = original;
+    PRIVATE_INTERNAL::GetMethodClass(&first) = PRIVATE_INTERNAL::GetMethodClass(&second) = &fixtureClass;
+    const IL2CPP::MethodInfo *methods[] = {&first, &second};
+    fixtureClass.methods = methods; fixtureClass.method_count = 2;
+    CustomClass target{};
+    target._targetType = CompileTimeClassBuilder("Audit", "Fixture", "Audit.dll").Build();
+    CustomMethod invoke{}, basic{};
+    invoke._name = "First"; invoke._isInvokeHook = true;
+    basic._name = "Second"; basic._isBasicHook = true;
+    invoke._address = basic._address = reinterpret_cast<void *>(+[]() {});
+    invoke._invoker = basic._invoker = invoke._address;
+    target._methods = {&invoke, &basic};
+    // The fixture backend deliberately fails; the preceding invoke hook must be undone.
+    ClassesManagement::ProcessClassRuntime(&target);
+    return !target.myClass && !invoke.myInfo && !invoke._origin && !basic.myInfo &&
+           first.methodPointer == original && second.methodPointer == original &&
+           fixtureClass.methods == methods && fixtureClass.method_count == 2 ? 0 : 1;
+}
+
+static int MetadataRollbackRegression(bool modify) {
+    using namespace MANAGEMENT_STRUCTURES;
+    fixtureClass.instance_size = sizeof(IL2CPP::Il2CppObject);
+    fixtureClass.typeHierarchyDepth = 1;
+    IL2CPP::Il2CppClass *hierarchy[] = {&fixtureClass};
+    fixtureClass.typeHierarchy = hierarchy;
+    Internal::vmData.Object = &fixtureClass;
+    Internal::il2cppMethods.il2cpp_type_get_object = +[](const IL2CPP::Il2CppType *) -> IL2CPP::Il2CppObject * { return &yieldedObject; };
+    CustomClass target{};
+    target._targetType = CompileTimeClassBuilder("Audit", modify ? "Fixture" : "Rollback", modify ? "Audit.dll" : "Rollback.dll").Build();
+    target._size = sizeof(IL2CPP::Il2CppObject);
+    IL2CPP::Il2CppClass owner{};
+    owner.name = "Owner"; owner.namespaze = "Audit"; owner.image = &fixtureImage;
+    target._owner = Class(&owner).GetCompileTimeClass();
+    CustomMethod method{}, added{};
+    method._name = "Existing"; method._isInvokeHook = true;
+    method._address = reinterpret_cast<void *>(+[]() {}); method._invoker = method._address;
+    method._returnType = Class(&fixtureClass).GetCompileTimeClass();
+    added._name = "Added"; added._address = method._address; added._invoker = method._invoker;
+    added._returnType = Class(&fixtureClass).GetCompileTimeClass();
+    added._parameterTypes = {Class(&fixtureClass).GetCompileTimeClass()};
+    target._methods = {&method, &added};
+    IL2CPP::MethodInfo original{};
+    original.name = "Existing";
+    const auto oldPointer = +[]() {};
+    original.methodPointer = oldPointer;
+    PRIVATE_INTERNAL::GetMethodClass(&original) = &fixtureClass;
+    const IL2CPP::MethodInfo *oldMethods[] = {&original};
+    if (modify) { fixtureClass.methods = oldMethods; fixtureClass.method_count = 1; }
+    int failures = 0;
+    for (int allocation = 0; allocation < 200; ++allocation) {
+        allocationFailed = false;
+        failAllocationAfter = allocation;
+        ClassesManagement::ProcessClassRuntime(&target);
+        failAllocationAfter = -1;
+        if (target.myClass) {
+            if (allocationFailed || owner.nested_type_count != 1 || !method.myInfo || !added.myInfo) return 1;
+            if (modify && (original.methodPointer != reinterpret_cast<IL2CPP::Il2CppMethodPointer>(method._address) || fixtureClass.method_count != 2)) return 1;
+            std::printf("%s rollback: %d injected allocation failures recovered before commit\n", modify ? "modify" : "create", failures);
+            return failures >= (modify ? 3 : 8) ? 0 : 1;
+        }
+        if (!allocationFailed) return 1;
+        ++failures;
+        if (method.myInfo || method._origin || method._originalAddress || added.myInfo ||
+            target.type || owner.nestedTypes || owner.nested_type_count || assemblies.size() != 1 ||
+            target._methods.size() != 2 || added._parameterTypes.size() != 1) return 1;
+        if (modify && (original.methodPointer != oldPointer || fixtureClass.method_count != 1 ||
+                       fixtureClass.methods != oldMethods || fixtureClass.declaringType)) return 1;
+        bool published = false;
+        Internal::ClassesManagement::bnmClassesMap.ForEach([&](auto *, const auto &classes) {
+            published = published || !classes.empty(); return false;
+        });
+        if (published) return 1;
+    }
+    return 1;
+}
+
+static int VirtualDispatchRegression()
+{
+    // Il2CppClass ends with a variable-length vtable. Own the entire allocation.
+    std::unique_ptr<IL2CPP::Il2CppClass, decltype(&std::free)> storage(
+        static_cast<IL2CPP::Il2CppClass *>(std::calloc(
+            1, sizeof(IL2CPP::Il2CppClass) + 3 * sizeof(IL2CPP::VirtualInvokeData))), &std::free);
+    if (!storage) return 1;
+    auto *derived = storage.get();
+    derived->name = "Derived";
+    derived->namespaze = "Audit";
+    derived->parent = &fixtureClass;
+    derived->vtable_count = 3;
+    IL2CPP::MethodInfo base{}, hidden{}, overridden{}, interfaceMethod{}, implementation{};
+    base.name = hidden.name = overridden.name = interfaceMethod.name = "Run";
+    base.flags = hidden.flags = overridden.flags = interfaceMethod.flags = implementation.flags = 0x0040;
+    base.slot = overridden.slot = 1;
+    hidden.slot = interfaceMethod.slot = 0;
+    implementation.slot = 2;
+    implementation.name = "Audit.IRunnable.Run";
+    PRIVATE_INTERNAL::GetMethodClass(&base) = &fixtureClass;
+    PRIVATE_INTERNAL::GetMethodClass(&hidden) = derived;
+    PRIVATE_INTERNAL::GetMethodClass(&overridden) = derived;
+    PRIVATE_INTERNAL::GetMethodClass(&implementation) = derived;
+    IL2CPP::Il2CppClass interfaceClass{};
+    interfaceClass.flags = 0x0020;
+    PRIVATE_INTERNAL::GetMethodClass(&interfaceMethod) = &interfaceClass;
+    IL2CPP::Il2CppRuntimeInterfaceOffsetPair offset{&interfaceClass, 2};
+    derived->interfaceOffsets = &offset;
+    derived->interface_offsets_count = 1;
+    const auto original = +[]() {};
+    const auto replacement = +[]() {};
+    derived->vtable[0] = {original, &hidden};
+    derived->vtable[1] = {original, &overridden};
+    derived->vtable[2] = {original, &implementation};
+    IL2CPP::Il2CppObject instance{};
+    instance.klass = derived;
+    MethodBase method(&base);
+    method.SetInstance(&instance);
+    auto resolved = method.GetOverride();
+    if (resolved.GetInfo() != &overridden || resolved._instance != &instance) return 1;
+    MethodBase interfaceWrapper(&interfaceMethod);
+    interfaceWrapper.SetInstance(&instance);
+    if (interfaceWrapper.GetOverride().GetInfo() != &implementation) return 1;
+    void *old{};
+    if (!VirtualHookImpl(Class(derived), &base, reinterpret_cast<void *>(replacement), &old) ||
+        old != reinterpret_cast<void *>(original)) return 1;
+    if (derived->vtable[0].methodPtr != original || derived->vtable[1].methodPtr != replacement ||
+        derived->vtable[2].methodPtr != original) return 1;
+    if (!VirtualHookImpl(Class(derived), &interfaceMethod, reinterpret_cast<void *>(replacement), nullptr) ||
+        derived->vtable[2].methodPtr != replacement) return 1;
+
+    // Every rejected request must leave the original-output pointer untouched.
+    const auto rejected = [&](IL2CPP::MethodInfo *info, void *hook) {
+        old = reinterpret_cast<void *>(original);
+        return !VirtualHookImpl(Class(derived), info, hook, &old) &&
+               old == reinterpret_cast<void *>(original);
+    };
+    const auto hook = reinterpret_cast<void *>(replacement);
+    if (!rejected(nullptr, hook) || !rejected(&base, nullptr)) return 1;
+    base.slot = 65535;
+    if (method.GetOverride().IsValid() || !rejected(&base, hook)) return 1;
+    base.slot = 3;
+    if (method.GetOverride().IsValid() || !rejected(&base, hook)) return 1;
+    base.slot = 1;
+    base.flags = 0x0010;
+    if (!rejected(&base, hook)) return 1;
+    base.flags = 0;
+    if (!rejected(&base, hook)) return 1;
+    base.flags = 0x0040;
+    IL2CPP::Il2CppClass unrelated{};
+    PRIVATE_INTERNAL::GetMethodClass(&base) = &unrelated;
+    if (method.GetOverride().IsValid() || !rejected(&base, hook)) return 1;
+    PRIVATE_INTERNAL::GetMethodClass(&base) = &fixtureClass;
+    derived->vtable[1].method = nullptr;
+    if (method.GetOverride().IsValid() || !rejected(&base, hook)) return 1;
+    derived->vtable[1].method = &overridden;
+    derived->vtable[1].methodPtr = nullptr;
+    if (!rejected(&base, hook)) return 1;
+    offset.offset = -1;
+    if (interfaceWrapper.GetOverride().IsValid() || !rejected(&interfaceMethod, hook)) return 1;
+    offset.offset = INT32_MAX;
+    if (interfaceWrapper.GetOverride().IsValid() || !rejected(&interfaceMethod, hook)) return 1;
+    derived->interfaceOffsets = nullptr;
+    if (interfaceWrapper.GetOverride().IsValid() || !rejected(&interfaceMethod, hook)) return 1;
+    method.SetInstance(nullptr);
+    return method._instance == nullptr ? 0 : 1;
 }
 
 static Coroutine::IEnumerator YieldNull(int* progress)
@@ -321,6 +677,13 @@ int main(int argc, char** argv)
         }
         if (utfAcquired != 4 || utfReleased != 4 || splitRefsDeleted != 3) return 1;
     }
+    else if (mode == "list-metadata-rollback") return ListMetadataRollbackRegression();
+    else if (mode == "metadata-hook-rollback") return MetadataHookFailureRegression();
+    else if (mode == "thread-scope") return ThreadScopeRegression();
+    else if (mode == "write-barriers") return BarrierRegression();
+    else if (mode == "metadata-rollback-create") return MetadataRollbackRegression(false);
+    else if (mode == "metadata-rollback-modify") return MetadataRollbackRegression(true);
+    else if (mode == "virtual-dispatch") return VirtualDispatchRegression();
     else if (mode == "invoke-hook") {
         IL2CPP::MethodInfo method{};
         method.name = "Answer"; method.flags = 0x0010;

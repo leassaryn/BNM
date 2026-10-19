@@ -23,6 +23,10 @@
 /// @cond
 namespace BNM::Internal {
 
+    // Resolve only metadata-defined slots; names cannot identify virtual overrides.
+    IL2CPP::VirtualInvokeData *ResolveVirtualSlot(IL2CPP::Il2CppClass *target,
+                                                IL2CPP::MethodInfo *method);
+
     struct States {
         std::atomic<bool> state{false};
         std::atomic<bool> lateInitAllowed{false};
@@ -74,6 +78,7 @@ namespace BNM::Internal {
         void (*il2cpp_thread_detach)(IL2CPP::Il2CppThread *){};
         void *(*il2cpp_gc_alloc_fixed)(size_t){};
         void (*il2cpp_gc_free_fixed)(void*){};
+        void (*il2cpp_gc_wbarrier_set_field)(IL2CPP::Il2CppObject *, void **, void *){};
 
         // Direct il2cpp API methods
         std::vector<BNM::IL2CPP::Il2CppAssembly *> *(*Assembly$$GetAllAssemblies)(){};
@@ -185,6 +190,19 @@ namespace BNM::Internal {
             BNMClassesMap() = default;
             BNMClassesMap(const BNMClassesMap &) = delete;
             BNMClassesMap &operator=(const BNMClassesMap &) = delete;
+            inline void ReserveClass(const IL2CPP::Il2CppImage *image) {
+                std::unique_lock lock(classesFindAccessMutex);
+                auto [entry, inserted] = _map.try_emplace(reinterpret_cast<BNM_PTR>(image));
+                try { entry->second.reserve(entry->second.size() + 1); }
+                catch (...) { if (inserted) _map.erase(entry); throw; }
+            }
+
+            inline void DiscardEmpty(const IL2CPP::Il2CppImage *image) {
+                std::unique_lock lock(classesFindAccessMutex);
+                auto entry = _map.find(reinterpret_cast<BNM_PTR>(image));
+                if (entry != _map.end() && entry->second.empty()) _map.erase(entry);
+            }
+
             inline void AddClass(const IL2CPP::Il2CppImage *image, IL2CPP::Il2CppClass *cls) {
                 return AddClass(reinterpret_cast<BNM_PTR>(image), cls);
             }

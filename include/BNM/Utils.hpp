@@ -7,6 +7,8 @@
 #include <type_traits>
 #include <new>
 #include <utility>
+#include <thread>
+#include <cstring>
 
 // std::to_underlying is C++23; provide a portable fallback that works everywhere.
 namespace BNM {
@@ -131,6 +133,63 @@ namespace BNM {
         @brief Detach current thread from il2cpp VM.
     */
     void DetachIl2Cpp();
+
+    /** Thread-affine scope guard. Nested guards borrow an existing attachment.
+        Do not manually detach or destroy the guard on another native thread. */
+    class ScopedIl2CppThread final {
+    public:
+        ScopedIl2CppThread();
+        ~ScopedIl2CppThread() noexcept;
+        ScopedIl2CppThread(const ScopedIl2CppThread &) = delete;
+        ScopedIl2CppThread &operator=(const ScopedIl2CppThread &) = delete;
+        ScopedIl2CppThread(ScopedIl2CppThread &&) = delete;
+        ScopedIl2CppThread &operator=(ScopedIl2CppThread &&) = delete;
+        [[nodiscard]] explicit operator bool() const noexcept { return _thread != nullptr; }
+        [[nodiscard]] IL2CPP::Il2CppThread *Get() const noexcept { return _thread; }
+        [[nodiscard]] bool OwnsAttachment() const noexcept { return _owns; }
+    private:
+        std::thread::id _owner{std::this_thread::get_id()};
+        IL2CPP::Il2CppThread *_thread{};
+        bool _owns{};
+    };
+
+    // Store through IL2CPP's barrier. Missing API fails without modifying the slot.
+    [[nodiscard]] bool StoreManagedReference(IL2CPP::Il2CppObject *owner, void *slot, void *value);
+    // valueClass describes an unboxed value type; null means reference-free native bytes.
+    [[nodiscard]] bool CopyManagedValue(IL2CPP::Il2CppObject *owner, void *destination,
+                                       const void *source, size_t size, IL2CPP::Il2CppClass *valueClass);
+
+    template<typename T>
+    bool StoreManagedValue(IL2CPP::Il2CppObject *owner, T *slot, const T &value,
+                           IL2CPP::Il2CppClass *valueClass = nullptr) {
+        if constexpr (std::is_pointer_v<T> && !std::is_function_v<std::remove_pointer_t<T>>) {
+            return StoreManagedReference(owner, slot, const_cast<void *>(static_cast<const void *>(value)));
+        } else {
+            static_assert(std::is_trivially_copyable_v<T>, "Managed values must be trivially copyable");
+            return CopyManagedValue(owner, slot, &value, sizeof(T), valueClass);
+        }
+    }
+
+    template<typename T>
+    bool CopyManagedRange(IL2CPP::Il2CppObject *owner, T *destination, const T *source,
+                          size_t count, IL2CPP::Il2CppClass *valueClass = nullptr) {
+        static_assert(std::is_trivially_copyable_v<T>, "Managed values must be trivially copyable");
+        if (!count) return true;
+        if (!destination || !source || count > SIZE_MAX / sizeof(T)) return false;
+        if constexpr (!std::is_pointer_v<T>) {
+            if (!valueClass || !valueClass->has_references)
+                return CopyManagedValue(owner, destination, source, count * sizeof(T), nullptr);
+        }
+        // Direction matters for Insert/RemoveAt and overlapping CopyFrom.
+        if (reinterpret_cast<uintptr_t>(destination) > reinterpret_cast<uintptr_t>(source)) {
+            for (size_t i = count; i-- > 0;)
+                if (!StoreManagedValue(owner, destination + i, source[i], valueClass)) return false;
+        } else {
+            for (size_t i = 0; i < count; ++i)
+                if (!StoreManagedValue(owner, destination + i, source[i], valueClass)) return false;
+        }
+        return true;
+    }
 
     /**
         @brief Allocates memory that is registered in il2cpp's GC.

@@ -29,7 +29,10 @@ MethodBase &MethodBase::SetInstance(IL2CPP::Il2CppObject *val)  {
         return *this;
     }
 #ifdef BNM_CHECK_INSTANCE_TYPE
-    if (BNM::IsA(val, BNM::PRIVATE_INTERNAL::GetMethodClass(_data))) _instance = val;
+    _instance = nullptr;
+    if (!val) return *this;
+    if (BNM::IsA(val, BNM::PRIVATE_INTERNAL::GetMethodClass(_data)) ||
+        Internal::ResolveVirtualSlot(val->klass, _data)) _instance = val;
     else BNM_LOG_ERR(DBG_BNM_MSG_MethodBase_SetInstance_Wrong_Instance_Error, BNM::Class(val).str().c_str(), str().c_str());
 #else
     _instance = val;
@@ -51,29 +54,11 @@ MethodBase MethodBase::GetOverride() const {
         return {};
     }
 
-    auto klass = _instance->klass;
-    for (uint16_t i = 0; i < klass->vtable_count; ++i) {
-        auto &vTable = klass->vtable[i];
-        if (!vTable.method) continue;
-        auto count = vTable.method->parameters_count;
-
-        if (strcmp(vTable.method->name, _data->name) != 0 || count != _data->parameters_count) continue;
-
-        bool matches = true;
-        for (uint8_t p = 0; p < count; ++p) {
-#if UNITY_VER < 212
-            auto type = (vTable.method->parameters + p)->parameter_type;
-            auto type2 = (_data->parameters + p)->parameter_type;
-#else
-            auto type = vTable.method->parameters[p];
-            auto type2 = _data->parameters[p];
-#endif
-
-            if (Class(type).GetClass() != Class(type2).GetClass()) { matches = false; break; }
-        }
-        if (matches) return MethodBase(vTable.method)[_instance];
-    }
-    return {};
+    auto *slot = Internal::ResolveVirtualSlot(_instance->klass, _data);
+    if (!slot) return {};
+    MethodBase result(slot->method);
+    result._instance = _instance;
+    return result;
 }
 
 BNM::Class MethodBase::GetReturnType() const {

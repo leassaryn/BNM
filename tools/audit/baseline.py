@@ -160,7 +160,7 @@ elif args.mode in ['probes', 'regression']:
                              'coroutine-temporary', 'missing-symbol', 'hook-failure',
                              'custom-method-limit', 'mapped-not-readable']
                 if args.mode == 'regression':
-                    cases += ['reflection', 'copy-move', 'list-boundaries', 'layout-rejection', 'jni-errors', 'invoke-hook', 'custom-class', 'metadata-oom']
+                    cases += ['reflection', 'copy-move', 'list-boundaries', 'layout-rejection', 'jni-errors', 'invoke-hook', 'custom-class', 'metadata-oom', 'virtual-dispatch', 'thread-scope', 'write-barriers', 'metadata-rollback-create', 'metadata-rollback-modify', 'metadata-hook-rollback', 'list-metadata-rollback']
                 failed = [case for case in cases if run(('regression-' if args.mode == 'regression' else 'probe-')+case, [exe, case], timeout=20, env=env)]
                 if args.mode == 'regression' and failed:
                     raise SystemExit(1)

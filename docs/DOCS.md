@@ -1440,15 +1440,17 @@ void *handle = BNM::GetIl2CppLibraryHandle();
 ### 20.5 Thread Management
 
 ```cpp
-// Attach thread ke il2cpp VM
-bool attached = BNM::AttachIl2Cpp();
-
-// Dapatkan thread saat ini
-auto *thread = BNM::CurrentIl2CppThread();
-
-// Detach thread
-BNM::DetachIl2Cpp();
+BNM::ScopedIl2CppThread scope;
+if (!scope) return; // API/domain belum siap atau attach gagal
+// Gunakan API managed; detach otomatis hanya jika scope yang melakukan attach.
 ```
+
+Guard bersarang aman; attachment milik Unity dipinjam tanpa di-detach. Guard
+non-copyable/non-movable dan harus hidup/mati pada thread yang sama. Jangan
+melakukan detach manual saat guard masih aktif. `Get()` mengembalikan thread,
+`OwnsAttachment()` menunjukkan kepemilikan. API manual `AttachIl2Cpp()`,
+`CurrentIl2CppThread()`, dan `DetachIl2Cpp()` tetap tersedia; `AttachIl2Cpp()`
+mengembalikan false jika thread sudah terpasang.
 
 ### 20.6 Memory Management
 
@@ -1973,7 +1975,7 @@ Warning fixture `offsetof` serta warning header/identifier pada matrix tetap dic
 | Loading/JNI | Simbol hilang, kegagalan hook, exception pending, lookup dan cleanup referensi JNI sintetis | Normal/late init, CheckJNI, APK/split APK dan lifecycle aplikasi |
 | Class/CompileTimeClass | Copy/move ownership, generic const, model inisialisasi yang memblokir | Metadata/layout aktual, overload dan generic lintas versi |
 | Method/Field/Image | Wrapper bertipe, akses dasar, enumerasi kelas | ABI signature/value type, property/event dan lifetime objek managed |
-| Array/List/Dictionary | Overflow, alokasi gagal, batas list dan entry dictionary terhapus | GC, write barrier, perubahan koleksi lintas thread |
+| Array/List/Dictionary | Overflow, alokasi gagal, batas list dan entry dictionary terhapus | Collector Unity nyata, raw-pointer writes, perubahan koleksi lintas thread |
 | ClassesManagement/hook | Class baru, batas metadata, penolakan perubahan layout, InvokeHook sintetis | Pemasangan/unhook backend nyata, pembaca metadata bersamaan |
 | Coroutine | Yield null, transfer frame, temporary/destruction | Scheduler, finalizer dan incremental GC Unity |
 
@@ -1995,6 +1997,16 @@ Gunakan output baru setelah perubahan source; `prepare` menolak menimpa snapshot
 
 1. Uji normal/late loading, JNI, serta instalasi/unhook Dobby atau ShadowHook di proyek Unity milik Anda dengan versi patch dan ABI yang dicatat.
 2. Uji lookup/generic/overload dan signature method sebelum pengujian perubahan metadata. Tipe template tetap merupakan kontrak ABI pemanggil.
-3. Uji ClassesManagement pada safe point aplikasi. Penambahan field/reparent pada class yang sudah ada ditolak; gunakan class baru. Rollback penuh mutasi metadata saat OOM belum tersedia.
+3. Uji ClassesManagement pada safe point aplikasi. Penambahan field/reparent pada class yang sudah ada ditolak; gunakan class baru. Transaksi per descriptor memulihkan metadata native saat OOM; batch loading, cache runtime dan kegagalan unhook backend berada di luar kontraknya.
 4. Uji coroutine, referensi managed, finalizer dan incremental GC. Fixture tidak menyediakan JVM/Unity, uji leak penuh, atau ThreadSanitizer.
 5. Ulangi pada setiap ABI, versi Unity, backend dan konfigurasi GC yang akan dikirim. Catat hasil terpisah dari bukti kompilasi/native fixture.
+
+### Barrier pada penulisan referensi managed
+
+Gunakan `Field<T>::Set`, `Array<T>::Set`/`CopyRange`, assignment `array[i] = value`,
+dan mutator List untuk melewatkan reference store melalui barrier. Loader mewajibkan
+`il2cpp_gc_wbarrier_set_field`. API level rendah `StoreManagedReference`,
+`StoreManagedValue`, `CopyManagedValue`, dan `CopyManagedRange` mengembalikan bool;
+lihat [kontrak refactor](REFACTOR.md#write-barrier-gc) untuk metadata value type,
+raw-pointer escape, dan batas rooting. Assignment melalui `*iterator` atau `T&`
+masih merupakan penulisan langsung.

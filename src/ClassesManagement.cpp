@@ -1,4 +1,5 @@
 #include <cstring>
+#include <cstddef>
 
 #include <BNM/ClassesManagement.hpp>
 
@@ -22,11 +23,74 @@ using namespace BNM;
 
 namespace {
     std::mutex registrationMutex;
-    void *AllocateMetadata(size_t size) {
+    class MetadataTransaction;
+    // Accessed only while ProcessClassRuntime holds the recursive mutation mutex.
+    // Avoid emulated TLS: its first allocation can abort on older Android targets.
+    MetadataTransaction *activeTransaction{};
+
+    // All journal entries are allocated BEFORE their corresponding mutation.
+    // Destruction rolls back without allocating; published old buffers survive until commit.
+    class MetadataTransaction {
+        MetadataTransaction *previous{activeTransaction};
+        std::vector<void *> allocations, retired, hooks;
+        const IL2CPP::Il2CppImage *reservedImage{};
+        struct Snapshot {
+            void *address;
+            std::vector<std::byte> bytes;
+        };
+        std::vector<Snapshot> undo;
+        std::vector<std::pair<std::vector<IL2CPP::Il2CppAssembly *> *, size_t>> assemblySizes;
+        bool committed{};
+    public:
+        MetadataTransaction() { activeTransaction = this; }
+        MetadataTransaction(const MetadataTransaction &) = delete;
+        MetadataTransaction &operator=(const MetadataTransaction &) = delete;
+        ~MetadataTransaction() noexcept {
+            if (!committed) {
+                if (reservedImage) Internal::ClassesManagement::bnmClassesMap.DiscardEmpty(reservedImage);
+                for (auto it = hooks.rbegin(); it != hooks.rend(); ++it) if (*it) Unhook(*it);
+                for (auto it = assemblySizes.rbegin(); it != assemblySizes.rend(); ++it) it->first->resize(it->second);
+                for (auto it = undo.rbegin(); it != undo.rend(); ++it)
+                    std::memcpy(it->address, it->bytes.data(), it->bytes.size());
+                for (auto *ptr : allocations) BNM_free(ptr);
+            } else {
+                for (auto *ptr : retired) BNM_free(ptr);
+            }
+            activeTransaction = previous;
+        }
+        template<typename T> void Save(T &value) {
+            static_assert(std::is_trivially_copyable_v<T>);
+            Snapshot snapshot{&value, std::vector<std::byte>(sizeof(T))};
+            std::memcpy(snapshot.bytes.data(), &value, sizeof(T));
+            undo.push_back(std::move(snapshot));
+        }
+        void Own(void *ptr) {
+            try { allocations.push_back(ptr); }
+            catch (...) { BNM_free(ptr); throw; }
+        }
+        void Retire(void *ptr) { if (ptr) retired.push_back(ptr); }
+        void Commit() noexcept { committed = true; }
+        void ReserveClass(const IL2CPP::Il2CppImage *image) {
+            reservedImage = image;
+            Internal::ClassesManagement::bnmClassesMap.ReserveClass(image);
+        }
+        void ReserveHook() { hooks.push_back(nullptr); }
+        void SetHook(void *handle) noexcept { hooks.back() = handle; }
+        void SaveSize(std::vector<IL2CPP::Il2CppAssembly *> &values) {
+            assemblySizes.emplace_back(&values, values.size());
+        }
+    };
+
+    void *AllocateMetadata(size_t size, bool track = true) {
         auto *memory = BNM_malloc(size ? size : 1);
         if (!memory) throw std::bad_alloc();
+        if (track && activeTransaction) activeTransaction->Own(memory);
         std::memset(memory, 0, size);
         return memory;
+    }
+    void RetireMetadata(const void *ptr) {
+        if (activeTransaction) activeTransaction->Retire(const_cast<void *>(ptr));
+        else BNM_free(const_cast<void *>(ptr));
     }
 }
 
@@ -34,7 +98,7 @@ void MANAGEMENT_STRUCTURES::AddClass(CustomClass *_class) {
     if (!_class) return;
     std::lock_guard lock(registrationMutex);
     if (!Internal::ClassesManagement::classesManagementVector)
-        Internal::ClassesManagement::classesManagementVector = new (AllocateMetadata(sizeof(std::vector<MANAGEMENT_STRUCTURES::CustomClass *>))) std::vector<MANAGEMENT_STRUCTURES::CustomClass *>();
+        Internal::ClassesManagement::classesManagementVector = new (AllocateMetadata(sizeof(std::vector<MANAGEMENT_STRUCTURES::CustomClass *>), false)) std::vector<MANAGEMENT_STRUCTURES::CustomClass *>();
 
     Internal::ClassesManagement::classesManagementVector->push_back(_class);
 }
@@ -103,7 +167,7 @@ void ClassesManagement::ProcessClassRuntime(MANAGEMENT_STRUCTURES::CustomClass *
         BNM_LOG_ERR("Custom class descriptor exceeds metadata limits");
         return;
     }
-    customClass->myClass = nullptr;
+    if (customClass->myClass) return; // A committed descriptor must not be replayed.
     customClass->type = nullptr;
     for (auto *method : customClass->_methods) {
         if (!method || method->_parameterTypes.size() > UINT8_MAX || !method->_address || !method->_invoker) {
@@ -117,7 +181,15 @@ void ClassesManagement::ProcessClassRuntime(MANAGEMENT_STRUCTURES::CustomClass *
             return;
         }
     }
-    auto &type = customClass->_targetType;
+    MetadataTransaction transaction;
+    transaction.Save(customClass->myClass);
+    transaction.Save(customClass->type);
+    for (auto *method : customClass->_methods) {
+        transaction.Save(method->myInfo);
+        transaction.Save(method->_origin);
+        transaction.Save(method->_originalAddress);
+    }
+    auto type = customClass->_targetType;
     if (!type._stack.IsEmpty()) type._RemoveBit();
     auto info = GetClassInfo(type);
     if (info._class) ModifyClass(customClass, info._class);
@@ -128,23 +200,24 @@ void ClassesManagement::ProcessClassRuntime(MANAGEMENT_STRUCTURES::CustomClass *
         Utils::LogCompileTimeClass(type);
 #endif
     }
-    type.Free();
+    if (!customClass->myClass) return;
+    transaction.Commit();
+    customClass->_targetType.Free();
+    for (auto *method : customClass->_methods) method->_parameterTypes.clear();
     customClass->_interfaces.clear();
-    customClass->_interfaces.shrink_to_fit();
     customClass->_fields.clear();
-    customClass->_fields.shrink_to_fit();
     customClass->_methods.clear();
-    customClass->_methods.shrink_to_fit();
 } catch (const std::bad_alloc &) {
-    BNM_LOG_ERR("Custom metadata allocation failed; stop using this descriptor and do not retry mutation");
+    BNM_LOG_ERR("Custom metadata allocation failed; native metadata transaction rolled back");
 }
 
 static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class target) {
     BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_ModifyClasses_Target, target.str().data());
 
     auto klass = target._data;
+    activeTransaction->Save(*klass);
 
-    auto baseType = customClass->_baseType.ToClass();
+    auto baseType = std::as_const(customClass->_baseType).ToClass();
 
     IL2CPP::Il2CppClass *owner = customClass->_owner;
 
@@ -173,6 +246,7 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
             method->myInfo = ProcessCustomMethod(method, target, &isHooked);
 
             if (!method->myInfo) return;
+            activeTransaction->Save(*method->myInfo);
             PRIVATE_INTERNAL::GetMethodClass(method->myInfo) = klass;
 
             if (!isHooked) methodsToAdd.push_back(method->myInfo);
@@ -190,7 +264,7 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
 
             memcpy(newMethods + oldCount, methodsToAdd.data(), methodsToAdd.size() * sizeof(IL2CPP::MethodInfo *));
 
-            if ((klass->flags & BNM_CLASS_ALLOCATED_METHODS_FLAG) == BNM_CLASS_ALLOCATED_METHODS_FLAG) BNM_free(klass->methods);
+            if ((klass->flags & BNM_CLASS_ALLOCATED_METHODS_FLAG) == BNM_CLASS_ALLOCATED_METHODS_FLAG) RetireMetadata(klass->methods);
             klass->flags |= BNM_CLASS_ALLOCATED_METHODS_FLAG;
 
             klass->methods = (const IL2CPP::MethodInfo **)newMethods;
@@ -288,6 +362,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
                 method->_origin = const_cast<IL2CPP::MethodInfo *>(vTable.method);
                 method->_originalAddress = reinterpret_cast<void *>(vTable.method ? vTable.method->methodPointer : nullptr);
                 method->myInfo->slot = v;
+                method->myInfo->flags |= 0x0040; // METHOD_ATTRIBUTE_VIRTUAL
                 vTable.method = method->myInfo;
                 vTable.methodPtr = method->myInfo->methodPointer;
 
@@ -482,13 +557,16 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
 
     klass->gc_desc = nullptr;
 
+    // Finish all fallible native allocation before handing the class to the runtime.
+    SetupClassOwner(klass, owner);
+    activeTransaction->ReserveClass(image.GetInfo());
+
     // Use Class::Init, to setup GC desc
     Internal::il2cppMethods.Class$$Init(klass);
 
-    // Publish only completely initialized metadata.
-    SetupClassOwner(klass, owner);
-    Internal::ClassesManagement::bnmClassesMap.AddClass(image.GetInfo(), klass);
+    // Publication uses the capacity reserved before runtime initialization.
     customClass->type = Class(klass);
+    Internal::ClassesManagement::bnmClassesMap.AddClass(image.GetInfo(), klass);
     customClass->myClass = klass;
 }
 
@@ -639,7 +717,9 @@ static IL2CPP::Il2CppImage *MakeImage(std::string_view imageName) {
 
     // Add an assembly to the list
     auto assembliesPtr = Internal::il2cppMethods.Assembly$$GetAllAssemblies();
-    if (assembliesPtr) assembliesPtr->push_back(newAsm);
+    if (!assembliesPtr) throw std::bad_alloc();
+    activeTransaction->SaveSize(*assembliesPtr);
+    assembliesPtr->push_back(newAsm);
 
     BNM_LOG_INFO(DBG_BNM_MSG_ClassesManagement_MakeImage_Added_Image, imageName.data());
 
@@ -660,15 +740,6 @@ static IL2CPP::VirtualInvokeData *TryFindVirtualMethod(Class target, IL2CPP::Met
 static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMethod *method, Class target, bool *hooked) {
     if (!target) return CreateMethod(method);
 
-    // Free _parameterTypes in any case
-    struct _ClearMethod { // NOLINT
-        MANAGEMENT_STRUCTURES::CustomMethod *method;
-        ~_ClearMethod() {
-            method->_parameterTypes.clear();
-            method->_parameterTypes.shrink_to_fit();
-        }
-    } _ClearMethod{method}; // NOLINT
-
     if (method->_parameterTypes.size() > 255) {
         BNM_LOG_ERR("ProcessCustomMethod: parameter count %zu exceeds uint8_t max (255)", method->_parameterTypes.size());
         return nullptr;
@@ -681,7 +752,7 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
 
         for (uint8_t i = 0; i < parameters; ++i) {
             auto param = BNM::PRIVATE_INTERNAL::GetMethodParam(klassMethod, i);
-            if (Class(param).GetClass() != method->_parameterTypes[i].ToIl2CppClass()) return false;
+            if (Class(param).GetClass() != std::as_const(method->_parameterTypes[i]).ToClass().GetClass()) return false;
         }
         return true;
     });
@@ -717,6 +788,8 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
             method->_origin = parent;
             method->_originalAddress = reinterpret_cast<void *>(parent->methodPointer);
             originalMethod->slot = slot;
+            originalMethod->flags |= 0x0040;
+            activeTransaction->Save(*vTable);
             vTable->methodPtr = reinterpret_cast<void (*)()>(method->_address);
             vTable->method = originalMethod;
             return originalMethod;
@@ -727,6 +800,7 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
     if (method->_isInvokeHook) {
         method->_origin = originalMethod;
         method->_originalAddress = reinterpret_cast<void *>(originalMethod->methodPointer);
+        activeTransaction->Save(*originalMethod);
         originalMethod->methodPointer = reinterpret_cast<void(*)()>(method->_address);
         if (hooked) *hooked = true;
         return originalMethod;
@@ -741,6 +815,7 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
     if (auto vTable = TryFindVirtualMethod(target, originalMethod); vTable != nullptr) {
         method->_origin = const_cast<IL2CPP::MethodInfo *>(vTable->method);
         method->_originalAddress = reinterpret_cast<void *>(method->_origin->methodPointer);
+        activeTransaction->Save(*vTable);
         vTable->methodPtr = reinterpret_cast<void(*)()>(method->_address);
         if (hooked) *hooked = true;
         return originalMethod;
@@ -749,7 +824,10 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
     SKIP_NON_VIRTUAL:
 
     method->_origin = originalMethod;
-    if (!::BasicHook(reinterpret_cast<void *>(originalMethod->methodPointer), method->_address, method->_originalAddress)) {
+    activeTransaction->ReserveHook();
+    auto *hookHandle = ::BasicHook(reinterpret_cast<void *>(originalMethod->methodPointer), method->_address, method->_originalAddress);
+    activeTransaction->SetHook(hookHandle);
+    if (!hookHandle) {
         method->_origin = nullptr;
         method->_originalAddress = nullptr;
         BNM_LOG_ERR("Custom method hook installation failed");
@@ -796,7 +874,7 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
     myInfo->token = 0;
 
     // Set the return type
-    auto methodType = method->_returnType.ToClass();
+    auto methodType = std::as_const(method->_returnType).ToClass();
     if (!methodType) methodType = Internal::vmData.Object;
     myInfo->return_type = methodType.GetIl2CppType();
 
@@ -814,7 +892,7 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
             parameter->position = p;
 
             // Set the type anyway
-            auto type = p < types.size() ? types[p].ToClass() : Internal::vmData.Object;
+            auto type = p < types.size() ? std::as_const(types[p]).ToClass() : Internal::vmData.Object;
             if (!type) type = Internal::vmData.Object;
             parameter->parameter_type = type.GetIl2CppType();
             parameter->token = parameter->parameter_type->attrs | p;
@@ -829,7 +907,7 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
             auto parameter = BNM_I2C_NEW(Il2CppType);
 
             // Set the type anyway
-            auto type = p < types.size() ? types[p].ToClass() : Internal::vmData.Object;
+            auto type = p < types.size() ? std::as_const(types[p]).ToClass() : Internal::vmData.Object;
             if (!type) type = Internal::vmData.Object;
             *parameter = *type.GetIl2CppType();
 
@@ -841,8 +919,6 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
     myInfo->rgctx_data = nullptr;
     myInfo->genericMethod = nullptr;
 
-    method->_parameterTypes.clear();
-    method->_parameterTypes.shrink_to_fit();
 
     return myInfo;
 }
@@ -857,7 +933,7 @@ static void SetupField(IL2CPP::FieldInfo *newField, MANAGEMENT_STRUCTURES::Custo
 
     // Copy type
     auto newType = BNM_I2C_NEW(Il2CppType);
-    auto fieldType = field->_type.ToClass();
+    auto fieldType = std::as_const(field->_type).ToClass();
     if (!fieldType) fieldType = Internal::vmData.Object;
 
     *newType = *fieldType.GetIl2CppType();
@@ -868,7 +944,10 @@ static void SetupField(IL2CPP::FieldInfo *newField, MANAGEMENT_STRUCTURES::Custo
 static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *owner) {
     if (!owner || target->declaringType == owner || owner->nested_type_count == UINT16_MAX) return;
     for (auto *ancestor = owner; ancestor; ancestor = ancestor->declaringType) if (ancestor == target) return;
+    activeTransaction->Save(*target);
+    activeTransaction->Save(*owner);
     auto *oldOwner = target->declaringType;
+    if (oldOwner) activeTransaction->Save(*oldOwner);
     auto *oldList = Internal::PRIVATE_INTERNAL::ClassNestedTypes(owner);
     auto **newList = static_cast<IL2CPP::Il2CppClass **>(AllocateMetadata(sizeof(IL2CPP::Il2CppClass *) * (owner->nested_type_count + 1)));
     if (!newList) return;
@@ -880,22 +959,22 @@ static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *ow
     if (oldOwner) {
         auto **old = Internal::PRIVATE_INTERNAL::ClassNestedTypes(oldOwner);
         while (removeIndex < oldOwner->nested_type_count && old[removeIndex] != target) ++removeIndex;
-        if (removeIndex == oldOwner->nested_type_count) { BNM_free(newList); return; }
+        if (removeIndex == oldOwner->nested_type_count) { RetireMetadata(newList); return; }
         if (oldOwner->nested_type_count > 1) {
             replacement = static_cast<IL2CPP::Il2CppClass **>(AllocateMetadata(sizeof(*replacement) * (oldOwner->nested_type_count - 1)));
-            if (!replacement) { BNM_free(newList); return; }
+            if (!replacement) { RetireMetadata(newList); return; }
             size_t destination = 0;
             for (size_t i = 0; i < oldOwner->nested_type_count; ++i) if (i != removeIndex) replacement[destination++] = old[i];
         }
         oldOwner->nestedTypes = replacement;
         --oldOwner->nested_type_count;
-        if (oldOwner->flags & BNM_CLASS_ALLOCATED_INNER_FLAG) BNM_free(old);
+        if (oldOwner->flags & BNM_CLASS_ALLOCATED_INNER_FLAG) RetireMetadata(old);
         oldOwner->flags |= BNM_CLASS_ALLOCATED_INNER_FLAG;
     }
     owner->nestedTypes = newList;
     ++owner->nested_type_count;
     target->declaringType = owner;
-    if (owner->flags & BNM_CLASS_ALLOCATED_INNER_FLAG) BNM_free(oldList);
+    if (owner->flags & BNM_CLASS_ALLOCATED_INNER_FLAG) RetireMetadata(oldList);
     owner->flags |= BNM_CLASS_ALLOCATED_INNER_FLAG;
 }
 
@@ -906,7 +985,7 @@ static void SetupClassParent(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *p
     auto **hierarchy = static_cast<IL2CPP::Il2CppClass **>(AllocateMetadata((parent->typeHierarchyDepth + 1) * sizeof(IL2CPP::Il2CppClass *)));
     if (parent->typeHierarchyDepth) memcpy(hierarchy, parent->typeHierarchy, parent->typeHierarchyDepth * sizeof(IL2CPP::Il2CppClass *));
     hierarchy[parent->typeHierarchyDepth] = target;
-    if (target->flags & BNM_CLASS_ALLOCATED_HIERARCHY_FLAG) BNM_free(target->typeHierarchy);
+    if (target->flags & BNM_CLASS_ALLOCATED_HIERARCHY_FLAG) RetireMetadata(target->typeHierarchy);
     target->flags |= BNM_CLASS_ALLOCATED_HIERARCHY_FLAG;
     target->typeHierarchyDepth = parent->typeHierarchyDepth + 1;
     target->typeHierarchy = hierarchy;

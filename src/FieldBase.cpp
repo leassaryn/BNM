@@ -6,9 +6,9 @@ using namespace BNM;
 
 // For static fields of streams
 namespace BNM::PRIVATE_FieldUtils {
-    void GetStaticValue(IL2CPP::FieldInfo *info, void *value) { return Internal::il2cppMethods.il2cpp_field_static_get_value(info, value); }
+    void GetStaticValue(IL2CPP::FieldInfo *info, void *value) { if (Internal::il2cppMethods.il2cpp_field_static_get_value) Internal::il2cppMethods.il2cpp_field_static_get_value(info, value); }
 
-    void SetStaticValue(IL2CPP::FieldInfo *info, void *value) { return Internal::il2cppMethods.il2cpp_field_static_set_value(info, value); }
+    void SetStaticValue(IL2CPP::FieldInfo *info, void *value) { if (Internal::il2cppMethods.il2cpp_field_static_set_value) Internal::il2cppMethods.il2cpp_field_static_set_value(info, value); }
 }
 
 static bool CheckIsFieldStatic(IL2CPP::FieldInfo *field) {

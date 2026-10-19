@@ -194,20 +194,20 @@ BNM::Coroutine::IEnumerator *BNM::Coroutine::IEnumerator::Get() {
     // Do not advance here: Unity's first MoveNext must observe the first yield,
     // including a null yield (wait one frame).
     new (&object->_coroutine) std::coroutine_handle<promise_type>(std::exchange(_coroutine, {}));
-    object->_current = nullptr;
+    (void)StoreManagedValue(object, &object->_current, static_cast<IL2CPP::Il2CppObject *>(nullptr));
     _current = object;
     return object;
 }
 
 void BNM::Coroutine::IEnumerator::Finalize() {
     if (_coroutine) { _coroutine.destroy(); _coroutine = {}; }
-    _current = nullptr;
+    (void)StoreManagedValue(this, &_current, static_cast<IL2CPP::Il2CppObject *>(nullptr));
 }
 
 bool BNM::Coroutine::IEnumerator::MoveNext() {
     if (!_coroutine || _coroutine.done()) return false;
     _coroutine.resume();
-    _current = _coroutine.done() ? nullptr : _coroutine.promise().value()._object;
+    (void)StoreManagedValue(this, &_current, _coroutine.done() ? nullptr : _coroutine.promise().value()._object);
     if (_coroutine.promise()._exception) {
         BNM_LOG_ERR("Coroutine body threw an exception; enumeration stopped");
         return false;
@@ -217,7 +217,7 @@ bool BNM::Coroutine::IEnumerator::MoveNext() {
 
 void BNM::Coroutine::IEnumerator::Reset() {
     if (_coroutine) { _coroutine.destroy(); _coroutine = {}; }
-    _current = nullptr;
+    (void)StoreManagedValue(this, &_current, static_cast<IL2CPP::Il2CppObject *>(nullptr));
 }
 
 BNM::Coroutine::IEnumerator::Il2CppObject *BNM::Coroutine::IEnumerator::Current() {
