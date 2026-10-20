@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Quaternion.hpp"
+
 #include "Vector2.hpp"
 #include "Vector3.hpp"
 #include "Vector4.hpp"
@@ -100,13 +102,22 @@ namespace BNM::Structures::Unity {
             float m10 = m_Data[1], m11 = m_Data[5], m12 = m_Data[9];
             float m20 = m_Data[2], m21 = m_Data[6], m22 = m_Data[10];
 
-            float len0 = std::sqrt(m00 * m00 + m01 * m01 + m02 * m02);
-            float len1 = std::sqrt(m10 * m10 + m11 * m11 + m12 * m12);
-            float len2 = std::sqrt(m20 * m20 + m21 * m21 + m22 * m22);
-
-            if (len0 > 1e-6f) { m00 /= len0; m01 /= len0; m02 /= len0; }
-            if (len1 > 1e-6f) { m10 /= len1; m11 /= len1; m12 /= len1; }
-            if (len2 > 1e-6f) { m20 /= len2; m21 /= len2; m22 /= len2; }
+            // SetTRS scales columns. Singular/non-finite bases have no defined rotation.
+            float len0 = std::sqrt(m00 * m00 + m10 * m10 + m20 * m20);
+            float len1 = std::sqrt(m01 * m01 + m11 * m11 + m21 * m21);
+            float len2 = std::sqrt(m02 * m02 + m12 * m12 + m22 * m22);
+            if (!std::isfinite(len0) || !std::isfinite(len1) || !std::isfinite(len2) ||
+                len0 <= 1e-6f || len1 <= 1e-6f || len2 <= 1e-6f) return {};
+            // Match GetLossyScale: assign a reflection to the X scale.
+            if (m00 * (m11 * m22 - m12 * m21) - m01 * (m10 * m22 - m12 * m20) +
+                m02 * (m10 * m21 - m11 * m20) < 0) len0 = -len0;
+            m00 /= len0; m10 /= len0; m20 /= len0;
+            m01 /= len1; m11 /= len1; m21 /= len1;
+            m02 /= len2; m12 /= len2; m22 /= len2;
+            // Sheared matrices are outside the TRS contract.
+            if (std::fabs(m00*m01 + m10*m11 + m20*m21) > 1e-4f ||
+                std::fabs(m00*m02 + m10*m12 + m20*m22) > 1e-4f ||
+                std::fabs(m01*m02 + m11*m12 + m21*m22) > 1e-4f) return {};
 
             Quaternion q;
             float trace = m00 + m11 + m22;

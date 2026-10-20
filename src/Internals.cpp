@@ -21,8 +21,6 @@ namespace BNM::Internal {
     BNM::ForwardList<void(*)()> onIl2CppLoaded{};
 
     std::string_view constructorName = BNM_OBFUSCATE(".ctor");
-    BNM::Class customListTemplateClass{};
-    std::map<uint32_t, BNM::Class> customListsMap{};
     int32_t finalizerSlot = -1;
 
     void *BNM_il2cpp_init_origin{};

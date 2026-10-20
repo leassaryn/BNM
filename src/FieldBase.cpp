@@ -40,6 +40,8 @@ FieldBase &FieldBase::SetInstance(IL2CPP::Il2CppObject *val)  {
         return *this;
     }
 #ifdef BNM_CHECK_INSTANCE_TYPE
+    _instance = nullptr;
+    if (!val) return *this;
     if (BNM::IsA(val, _data->parent)) _instance = val;
     else BNM_LOG_ERR(DBG_BNM_MSG_FieldBase_SetInstance_Wrong_Instance_Error, BNM::Class(val).str().c_str(), str().c_str());
 #else

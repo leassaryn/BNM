@@ -1,6 +1,3 @@
-#include <new>
-#include <memory>
-
 #include <utf8.h>
 
 #include <BNM/BasicMonoStructures.hpp>
@@ -50,52 +47,4 @@ bool String::SelfCheck() const {
 void *PRIVATE_MonoListData::CompareExchange4List(void *syncRoot) {
     if (Internal::vmData.Interlocked$$CompareExchange.IsValid()) Internal::vmData.Interlocked$$CompareExchange(reinterpret_cast<void **>(&syncRoot), reinterpret_cast<void *>(Internal::vmData.Object.CreateNewInstance()), nullptr);
     return syncRoot;
-}
-
-namespace {
-    struct ListMetadataDeleter {
-        template<typename T> void operator()(T *ptr) const noexcept { BNM_free(ptr); }
-    };
-}
-
-// Build privately; cache publication is the only ownership-transfer point.
-BNM::IL2CPP::Il2CppClass *BNM::Structures::Mono::PRIVATE_MonoListData::TryGetMonoListClass(uint32_t typeHash, std::array<PRIVATE_MonoListData::MethodData, 16> &data) try {
-    static std::recursive_mutex cacheMutex;
-    std::lock_guard lock(cacheMutex);
-    if (auto found = Internal::customListsMap.find(typeHash); found != Internal::customListsMap.end() && found->second)
-        return found->second;
-
-    std::map<size_t, std::unique_ptr<IL2CPP::MethodInfo, ListMetadataDeleter>> createdMethods;
-    auto *templateClass = Internal::customListTemplateClass.GetClass();
-    if (!templateClass) return nullptr;
-    const auto size = sizeof(IL2CPP::Il2CppClass) + templateClass->vtable_count * sizeof(IL2CPP::VirtualInvokeData);
-    std::unique_ptr<IL2CPP::Il2CppClass, ListMetadataDeleter> typedClass(
-        static_cast<IL2CPP::Il2CppClass *>(BNM_malloc(size)));
-    if (!typedClass) return nullptr;
-    std::memcpy(typedClass.get(), templateClass, size);
-    for (uint16_t i = 4 /* Skip System.Object methods. */; i < typedClass->vtable_count; ++i) {
-        auto &current = typedClass->vtable[i];
-        if (!current.method || !current.method->name) continue;
-        auto name = std::string_view(current.method->name);
-        auto dot = name.rfind('.');
-        if (dot != std::string_view::npos) name = name.substr(dot + 1);
-        auto method = std::find_if(data.begin(), data.end(), [name](const auto &entry) { return entry.methodName == name; });
-        if (method == data.end()) continue;
-        auto &info = createdMethods[FNV1a(name)];
-        if (!info) {
-            info.reset(static_cast<IL2CPP::MethodInfo *>(BNM_malloc(sizeof(IL2CPP::MethodInfo))));
-            if (!info) return nullptr;
-            *info = *current.method;
-            info->methodPointer = reinterpret_cast<IL2CPP::Il2CppMethodPointer>(method->ptr);
-        }
-        current.method = info.get();
-        current.methodPtr = info->methodPointer;
-    }
-    auto [entry, inserted] = Internal::customListsMap.try_emplace(typeHash, typedClass.get());
-    if (!inserted && entry->second) return entry->second;
-    entry->second = typedClass.get();
-    for (auto &[hash, info] : createdMethods) (void)info.release();
-    return typedClass.release();
-} catch (const std::bad_alloc &) {
-    return nullptr;
 }

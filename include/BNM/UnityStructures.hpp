@@ -213,8 +213,10 @@ namespace BNM::UnityEngine {
             @param parameters Event parameters
         */
         inline void Invoke(Parameters ...parameters) {
-            if (m_CallsDirty) InvokePersistent(parameters...);
-            else InvokeCalls(parameters...);
+            if (m_CallsDirty) {
+                InvokePersistent(parameters...);
+                if (m_Calls) InvokeList(reinterpret_cast<Structures::Mono::List<InvokableCall<Parameters...> *> *>(m_Calls->m_RuntimeCalls), parameters...);
+            } else InvokeCalls(parameters...);
         }
 
         /**
@@ -229,7 +231,7 @@ namespace BNM::UnityEngine {
 
             for (int i = 0; i < calls->size; ++i) {
                 auto persistentCall = calls->At(i);
-                if (!persistentCall->IsValid() || persistentCall->m_CallState == UnityEventCallState::Off) continue;
+                if (!persistentCall || !persistentCall->IsValid() || persistentCall->m_CallState == UnityEventCallState::Off) continue;
                 auto argumentType = GetArgumentType(persistentCall);
                 auto targetType = GetTargetType(persistentCall);
 
@@ -267,6 +269,8 @@ namespace BNM::UnityEngine {
 
                 if (!method._isStatic) method.SetInstance(persistentCall->m_Target);
 
+                if (persistentCall->m_Mode != PersistentListenerMode::EventDefined &&
+                    persistentCall->m_Mode != PersistentListenerMode::Void && !persistentCall->m_Arguments) continue;
                 switch (persistentCall->m_Mode) {
                     case PersistentListenerMode::EventDefined:
                         method(parameters...);

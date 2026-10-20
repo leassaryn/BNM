@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <bit>
 
 #include "Vector3.hpp"
@@ -10,6 +12,7 @@
 
 namespace BNM::Structures::Unity {
     struct Vector4;
+    struct Color;
 
     inline bool IsFinite(float value) { return (std::bit_cast<uint32_t>(value) & 0x7f800000) != 0x7f800000; }
 

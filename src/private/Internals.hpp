@@ -105,8 +105,6 @@ namespace BNM::Internal {
     }
 
     extern std::string_view constructorName;
-    extern BNM::Class customListTemplateClass;
-    extern std::map<uint32_t, BNM::Class> customListsMap;
     extern int32_t finalizerSlot;
 
     void Image$$GetTypes(const IL2CPP::Il2CppImage *image, bool exportedOnly, std::vector<BNM::IL2CPP::Il2CppClass *> *target);

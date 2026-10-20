@@ -9,8 +9,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- List growth uses bounded unsigned arithmetic and signed-safe capacity checks for legacy Unity array layouts.
+- Fixed-width managed integer mappings on 32-bit ABIs, proxy-to-proxy array/list assignments, and stale field bindings after rejected instances.
+- Single-delegate addition/removal, dirty UnityEvent runtime listeners, and null collider resolver/handle failures.
+- Matrix self-multiplication, TRS rotation extraction, and nonterminating angle normalization for large/non-finite inputs.
+- Unterminated string_view diagnostic inputs and standalone public-header includes.
+- Audit matrix settings are applied strictly and checked against compiler-selected macros and header hashes.
 - Managed reference stores in fields, arrays, lists, delegates and coroutine proxies use GC write barriers; value-type copies mark embedded reference fields when runtime metadata is available.
-- Temporary List class/method metadata uses RAII and enters the cache only after successful construction.
 - Per-descriptor metadata transactions roll back native allocation failures, owner changes, method/vtable edits and newly published assemblies; old buffers are freed only after commit.
 - Virtual override lookup and vtable hooks resolve metadata slots and exact interface offsets, avoiding collisions with hidden methods and explicit interface implementations.
 - Invalid virtual hook targets and null replacements leave the original-output pointer unchanged; checked method rebinding clears stale instances and accepts resolved virtual interfaces.
@@ -22,6 +27,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - Custom metadata counter validation and checked allocation; runtime-owned state and backend unhook failures remain outside native rollback.
 
 ### Changed
+- `NewListBNM<T>()` now uses the runtime-backed `NewList<T>()` path; unsafe synthetic open-generic vtables and metadata caches were removed. Native-only types without a runtime instantiation are unsupported.
+- x86/x64 loader scanning follows instruction boundaries and fails closed on unsupported instructions/control flow.
+- Android.mk exports public include directories to consumers.
 - Typed `cast()` returns a value; coroutine return wrappers are move-only. Rebuild all consumers and see `docs/REFACTOR.md`.
 - Existing class instance-layout growth/reparenting and method calls with mismatched argument counts are rejected.
 - Debug pointer checks inspect readable mappings; this does not establish object lifetime.

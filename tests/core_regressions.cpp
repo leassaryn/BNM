@@ -200,34 +200,6 @@ static int BarrierRegression() {
     return staticValue == &b ? 0 : 1;
 }
 
-static int ListMetadataRollbackRegression() {
-    using namespace Structures::Mono::PRIVATE_MonoListData;
-    std::unique_ptr<IL2CPP::Il2CppClass, decltype(&std::free)> storage(
-        static_cast<IL2CPP::Il2CppClass *>(std::calloc(1, sizeof(IL2CPP::Il2CppClass) + 5 * sizeof(IL2CPP::VirtualInvokeData))), &std::free);
-    if (!storage) return 1;
-    storage->vtable_count = 5;
-    IL2CPP::MethodInfo count{}; count.name = "get_Count";
-    const auto original = +[]() {};
-    const auto replacement = +[]() {};
-    count.methodPointer = original;
-    storage->vtable[4] = {original, &count};
-    Internal::customListTemplateClass = storage.get();
-    std::array<MethodData, 16> data{};
-    data[0].methodName = "get_Count";
-    data[0].ptr = reinterpret_cast<void *>(replacement);
-    constexpr uint32_t hash = 0x12121212;
-    for (int fail = 0; fail < 2; ++fail) {
-        allocationFailed = false; failAllocationAfter = fail;
-        auto *result = TryGetMonoListClass(hash, data);
-        failAllocationAfter = -1;
-        if (result || !allocationFailed || Internal::customListsMap.contains(hash) ||
-            storage->vtable[4].methodPtr != original) return 1;
-    }
-    auto *result = TryGetMonoListClass(hash, data);
-    if (!result || result->vtable[4].method == &count || result->vtable[4].methodPtr != replacement) return 1;
-    return TryGetMonoListClass(hash, data) == result ? 0 : 1;
-}
-
 static int MetadataHookFailureRegression() {
     using namespace MANAGEMENT_STRUCTURES;
     IL2CPP::MethodInfo first{}, second{};
@@ -468,11 +440,22 @@ static void DestroyCoroutine(Coroutine::IEnumerator *object) {
     std::free(object);
 }
 
+#include "review_regressions.hpp"
+
 int main(int argc, char** argv)
 {
     if (argc != 2) return 64;
     Setup();
     const std::string mode(argv[1]);
+    if (mode == "list-growth-limit") return ListGrowthLimitRegression();
+    if (mode == "proxy-assignment") return ProxyAssignmentRegression();
+    if (mode == "field-rebind") return FieldRebindRegression();
+    if (mode == "math-review") return MathReviewRegression();
+    if (mode == "raycast-resolver") return RaycastResolverRegression();
+    if (mode == "event-dirty") return EventDirtyRegression();
+    if (mode == "delegate-mutation") return DelegateMutationRegression();
+    if (mode == "string-view-logging") return StringViewLoggingRegression();
+    if (mode == "x86-decoder") return DecoderRegression();
     if (mode == "positive")
     {
         Structures::Mono::List<int> list{};
@@ -677,7 +660,7 @@ int main(int argc, char** argv)
         }
         if (utfAcquired != 4 || utfReleased != 4 || splitRefsDeleted != 3) return 1;
     }
-    else if (mode == "list-metadata-rollback") return ListMetadataRollbackRegression();
+    else if (mode == "runtime-list") return RuntimeListRegression();
     else if (mode == "metadata-hook-rollback") return MetadataHookFailureRegression();
     else if (mode == "thread-scope") return ThreadScopeRegression();
     else if (mode == "write-barriers") return BarrierRegression();

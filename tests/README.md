@@ -31,7 +31,7 @@ variant-interface dispatch.
 the fixture API table. Linker `--wrap=malloc` probes fail successive native
 allocations while creating a class/image and modifying an existing class. Each
 failed attempt verifies owner/method/assembly restoration and retries the same
-descriptor until commit. The List metadata cache has separate allocation-failure
+descriptor until commit. The runtime-backed List factory has allocation-failure and metadata-preservation
 checks. A hook-failure case checks that an earlier invoke hook is restored.
 Class synchronization tests model a blocking runtime
 initializer; they are not evidence of real IL2CPP locking or a TSan run.
@@ -46,6 +46,7 @@ and a mapping boundary. It is not execution of a native x86 binary.
 python3 tools/audit/baseline.py --mode build --out build/regression
 python3 tools/audit/baseline.py --mode matrix --out build/regression
 python3 tools/audit/baseline.py --mode variants --out build/regression
+python3 tools/audit/baseline.py --mode headers --out build/regression
 python3 tools/audit/baseline.py --mode integration --out build/regression
 python3 tools/audit/baseline.py --mode analyze --out build/regression
 python3 tests/check_results.py build/regression
@@ -75,3 +76,18 @@ machine-code hook installation/unhook failures are not covered by native OOM pro
 Thread guard tests cover borrowed/nested attachments, exception unwinding and failed
 attach. Barrier tests observe the API callback, including overlapping copies, list
 growth/clearing, instance/static fields and references embedded in value types.
+
+## Regresi review lanjutan
+
+Jalankan juga `python3 tools/audit/baseline.py --mode headers --out build/regression`.
+Mode ini mengompilasi setiap header publik secara terpisah, memeriksa pemetaan integer
+pada empat ABI, dan menjalankan unit test konfigurasi audit. Matrix menyimpan versi,
+patch, nama header serta hash yang benar-benar dipilih preprocessor; gate menolaknya
+jika berbeda dari konfigurasi yang diminta.
+
+Suite native mencakup assignment proxy/write barrier, field rebind, delegate single/
+multicast dan alokasi gagal, UnityEvent dirty/cache, raycast resolver null, bounded
+string_view logging (guard page), numeric edge cases dan decoder x86. Kasus
+`runtime-list` menggantikan tes cache metadata custom List yang implementasinya telah
+dihapus: factory sekarang memakai class generic runtime, mempertahankan metadata asli,
+dan menguji kegagalan resolver maupun alokasi. Tidak ada fake List vtable yang disahkan.

@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cmath>
+#include <algorithm>
+#include "Vector3.hpp"
+
 namespace BNM::Structures::Unity {
     struct Matrix4x4;
 
@@ -63,13 +67,8 @@ namespace BNM::Structures::Unity {
         Matrix3x3& operator=(const Matrix4x4& m);
         Matrix3x3& operator*=(const Matrix4x4& inM);
         Matrix3x3& operator*=(const Matrix3x3& inM) {
-            int i;
-            for (i = 0; i < 3; i++) {
-                float v[3] = {Get(i, 0), Get(i, 1), Get(i, 2)};
-                Get(i, 0) = v[0] * inM.Get(0, 0) + v[1] * inM.Get(1, 0) + v[2] * inM.Get(2, 0);
-                Get(i, 1) = v[0] * inM.Get(0, 1) + v[1] * inM.Get(1, 1) + v[2] * inM.Get(2, 1);
-                Get(i, 2) = v[0] * inM.Get(0, 2) + v[1] * inM.Get(1, 2) + v[2] * inM.Get(2, 2);
-            }
+            const auto result = *this * inM;
+            *this = result;
             return *this;
         }
         inline Matrix3x3& operator*=(float f) { for (float & i : m_Data) i *= f; return *this; }

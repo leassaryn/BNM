@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits>
+
 #include <vector>
 
 #include "Vector2.hpp"
@@ -10,6 +12,7 @@
 
 namespace BNM::Structures::Unity {
     struct Quaternion;
+    struct Vector4;
 
     struct Vector3 {
         union {
@@ -183,8 +186,18 @@ namespace BNM::Structures::Unity {
     }
 
     float Vector3::NormalizeAngle(float f, bool is180) {
-        while (f > (is180 ? 180.f : 360.f)) f -= 360.f;
-        while (f < (is180 ? -180.f : 0.f)) f += 360.f;
+        // Undefined angles stay NaN; finite inputs are reduced in constant time.
+        if (!std::isfinite(f)) return std::numeric_limits<float>::quiet_NaN();
+        const float original = f;
+        f = std::fmod(f, 360.0f);
+        if (is180) {
+            if (f > 180.0f) f -= 360.0f;
+            if (f < -180.0f) f += 360.0f;
+        } else {
+            if (f < 0.0f) f += 360.0f;
+            // Preserve the original inclusive [0, 360] endpoint convention.
+            if (f == 0.0f && original > 0.0f) f = 360.0f;
+        }
         return f;
     }
 

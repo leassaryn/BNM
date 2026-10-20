@@ -1,3 +1,4 @@
+#include "X86Decoder.hpp"
 #include <cstring>
 
 #include <BNM/UserSettings/GlobalSettings.hpp>
@@ -308,11 +309,22 @@ namespace AssemblerUtils {
                 return target;
         }
 #else
-        for (size_t offset = 0; offset + 5 <= readable; ++offset) {
-            if (IsCallHex(ReadMemory<1>(start + offset)) && --index == 0) {
-                DecodeBranchOrCall(ReadMemory<5>(start + offset), start + offset, target);
+        for (size_t offset = 0; offset < readable;) {
+            const auto *bytes = reinterpret_cast<const uint8_t *>(start + offset);
+            const auto instruction = BNM::Internal::DecodeX86(bytes, readable - offset,
+#if defined(__x86_64__)
+                true
+#else
+                false
+#endif
+            );
+            if (!instruction.length || instruction.stop) return 0;
+            if (instruction.call && --index == 0) {
+                const auto opcode = start + offset + instruction.displacement - 1;
+                DecodeBranchOrCall(ReadMemory<5>(opcode), opcode, target);
                 return target;
             }
+            offset += instruction.length;
         }
 #endif
         return 0;
@@ -337,8 +349,6 @@ void Internal::LateInit(void *il2cpp_class_from_il2cpp_type_addr) {
 
     Internal::BNM_Class$$FromIl2CppType_origin = ::BasicHook(from_il2cpp_type, Internal::BNM_Class$$FromIl2CppType, Internal::old_BNM_Class$$FromIl2CppType);
 }
-
-static void EmptyMethod() {}
 
 #ifdef BNM_DEBUG
 static void *OffsetInLib(void *offsetInMemory) {
@@ -532,43 +542,6 @@ bool Internal::SetupBNM() {
 
     auto listClass = vmData.System$$List = Class(BNM_OBFUSCATE_TMP("System.Collections.Generic"), BNM_OBFUSCATE_TMP("List`1"));
     if (!listClass) return false;
-    auto constructor = listClass.GetMethod(Internal::constructorName, 0)._data;
-    if (!constructor) return false;
-    auto cls = listClass._data;
-    auto size = sizeof(IL2CPP::Il2CppClass) + cls->vtable_count * sizeof(IL2CPP::VirtualInvokeData);
-    listClass._data = reinterpret_cast<IL2CPP::Il2CppClass *>(BNM_malloc(size));
-    if (!listClass._data) return false;
-    memcpy(listClass._data, cls, size);
-    listClass._data->has_finalize = 0;
-    listClass._data->instance_size = sizeof(Structures::Mono::List<void*>);
-
-    // Bypassing the creation of a static _emptyArray field because it cannot exist
-    listClass._data->has_cctor = 0;
-    listClass._data->cctor_started = 0;
-#if UNITY_VER >= 212
-    listClass._data->cctor_finished_or_no_cctor = 1;
-#else
-    listClass._data->cctor_finished = 1;
-#endif
-
-    auto newMethods = reinterpret_cast<IL2CPP::MethodInfo **>(BNM_malloc(sizeof(IL2CPP::MethodInfo *) * listClass._data->method_count));
-    if (!newMethods) { BNM_free(listClass._data); return false; }
-    memcpy(newMethods, listClass._data->methods, sizeof(IL2CPP::MethodInfo *) * listClass._data->method_count);
-
-    auto newConstructor = reinterpret_cast<IL2CPP::MethodInfo *>(BNM_malloc(sizeof(IL2CPP::MethodInfo)));
-    if (!newConstructor) { BNM_free(newMethods); BNM_free(listClass._data); return false; }
-    *newConstructor = *constructor;
-    newConstructor->methodPointer = reinterpret_cast<decltype(newConstructor->methodPointer)>(EmptyMethod);
-    newConstructor->invoker_method = reinterpret_cast<decltype(newConstructor->invoker_method)>(EmptyMethod);
-
-    for (uint16_t i = 0; i < listClass._data->method_count; ++i) {
-        if (listClass._data->methods[i] == constructor) {
-            newMethods[i] = newConstructor;
-            continue;
-        }
-        newMethods[i] = const_cast<IL2CPP::MethodInfo *>(listClass._data->methods[i]);
-    }
-    listClass._data->methods = const_cast<const IL2CPP::MethodInfo **>(newMethods);
 #ifdef BNM_CLASSES_MANAGEMENT
     // Install only after every address and template has been validated.
     std::array<void *, 5> installed{};
@@ -589,11 +562,9 @@ bool Internal::SetupBNM() {
 #endif
     if (!hooksReady) {
         while (installedCount) Unhook(installed[--installedCount]);
-        BNM_free(newConstructor); BNM_free(newMethods); BNM_free(listClass._data);
         return false;
     }
 #endif
-    customListTemplateClass = listClass;
     return true;
 }
 

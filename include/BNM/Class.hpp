@@ -420,31 +420,14 @@ namespace BNM {
         [[nodiscard]] Structures::Mono::List<T> *NewList() const;
 
         /**
-            @brief Create list of this type.
-            @warning It's not recommended to use for beginners!
-
-            Creates new list of this types, but new list will use BNM code instead of il2cpp.
-            This can be useful if you want to create list of struct that doesn't exist in target Unity app.
-
-            @tparam T List element type
-            @return New list
+            @brief Compatibility alias for NewList<T>(), using runtime-owned List<T> metadata.
+            @warning T must match this managed element type. Native-only types without a
+                     runtime generic instantiation are unsupported; failure returns nullptr.
+            The former synthetic vtable path was removed because interface signatures and
+            GC metadata could not be represented safely by copying an open generic class.
         */
         template<typename T>
-        [[nodiscard]] Structures::Mono::List<T> *NewListBNM() const {
-            BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
-            if (!_data) return nullptr;
-            TryInit();
-            BNM::Structures::Mono::Array<T> *array = NewArray<T>(1);
-            if (!array) return nullptr;
-            auto *lst = (BNM::Structures::Mono::List<T> *) NewListInstance();
-            if (!lst) {
-                BNM_LOG_ERR(DBG_BNM_MSG_Class_NewList_Error, str().c_str());
-                return nullptr;
-            }
-            if (!StoreManagedValue(lst, &lst->items, array)) return nullptr;
-            BNM::Structures::Mono::PRIVATE_MonoListData::InitMonoListVTable(lst);
-            return lst;
-        }
+        [[nodiscard]] Structures::Mono::List<T> *NewListBNM() const { return NewList<T>(); }
 
         /**
             @brief Box object of this type.
@@ -549,7 +532,6 @@ namespace BNM {
         void TryInit() const;
         static IL2CPP::Il2CppObject *BoxObject(IL2CPP::Il2CppClass*, void*);
         static IL2CPP::Il2CppArray *ArrayNew(IL2CPP::Il2CppClass*, IL2CPP::il2cpp_array_size_t);
-        static void *NewListInstance();
         static Class GetListClass();
         friend CompileTimeClass;
     };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <type_traits>
+#include <cstdint>
 
 #include "UserSettings/GlobalSettings.hpp"
 #include "Il2CppHeaders.hpp"
@@ -46,7 +47,7 @@ namespace BNM::Types {
     using sbyte = int8_t;
     using ushort = unsigned short;
     using uint = unsigned int;
-    using ulong = unsigned long;
+    using ulong = uint64_t;
     enum nint : intptr_t {};
     enum nuint : uintptr_t {};
     using decimal = BNM::Structures::Mono::decimal;
@@ -101,8 +102,9 @@ namespace BNM::Defaults {
         BNM::Types::nint (intptr_t), nint, System.IntPtr
         BNM::Types::nuint (uintptr_t), nuint, System.UIntPtr
 
-        long, long, System.Int64
-        BNM::Types::ulong (unsigned long), ulong, System.UInt64
+        int64_t / long long, long, System.Int64
+        BNM::Types::ulong (uint64_t), ulong, System.UInt64
+        long / unsigned long follow their native width (32 or 64 bits).
 
         float, float, System.Single
         double, double, System.Double
@@ -154,10 +156,10 @@ namespace BNM::Defaults {
             return {&Internal::IntPtr};
         else if constexpr (std::is_same_v<T, nuint>)
             return {&Internal::UIntPtr};
-        else if constexpr (std::is_same_v<T, long>)
-            return {&Internal::Int64};
-        else if constexpr (std::is_same_v<T, unsigned long>)
-            return {&Internal::UInt64};
+        else if constexpr (std::is_same_v<T, long> || std::is_same_v<T, long long>)
+            return {sizeof(T) == 8 ? &Internal::Int64 : &Internal::Int32};
+        else if constexpr (std::is_same_v<T, unsigned long> || std::is_same_v<T, unsigned long long>)
+            return {sizeof(T) == 8 ? &Internal::UInt64 : &Internal::UInt32};
         else if constexpr (std::is_same_v<T, float>)
             return {&Internal::Single};
         else if constexpr (std::is_same_v<T, double>)

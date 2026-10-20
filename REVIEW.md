@@ -1,3 +1,5 @@
+> Catatan historis: status perbaikan review lanjutan ada di [TODO.md](TODO.md). Hasil baseline di bawah bukan sertifikasi stabilitas HEAD atau runtime Unity.
+
 # BNM-Android — Engineering Review
 
 > **Pembaruan:** Refactor dan review akhir berada di Bagian 18–21.

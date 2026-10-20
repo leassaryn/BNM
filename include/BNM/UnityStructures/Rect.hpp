@@ -1,5 +1,10 @@
 #pragma once
 
+#include <algorithm>
+#include <string>
+#include "Vector2.hpp"
+#include "../UserSettings/GlobalSettings.hpp"
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
 #pragma clang diagnostic ignored "-Wnested-anon-types"

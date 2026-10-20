@@ -176,3 +176,33 @@ termasuk owner serta invoke hook sebelum alokasi berikutnya gagal. Uji ini tidak
 mensimulasikan OOM internal IL2CPP, collector, atau kegagalan backend saat unhook.
 Jalankan uji Android/Unity dengan backend nyata, full Unity patch version, ABI,
 dan konfigurasi GC yang dipakai aplikasi.
+
+## Perbaikan review lanjutan (lihat TODO.md)
+
+- `NewListBNM<T>()` sekarang alias `NewList<T>()`: class dan interface List berasal
+  dari generic instantiation IL2CPP yang sebenarnya. Metadata/vtable buatan dari
+  open generic class sudah dihapus. Tipe yang tidak tersedia bagi runtime tidak
+  didukung dan kegagalan yang dilaporkan resolver/alokasi sebagai null menghasilkan
+  `nullptr`. Managed exception dari generic instantiation/constructor mengikuti
+  kontrak `NewList` dan dapat ditangani dengan mekanisme exception BNM; factory ini
+  bukan API no-throw. `T` tetap harus cocok dengan class elemen yang digunakan. Untuk koleksi C++ murni,
+  gunakan container native; jangan menyerahkannya sebagai managed `List<T>`.
+- `Types::ulong` kini selalu 64 bit. `Defaults::Get<long>()` mengikuti ukuran native
+  (`Int32` pada ABI 32-bit, `Int64` pada ABI 64-bit); gunakan `int64_t`/`uint64_t`
+  untuk C# `long`/`ulong`, dan `Types::nint/nuint` untuk integer seukuran pointer.
+- `MulticastDelegateBase::TryAdd` melaporkan kegagalan tanpa mengganti invocation
+  list. `Add`/`Remove` tetap memutasi objek yang sama, sehingga alias melihat perubahan;
+  ini berbeda dari semantik immutable `System.Delegate.Combine/Remove`.
+- Scanner x86/x64 mengikuti batas instruksi. Decoder sengaja konservatif: instruksi
+  tidak dikenal, branch bersyarat, return, atau control transfer tidak langsung
+  menghentikan pencarian. Setup dapat gagal pada stub yang belum didukung, sehingga
+  tidak akan menebak alamat dari byte operand. Perluasan decoder harus disertai tes.
+- `Matrix4x4::rotation()` mendukung basis TRS tanpa shear; reflection ditempatkan pada
+  skala X seperti `GetLossyScale()`. Basis singular, non-finite, atau shear menghasilkan
+  quaternion identity. `NormalizeAngle` memakai modulo; NaN/Inf menghasilkan NaN.
+- UnityEvent dirty menjalankan persistent calls langsung dan runtime listeners sekali,
+  tanpa memakai cache persistent yang usang. Flag dirty tidak dibersihkan karena BNM
+  tidak membangun ulang cache internal Unity.
+
+Perubahan ini memiliki regresi native sintetis. Dukungan GC, hook backend dan perilaku
+managed pada game sesungguhnya tetap memerlukan pengujian runtime per konfigurasi.

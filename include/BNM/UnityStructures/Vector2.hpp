@@ -1,5 +1,10 @@
 #pragma once
 
+#include <string>
+#include <algorithm>
+#include <limits>
+#include "../UserSettings/GlobalSettings.hpp"
+
 #include <cmath>
 
 #pragma clang diagnostic push

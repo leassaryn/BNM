@@ -16,11 +16,11 @@ namespace BNM::Structures::Unity {
 #    if UNITY_VER >= 232
         static void *(*FromId)(int){};
         if (!FromId) FromId = reinterpret_cast<decltype(FromId)>(GetExternMethod(BNM_OBFUSCATE("UnityEngine.Object::FindObjectFromInstanceID_Injected")));
-        return reinterpret_cast<void *>(BNM::UnmarshalUnityObject(reinterpret_cast<BNM_INT_PTR>(FromId(m_Collider))));
+        return FromId ? reinterpret_cast<void *>(BNM::UnmarshalUnityObject(reinterpret_cast<BNM_INT_PTR>(FromId(m_Collider)))) : nullptr;
 #    else
         static void *(*FromId)(int){};
         if (!FromId) FromId = reinterpret_cast<decltype(FromId)>(GetExternMethod(BNM_OBFUSCATE("UnityEngine.Object::FindObjectFromInstanceID")));
-        return FromId(m_Collider);
+        return FromId ? FromId(m_Collider) : nullptr;
 #    endif
 #else
         return m_Collider;
@@ -37,11 +37,11 @@ namespace BNM::Structures::Unity {
 #    if UNITY_VER >= 232
         static void *(*FromId)(int){};
         if (!FromId) FromId = reinterpret_cast<decltype(FromId)>(GetExternMethod(BNM_OBFUSCATE("UnityEngine.Object::FindObjectFromInstanceID_Injected")));
-        return reinterpret_cast<void *>(BNM::UnmarshalUnityObject(reinterpret_cast<BNM_INT_PTR>(FromId(m_Collider))));
+        return FromId ? reinterpret_cast<void *>(BNM::UnmarshalUnityObject(reinterpret_cast<BNM_INT_PTR>(FromId(m_Collider)))) : nullptr;
 #    else
         static void *(*FromId)(int){};
         if (!FromId) FromId = reinterpret_cast<decltype(FromId)>(GetExternMethod(BNM_OBFUSCATE("UnityEngine.Object::FindObjectFromInstanceID")));
-        return FromId(m_Collider);
+        return FromId ? FromId(m_Collider) : nullptr;
 #    endif
 #else
         return m_Collider;
@@ -139,8 +139,9 @@ namespace BNM::Structures::Unity {
 namespace BNM::UnityEngine {
     BNM::Class UnityEventBase::GetArgumentType(PersistentCall *call) {
         auto type = Internal::vmData.UnityEngine$$Object;
+        if (!call || !call->m_Arguments) return type;
         auto typeName = call->m_Arguments->m_ObjectArgumentAssemblyTypeName;
-        if (!typeName->IsNullOrEmpty()) if (auto t = Internal::vmData.Type$$GetType(typeName); t != nullptr) type = t;
+        if (typeName && !typeName->IsNullOrEmpty()) if (auto t = Internal::vmData.Type$$GetType(typeName); t != nullptr) type = t;
 
         return type;
     }

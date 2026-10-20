@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cstdint>
+#include <cstddef>
+#include "UserSettings/GlobalSettings.hpp"
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wzero-length-array"
 

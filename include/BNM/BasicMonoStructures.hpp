@@ -28,6 +28,16 @@ namespace BNM::Utils {
         IL2CPP::Il2CppClass *valueClass{};
         /// @cond
         constexpr DataIterator() = default;
+        constexpr DataIterator(const DataIterator &) = default;
+        // Assignment changes the referenced element; construction copies the view.
+        DataIterator &operator=(const DataIterator &other) {
+            if (other.value) *this = T(*other.value);
+            return *this;
+        }
+        const DataIterator &operator=(const DataIterator &other) const {
+            if (other.value) *this = T(*other.value);
+            return *this;
+        }
         constexpr DataIterator(const T *value, IL2CPP::Il2CppObject *owner = nullptr,
                                IL2CPP::Il2CppClass *valueClass = nullptr)
             : value(const_cast<T *>(value)), owner(owner), valueClass(valueClass) {}
@@ -89,8 +99,6 @@ namespace BNM::Structures::Mono {
     /// @cond
     namespace PRIVATE_MonoListData {
         void *CompareExchange4List(void *syncRoot);
-        template<typename T>
-        void InitMonoListVTable(List<T> *list);
     }
     /// @endcond
 
@@ -425,7 +433,7 @@ namespace BNM::Structures::Mono {
         */
         void Add(T val) {
             GrowIfNeeded(1);
-            if (!items || size < 0 || static_cast<size_t>(size) >= items->capacity) return;
+            if (!items || size < 0 || std::cmp_greater_equal(size, items->capacity)) return;
             if (!items->Set(size, val)) return;
             size++;
             version++;
@@ -466,7 +474,7 @@ namespace BNM::Structures::Mono {
         */
         bool Resize(int newCapacity) {
             BNM_CHECK_SELF(false);
-            if (!items || newCapacity < 0 || static_cast<size_t>(newCapacity) <= items->capacity) return false;
+            if (!items || newCapacity < 0 || std::cmp_less(items->capacity, 0) || std::cmp_less_equal(newCapacity, items->capacity)) return false;
             auto *nItems = NewStorage(newCapacity);
             if (!nItems) return false;
             if (!nItems->CopyRange(items->m_Items, size)) { nItems->Destroy(); return false; }
@@ -575,7 +583,7 @@ namespace BNM::Structures::Mono {
         void Insert(int index, T item) {
             if (!items || index < 0 || index > size) return;
             GrowIfNeeded(1);
-            if (static_cast<size_t>(size) >= items->capacity) return;
+            if (std::cmp_greater_equal(size, items->capacity)) return;
             if (index < size && !items->CopyRange(items->m_Items + index, size - index, index + 1)) return;
             if (!items->Set(index, item)) return;
             ++size;
@@ -608,10 +616,12 @@ namespace BNM::Structures::Mono {
         }
 
         void GrowIfNeeded(int n) {
-            if (!items || size < 0 || n < 0 || n > INT32_MAX - size) return;
+            if (!items || size < 0 || n < 0 || n > INT32_MAX - size || std::cmp_less(items->capacity, 0)) return;
             const auto required = static_cast<size_t>(size + n);
-            if (required > items->capacity) {
-                auto newCap = items->capacity > 0 ? items->capacity + items->capacity / 2 : 4;
+            const auto currentCapacity = static_cast<size_t>(items->capacity);
+            if (required > currentCapacity) {
+                // currentCapacity < required <= INT32_MAX: arithmetic fits even on 32-bit hosts.
+                auto newCap = currentCapacity > 0 ? currentCapacity + currentCapacity / 2 : size_t{4};
                 if (newCap < required) newCap = required;
                 if (newCap > INT32_MAX) newCap = INT32_MAX;
                 Resize(static_cast<int>(newCap));
@@ -663,55 +673,6 @@ namespace BNM::Structures::Mono {
         }
     };
 
-    // Based on https://github.com/royvandam/rtti/tree/cf0dee6fb3999573f45b0726a8d5739022e3dacf
-    /// @cond
-    namespace PRIVATE_MonoListData {
-        template <typename T> constexpr std::string_view WrappedTypeName() { return __PRETTY_FUNCTION__; }
-        constexpr std::size_t WrappedTypeNamePrefixLength() { return WrappedTypeName<void>().find("void"); }
-        constexpr std::size_t WrappedTypeNameSuffixLength() { return WrappedTypeName<void>().length() - WrappedTypeNamePrefixLength() - 4; }
-        constexpr uint32_t FNV1a(const char* str, size_t n, uint32_t hash = 2166136261U) {
-            return n == 0 ? hash : FNV1a(str + 1, n - 1, (hash ^ static_cast<unsigned char>(str[0])) * 19777619U);
-        }
-        constexpr uint32_t FNV1a(const std::string_view &str) { return FNV1a(str.data(), str.size()); }
-        template <typename T>
-        constexpr uint32_t HashedTypeName() {
-            constexpr auto wrappedTypeName = WrappedTypeName<T>();
-            constexpr auto prefixLength = WrappedTypeNamePrefixLength();
-            constexpr auto suffixLength = WrappedTypeNameSuffixLength();
-            constexpr auto typeNameLength = wrappedTypeName.length() - prefixLength - suffixLength;
-            constexpr auto typeName = wrappedTypeName.substr(prefixLength, typeNameLength);
-            return FNV1a(typeName.data(), typeName.size());
-        }
-        struct MethodData { std::string_view methodName{}; void *ptr{}; };
-        IL2CPP::Il2CppClass *TryGetMonoListClass(uint32_t typeHash, std::array<MethodData, 16> &data);
-
-        template<typename T>
-        void InitMonoListVTable(List<T> *list) {
-            using namespace PRIVATE_MonoListData;
-            /*
-             * Replaces the virtual method table because the original one is empty.
-             * It is also necessary for types that are not in the game (it's not a fact that the game would be able to use them without that types, but the code is there)
-             */
-            using Type = std::conditional_t<std::is_pointer_v<T>, void*, T>;
-            auto RemoveAt = &List<Type>::RemoveAt; auto GetSize = &List<Type>::GetSize; auto Clear = &List<Type>::Clear;
-            auto get_Item = &List<Type>::get_Item; auto set_Item = &List<Type>::set_Item; auto IndexOf = &List<Type>::IndexOf;
-            auto Insert = &List<Type>::Insert; auto get_false = &List<Type>::get_false; auto Add = &List<Type>::Add;
-            auto Contains = &List<Type>::Contains; auto CopyTo = &List<Type>::CopyTo; auto Remove = &List<Type>::Remove;
-            auto GetEnumerator = &List<Type>::GetEnumerator; auto get_SyncRoot = &List<Type>::get_SyncRoot;
-            static std::array<MethodData, 16> namesMap = {
-                    MethodData{BNM_OBFUSCATE("RemoveAt"), *reinterpret_cast<void **>(&RemoveAt)}, MethodData{BNM_OBFUSCATE("get_Count"), *reinterpret_cast<void **>(&GetSize)},
-                    MethodData{BNM_OBFUSCATE("Clear"), *reinterpret_cast<void **>(&Clear)}, MethodData{BNM_OBFUSCATE("get_Item"), *reinterpret_cast<void **>(&get_Item)},
-                    MethodData{BNM_OBFUSCATE("set_Item"), *reinterpret_cast<void **>(&set_Item)}, MethodData{BNM_OBFUSCATE("IndexOf"), *reinterpret_cast<void **>(&IndexOf)},
-                    MethodData{BNM_OBFUSCATE("Insert"), *reinterpret_cast<void **>(&Insert)}, MethodData{BNM_OBFUSCATE("get_IsReadOnly"), *reinterpret_cast<void **>(&get_false)},
-                    MethodData{BNM_OBFUSCATE("get_IsFixedSize"), *reinterpret_cast<void **>(&get_false)}, MethodData{BNM_OBFUSCATE("get_IsSynchronized"), *reinterpret_cast<void **>(&get_false)},
-                    MethodData{BNM_OBFUSCATE("Add"), *reinterpret_cast<void **>(&Add)}, MethodData{BNM_OBFUSCATE("Contains"), *reinterpret_cast<void **>(&Contains)},
-                    MethodData{BNM_OBFUSCATE("CopyTo"), *reinterpret_cast<void **>(&CopyTo)}, MethodData{BNM_OBFUSCATE("Remove"), *reinterpret_cast<void **>(&Remove)},
-                    MethodData{BNM_OBFUSCATE("GetEnumerator"), *reinterpret_cast<void **>(&GetEnumerator)}, MethodData{BNM_OBFUSCATE("get_SyncRoot"), *reinterpret_cast<void **>(&get_SyncRoot)}
-            };
-            list->klass = TryGetMonoListClass(HashedTypeName<Type>(), namesMap);
-        }
-    }
-    /// @endcond
 }
 // NOLINTEND
 

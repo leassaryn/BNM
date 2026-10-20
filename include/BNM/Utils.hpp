@@ -208,7 +208,8 @@ namespace BNM {
         @return Unmarshaled unity object
     */
     inline BNM_INT_PTR UnmarshalUnityObject(BNM_INT_PTR gcHandlePtr) {
-        return *reinterpret_cast<BNM_INT_PTR *>(gcHandlePtr & ~static_cast<BNM_INT_PTR>(1));
+        const auto address = gcHandlePtr & ~static_cast<BNM_INT_PTR>(1);
+        return address ? *reinterpret_cast<BNM_INT_PTR *>(address) : 0;
     }
 #endif
 

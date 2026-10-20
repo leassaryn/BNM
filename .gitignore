@@ -7,3 +7,7 @@ build/
 .cc
 .tinycc
 opencode.jsonc
+
+# Python audit/test bytecode
+__pycache__/
+*.pyc

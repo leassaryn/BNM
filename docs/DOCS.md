@@ -566,9 +566,9 @@ auto *arr = cls.NewArray<BNM::IL2CPP::Il2CppObject *>(10);
 // Membuat List<T>
 auto *list = cls.NewList<int>();
 
-// Membuat List<T> menggunakan BNM (untuk tipe yang tidak ada di game).
-// Batasan: T harus mendukung operator== (dipakai IndexOf/Contains/Remove).
-// Untuk tipe primitif seperti int, ini berfungsi.
+// Alias kompatibilitas NewList<T>: memakai metadata generic runtime yang asli.
+// T harus cocok dengan cls; tipe tanpa instantiation runtime tidak didukung.
+// Periksa nullptr sebelum menggunakan hasilnya.
 auto *list2 = cls.NewListBNM<int>();
 ```
 

@@ -31,5 +31,8 @@ LOCAL_SRC_FILES := \
     $(BNM_LOCAL_PATH)/src/Utils.cpp
 
 LOCAL_C_INCLUDES := $(INCLUDE_DIRS)
+LOCAL_EXPORT_C_INCLUDES := $(BNM_LOCAL_PATH)/include \
+                          $(BNM_LOCAL_PATH)/external/include \
+                          $(BNM_LOCAL_PATH)/external
 
 include $(BUILD_STATIC_LIBRARY)

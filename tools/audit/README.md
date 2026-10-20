@@ -15,6 +15,7 @@ python3 tools/audit/baseline.py --mode prepare
 python3 tools/audit/baseline.py --mode build --cmake /path/to/cmake --ninja /path/to/ninja
 python3 tools/audit/baseline.py --mode matrix
 python3 tools/audit/baseline.py --mode variants
+python3 tools/audit/baseline.py --mode headers
 python3 tools/audit/baseline.py --mode integration --cmake /path/to/cmake --ninja /path/to/ninja
 python3 tools/audit/baseline.py --mode analyze
 python3 tools/audit/baseline.py --mode probes --cmake /path/to/cmake --ninja /path/to/ninja
@@ -77,3 +78,8 @@ The historical `probes` cases intentionally expose pre-refactor failures and are
 not the current pass/fail suite. `refactor-results.json` records the subsequent
 implementation checks separately from `results.json`. No hook stub is suitable
 for a Unity consumer.
+
+The current gate also requires standalone public-header checks, fixed-width integer
+assertions on all four ABIs, compiler-observed Unity configuration/header records,
+and a verification-input manifest. Use a fresh output directory with the current
+runner; historical result directories do not satisfy the new gate. See [TODO.md](../../TODO.md).

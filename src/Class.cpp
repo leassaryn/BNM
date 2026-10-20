@@ -45,19 +45,19 @@ static IL2CPP::Il2CppClass *TryGetClassWithoutImage(const std::string_view &_nam
 
 Class::Class(const std::string_view &_namespace, const std::string_view &_name) {
     if (_data = TryGetClassWithoutImage(_namespace, _name); _data) return;
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_Constructor_NotFound, _namespace.data(), _name.data());
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_Constructor_NotFound, std::string(_namespace).c_str(), std::string(_name).c_str());
 }
 
 Class::Class(const std::string_view &_namespace, const std::string_view &_name, const BNM::Image &image) {
     if (!image) {
-        BNM_LOG_WARN(DBG_BNM_MSG_Class_Constructor_Image_Warn, image.str().data(), _namespace.data(), _name.data());
+        BNM_LOG_WARN(DBG_BNM_MSG_Class_Constructor_Image_Warn, image.str().data(), std::string(_namespace).c_str(), std::string(_name).c_str());
         _data = nullptr;
         return;
     }
 
     if (_data = Internal::TryGetClassInImage(image, _namespace, _name); _data) return;
 
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_Constructor_Image_NotFound, image.str().data(), _namespace.data(), _name.data());
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_Constructor_Image_NotFound, image.str().data(), std::string(_namespace).c_str(), std::string(_name).c_str());
 }
 
 std::vector<Class> Class::GetInnerClasses(bool includeParent) const {
@@ -157,7 +157,7 @@ MethodBase Class::GetMethod(const std::string_view &name, int parameters) const 
 
     if (method != nullptr) return method;
 
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetMethod_Count_NotFound, _data->namespaze, _data->name, name.data(), parameters);
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetMethod_Count_NotFound, _data->namespaze, _data->name, std::string(name).c_str(), parameters);
     return {};
 }
 
@@ -177,7 +177,7 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
 
     if (method != nullptr) return method;
 
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetMethod_Names_NotFound, _data->namespaze, _data->name, name.data(), parameters);
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetMethod_Names_NotFound, _data->namespaze, _data->name, std::string(name).c_str(), parameters);
     return {};
 }
 
@@ -199,7 +199,7 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
 
     if (method != nullptr) return method;
 
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetMethod_Types_NotFound, _data->namespaze, _data->name, name.data(), parameters);
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetMethod_Types_NotFound, _data->namespaze, _data->name, std::string(name).c_str(), parameters);
     return {};
 }
 
@@ -216,7 +216,7 @@ PropertyBase Class::GetProperty(const std::string_view &name) const {
         curClass = curClass->parent;
     } while (curClass);
 
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetProperty_NotFound, str().c_str(), name.data());
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetProperty_NotFound, str().c_str(), std::string(name).c_str());
     return {};
 }
 
@@ -236,7 +236,7 @@ PropertyBase Class::GetProperty(const std::string_view& name, const CompileTimeC
         curClass = curClass->parent;
     } while (curClass);
 
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetProperty_NotFound, str().c_str(), name.data());
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetProperty_NotFound, str().c_str(), std::string(name).c_str());
     return {};
 }
 
@@ -254,7 +254,7 @@ Class Class::GetInnerClass(const std::string_view &name) const {
         curClass = curClass->parent;
     } while (curClass);
 
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetInnerClass_NotFound, _data->namespaze, _data->name, name.data());
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetInnerClass_NotFound, _data->namespaze, _data->name, std::string(name).c_str());
     return {};
 }
 
@@ -273,7 +273,7 @@ FieldBase Class::GetField(const std::string_view &name) const {
         curClass = curClass->parent;
     } while (curClass);
 
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetField_NotFound, _data->namespaze, _data->name, name.data());
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetField_NotFound, _data->namespaze, _data->name, std::string(name).c_str());
     return {};
 }
 
@@ -293,7 +293,7 @@ EventBase Class::GetEvent(const std::string_view &name) const {
         curClass = curClass->parent;
     } while (curClass);
 
-    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetEvent_NotFound, _data->namespaze, _data->name, name.data());
+    BNM_LOG_WARN(DBG_BNM_MSG_Class_GetEvent_NotFound, _data->namespaze, _data->name, std::string(name).c_str());
     return {};
 }
 
@@ -397,10 +397,6 @@ IL2CPP::Il2CppObject *Class::BoxObject(IL2CPP::Il2CppClass *_data, void *data) {
 
 IL2CPP::Il2CppArray *Class::ArrayNew(IL2CPP::Il2CppClass *cls, IL2CPP::il2cpp_array_size_t length) {
     return Internal::il2cppMethods.il2cpp_array_new(cls, length);
-}
-
-void *Class::NewListInstance() {
-    return Internal::customListTemplateClass.CreateNewInstance();
 }
 
 Class Class::GetListClass() {

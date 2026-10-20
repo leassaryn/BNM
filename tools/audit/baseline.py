@@ -10,6 +10,8 @@ import difflib
 import hashlib
 import json
 import os
+import re
+from configuration import set_define, effective_define
 from pathlib import Path
 import shutil
 import subprocess
@@ -20,7 +22,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--out', default='build/audit-phase23')
 parser.add_argument('--cmake', default=shutil.which('cmake'))
 parser.add_argument('--ninja', default=shutil.which('ninja'))
-parser.add_argument('--mode', choices=['prepare', 'build', 'matrix', 'probes', 'integration', 'analyze', 'scanner', 'variants', 'regression'], default='prepare')
+parser.add_argument('--mode', choices=['prepare', 'build', 'matrix', 'probes', 'integration', 'analyze', 'scanner', 'variants', 'regression', 'headers'], default='prepare')
 args = parser.parse_args()
 OUT = (ROOT / args.out).resolve()
 if not OUT.is_relative_to((ROOT / 'build').resolve()):
@@ -81,6 +83,10 @@ if args.mode == 'prepare':
     manifest = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                 for name in ['src', 'include', 'external'] for p in (ROOT/name).rglob('*') if p.is_file()}
     (OUT/'source-sha256.json').write_text(json.dumps(manifest, indent=2)+'\n')
+    verification = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for folder in ['tests', 'tools/audit'] for p in (ROOT/folder).rglob('*')
+                    if p.is_file() and p.suffix in ['.py', '.cpp', '.hpp']}
+    (OUT/'verification-sha256.json').write_text(json.dumps(verification, indent=2)+'\n')
     print('Prepared '+str(SNAP))
 elif args.mode == 'build':
     if not args.cmake or not args.ninja:
@@ -100,6 +106,22 @@ elif args.mode == 'build':
     pairs = [(abi, cfg) for abi in ['arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'] for cfg in ['Debug', 'Release']]
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(build, pairs))
+elif args.mode == 'headers':
+    failed = []
+    for header in sorted((SNAP/'include/BNM').rglob('*.hpp')):
+        relative = header.relative_to(SNAP/'include')
+        source = OUT/'header-isolation.cpp'
+        source.write_text('#include <'+relative.as_posix()+'>\n')
+        name = 'header-'+relative.as_posix().replace('/', '-')
+        if run(name, [BIN/'aarch64-linux-android21-clang++', '-std=c++20', '-fsyntax-only', *includes(SNAP), source]):
+            failed.append(name)
+    for triple in ['aarch64-linux-android21', 'armv7a-linux-androideabi21', 'i686-linux-android21', 'x86_64-linux-android21']:
+        if run('abi-types-'+triple, [BIN/(triple+'-clang++'), '-std=c++20', '-fsyntax-only', *includes(SNAP), ROOT/'tests/abi_types.cpp']):
+            failed.append(triple)
+    if run('audit-configuration', ['python3', ROOT/'tests/test_audit_configuration.py']):
+        failed.append('audit-configuration')
+    if failed:
+        raise SystemExit(1)
 elif args.mode == 'matrix':
     # Public API compile at every selector branch. Full source checks at six
     # representative old/current/new layouts; this is not a full cross-product.
@@ -120,9 +142,21 @@ elif args.mode == 'matrix':
             shutil.copytree(SNAP/'include', tree, ignore=shutil.ignore_patterns('Il2CppHeaders'))
             (tree/'BNM/Il2CppHeaders').symlink_to(SNAP/'include/BNM/Il2CppHeaders', target_is_directory=True)
         settings = tree/'BNM/UserSettings/GlobalSettings.hpp'
-        changed = base.replace('#define UNITY_VER 222 //', f'#define UNITY_VER {version} //', 1)
-        changed = changed.replace('#define UNITY_PATCH_VER 32 ', f'#define UNITY_PATCH_VER {patch} ', 1)
+        changed = set_define(base, 'UNITY_VER', version)
+        changed = set_define(changed, 'UNITY_PATCH_VER', patch)
         settings.write_text(changed)
+        probe = config/'selected.cpp'
+        probe.write_text('#include <BNM/Il2CppHeaders.hpp>\n')
+        result = subprocess.run([str(BIN/'aarch64-linux-android21-clang++'), '-std=c++20',
+                                 '-E', '-dD', '-I'+str(tree), *includes(SNAP), str(probe)],
+                                capture_output=True, text=True, check=True)
+        actual = [effective_define(result.stdout, key) for key in ['UNITY_VER', 'UNITY_PATCH_VER']]
+        selected = sorted(set(re.findall(r'Il2CppHeaders/([^"\n]+\.h)"', result.stdout)))
+        if actual != [version, patch] or len(selected) != 1:
+            raise RuntimeError(f'{name}: wrong effective configuration {actual}, headers {selected}')
+        (LOG/(name+'-configuration.json')).write_text(json.dumps(
+            dict(requested=[version, patch], effective=actual, header=selected[0],
+                 sha256=hashlib.sha256((SNAP/'include/BNM/Il2CppHeaders'/selected[0]).read_bytes()).hexdigest()), indent=2))
         sources = sorted((SNAP/'src').glob('*.cpp')) if pair in [(56,0),(172,0),(211,24),(222,9),(6003,3),(6005,1)] else []
         run(name, [BIN/'aarch64-linux-android21-clang++', '-std=c++20', '-fsyntax-only',
                    '-Wall', '-Wextra', '-Wpedantic', '-I'+str(tree), *includes(SNAP),
@@ -160,7 +194,7 @@ elif args.mode in ['probes', 'regression']:
                              'coroutine-temporary', 'missing-symbol', 'hook-failure',
                              'custom-method-limit', 'mapped-not-readable']
                 if args.mode == 'regression':
-                    cases += ['reflection', 'copy-move', 'list-boundaries', 'layout-rejection', 'jni-errors', 'invoke-hook', 'custom-class', 'metadata-oom', 'virtual-dispatch', 'thread-scope', 'write-barriers', 'metadata-rollback-create', 'metadata-rollback-modify', 'metadata-hook-rollback', 'list-metadata-rollback']
+                    cases += ['reflection', 'copy-move', 'list-boundaries', 'layout-rejection', 'jni-errors', 'invoke-hook', 'custom-class', 'metadata-oom', 'virtual-dispatch', 'thread-scope', 'write-barriers', 'metadata-rollback-create', 'metadata-rollback-modify', 'metadata-hook-rollback', 'runtime-list', 'proxy-assignment', 'field-rebind', 'math-review', 'raycast-resolver', 'event-dirty', 'delegate-mutation', 'string-view-logging', 'x86-decoder', 'list-growth-limit']
                 failed = [case for case in cases if run(('regression-' if args.mode == 'regression' else 'probe-')+case, [exe, case], timeout=20, env=env)]
                 if args.mode == 'regression' and failed:
                     raise SystemExit(1)
@@ -205,7 +239,7 @@ elif args.mode == 'scanner':
                      ('__i386__','AUDIT_X86'),('__x86_64__','AUDIT_X64')]:
         scanner = scanner.replace('defined('+old+')', 'defined('+new+')')
     source = OUT/'scanner.cpp'
-    source.write_text('#include <cstdint>\n#include <cstring>\n#include <string>\n#include <cstdlib>\n#include <cstdio>\n#include <sys/mman.h>\n#include <unistd.h>\nnamespace BNM { size_t ReadableBytes(const void*, size_t); }\nusing BNM_PTR = uintptr_t;\n#define BNM_OBFUSCATE_TMP(x) x\n#define AUDIT_X64\n'+scanner+'''
+    source.write_text('#include "'+str(SNAP/'src/private/X86Decoder.hpp')+'"\n#include <cstdint>\n#include <cstring>\n#include <string>\n#include <cstdlib>\n#include <cstdio>\n#include <sys/mman.h>\n#include <unistd.h>\nnamespace BNM { size_t ReadableBytes(const void*, size_t); }\nusing BNM_PTR = uintptr_t;\n#define BNM_OBFUSCATE_TMP(x) x\n#define AUDIT_X64\n'+scanner+'''
 int main(int argc, char** argv) {
     if (argc != 2) return 64;
     if (std::string(argv[1]) == "rel32") {
@@ -225,6 +259,14 @@ int main(int argc, char** argv) {
         munmap(memory, page * 2);
         return safe ? 0 : 1;
     }
+    if (std::string(argv[1]) == "operand") {
+        unsigned char code[4096]{};
+        code[0] = 0xB8; code[1] = 0xE8; code[5] = 0x90; code[6] = 0xC3;
+        if (AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(code), 1)) return 1;
+        // A real CALL after an immediate must be found at its instruction boundary.
+        code[6] = 0xE8; code[7] = 0; code[8] = 0; code[9] = 0; code[10] = 0;
+        return AssemblerUtils::FindNextJump(reinterpret_cast<BNM_PTR>(code), 1) == reinterpret_cast<BNM_PTR>(code + 11) ? 0 : 1;
+    }
     const unsigned char instruction[] = {0xE8};
     auto hex = AssemblerUtils::ReadMemory<1>(reinterpret_cast<BNM_PTR>(instruction));
     std::printf("expected=E8 actual=%s\\n", hex.c_str());
@@ -240,7 +282,7 @@ int main(int argc, char** argv) {
         env['LD_LIBRARY_PATH'] = str(Path(runtime).parent)+':'+env.get('LD_LIBRARY_PATH','')
         env['ASAN_OPTIONS'] = 'detect_leaks=0'
         env['ASAN_SYMBOLIZER_PATH'] = str(BIN/'llvm-symbolizer')
-        for case in ['rel32', 'signed-char', 'bounds']:
+        for case in ['rel32', 'signed-char', 'bounds', 'operand']:
             run('scanner-'+case, [exe, case], env=env)
 elif args.mode == 'variants':
     base = (SNAP/'include/BNM/UserSettings/GlobalSettings.hpp').read_text()
@@ -258,7 +300,7 @@ elif args.mode == 'variants':
             config = config.replace('#define BNM_CLASSES_MANAGEMENT\n', '// audit: classes disabled\n', 1)
             config = config.replace('#define BNM_COROUTINE\n', '// audit: coroutine disabled\n', 1)
         else:
-            config = config.replace('#define UNITY_VER 222 //', '#define UNITY_VER 6006 //', 1)
+            config = set_define(config, 'UNITY_VER', 6006)
         (tree/'BNM/UserSettings/GlobalSettings.hpp').write_text(config)
         sources = sorted((SNAP/'src').glob('*.cpp')) if name in ['sync', 'minimal'] else []
         run('variant-'+name, [BIN/'aarch64-linux-android21-clang++', '-std=c++20', '-fsyntax-only',

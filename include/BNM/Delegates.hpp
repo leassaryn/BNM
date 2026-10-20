@@ -76,6 +76,9 @@ namespace BNM {
             @param delegate Delegate to add
         */
         void Add(DelegateBase *delegate);
+        /// In-place BNM mutation; false leaves the invocation list unchanged.
+        /// Unlike managed Delegate.Combine, aliases observe this mutation.
+        [[nodiscard]] bool TryAdd(DelegateBase *delegate);
 
         /**
             @brief Add method to delegate.
