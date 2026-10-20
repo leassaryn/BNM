@@ -406,6 +406,10 @@ bool Internal::SetupBNM() {
     INIT_IL2CPP_API(il2cpp_gc_alloc_fixed);
     INIT_IL2CPP_API(il2cpp_gc_free_fixed);
     INIT_IL2CPP_API(il2cpp_gc_wbarrier_set_field);
+    // Optional capability: older/custom resolvers may omit GC handle exports.
+    INIT_IL2CPP_API(il2cpp_gchandle_new);
+    INIT_IL2CPP_API(il2cpp_gchandle_get_target);
+    INIT_IL2CPP_API(il2cpp_gchandle_free);
 
 #undef INIT_IL2CPP_API
     if (!il2cppMethods.il2cpp_get_corlib || !il2cppMethods.il2cpp_class_from_name ||

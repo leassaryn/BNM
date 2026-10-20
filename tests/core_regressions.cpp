@@ -441,6 +441,7 @@ static void DestroyCoroutine(Coroutine::IEnumerator *object) {
 }
 
 #include "review_regressions.hpp"
+#include "gc_handle_regressions.hpp"
 
 int main(int argc, char** argv)
 {
@@ -663,6 +664,7 @@ int main(int argc, char** argv)
     else if (mode == "runtime-list") return RuntimeListRegression();
     else if (mode == "metadata-hook-rollback") return MetadataHookFailureRegression();
     else if (mode == "thread-scope") return ThreadScopeRegression();
+    else if (mode == "gc-handle") return GCHandleRegression();
     else if (mode == "write-barriers") return BarrierRegression();
     else if (mode == "metadata-rollback-create") return MetadataRollbackRegression(false);
     else if (mode == "metadata-rollback-modify") return MetadataRollbackRegression(true);

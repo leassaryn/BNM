@@ -8,6 +8,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- Move-only `BNM::GCHandle` for strong managed roots, optional pinning, and automatic release on reset/destruction. Handle ABI follows the configured Unity version.
+
 ### Fixed
 - List growth uses bounded unsigned arithmetic and signed-safe capacity checks for legacy Unity array layouts.
 - Fixed-width managed integer mappings on 32-bit ABIs, proxy-to-proxy array/list assignments, and stale field bindings after rejected instances.

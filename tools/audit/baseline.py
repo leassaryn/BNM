@@ -194,7 +194,7 @@ elif args.mode in ['probes', 'regression']:
                              'coroutine-temporary', 'missing-symbol', 'hook-failure',
                              'custom-method-limit', 'mapped-not-readable']
                 if args.mode == 'regression':
-                    cases += ['reflection', 'copy-move', 'list-boundaries', 'layout-rejection', 'jni-errors', 'invoke-hook', 'custom-class', 'metadata-oom', 'virtual-dispatch', 'thread-scope', 'write-barriers', 'metadata-rollback-create', 'metadata-rollback-modify', 'metadata-hook-rollback', 'runtime-list', 'proxy-assignment', 'field-rebind', 'math-review', 'raycast-resolver', 'event-dirty', 'delegate-mutation', 'string-view-logging', 'x86-decoder', 'list-growth-limit']
+                    cases += ['reflection', 'copy-move', 'list-boundaries', 'layout-rejection', 'jni-errors', 'invoke-hook', 'custom-class', 'metadata-oom', 'virtual-dispatch', 'thread-scope', 'gc-handle', 'write-barriers', 'metadata-rollback-create', 'metadata-rollback-modify', 'metadata-hook-rollback', 'runtime-list', 'proxy-assignment', 'field-rebind', 'math-review', 'raycast-resolver', 'event-dirty', 'delegate-mutation', 'string-view-logging', 'x86-decoder', 'list-growth-limit']
                 failed = [case for case in cases if run(('regression-' if args.mode == 'regression' else 'probe-')+case, [exe, case], timeout=20, env=env)]
                 if args.mode == 'regression' and failed:
                     raise SystemExit(1)

@@ -12,6 +12,7 @@
 
 #include <BNM/UserSettings/GlobalSettings.hpp>
 #include <BNM/Utils.hpp>
+#include <BNM/GCHandle.hpp>
 #include <BNM/BasicMonoStructures.hpp>
 #include <BNM/Method.hpp>
 #include <BNM/Class.hpp>
@@ -79,6 +80,9 @@ namespace BNM::Internal {
         void *(*il2cpp_gc_alloc_fixed)(size_t){};
         void (*il2cpp_gc_free_fixed)(void*){};
         void (*il2cpp_gc_wbarrier_set_field)(IL2CPP::Il2CppObject *, void **, void *){};
+        GCHandle::NativeHandle (*il2cpp_gchandle_new)(IL2CPP::Il2CppObject *, bool){};
+        IL2CPP::Il2CppObject *(*il2cpp_gchandle_get_target)(GCHandle::NativeHandle){};
+        void (*il2cpp_gchandle_free)(GCHandle::NativeHandle){};
 
         // Direct il2cpp API methods
         std::vector<BNM::IL2CPP::Il2CppAssembly *> *(*Assembly$$GetAllAssemblies)(){};

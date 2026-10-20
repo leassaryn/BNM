@@ -28,7 +28,7 @@ for case in ['positive', 'copy-lifetime', 'const-generic', 'class-publication',
              'dictionary-holes', 'array-overflow', 'coroutine-yield', 'coroutine-temporary',
              'missing-symbol', 'hook-failure', 'custom-method-limit', 'mapped-not-readable',
              'reflection', 'copy-move', 'list-boundaries', 'layout-rejection', 'jni-errors',
-             'invoke-hook', 'custom-class', 'metadata-oom', 'virtual-dispatch', 'thread-scope', 'write-barriers', 'metadata-rollback-create', 'metadata-rollback-modify', 'metadata-hook-rollback', 'runtime-list', 'proxy-assignment', 'field-rebind', 'math-review', 'raycast-resolver', 'event-dirty', 'delegate-mutation', 'string-view-logging', 'x86-decoder', 'list-growth-limit']:
+             'invoke-hook', 'custom-class', 'metadata-oom', 'virtual-dispatch', 'thread-scope', 'gc-handle', 'write-barriers', 'metadata-rollback-create', 'metadata-rollback-modify', 'metadata-hook-rollback', 'runtime-list', 'proxy-assignment', 'field-rebind', 'math-review', 'raycast-resolver', 'event-dirty', 'delegate-mutation', 'string-view-logging', 'x86-decoder', 'list-growth-limit']:
     require('regression-' + case)
 for case in ['rel32', 'signed-char', 'bounds', 'operand']:
     require('scanner-' + case)

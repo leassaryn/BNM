@@ -1,5 +1,37 @@
 # ByNameModding (BNM) — Dokumentasi Lengkap
 
+## Managed GC handle (RAII)
+
+`BNM::GCHandle` memiliki satu strong GC root dan melepasnya otomatis saat keluar
+dari scope. Copy dilarang; move memindahkan kepemilikan dan mengosongkan sumber.
+
+```cpp
+#include <BNM/GCHandle.hpp>
+#include <BNM/Utils.hpp>
+
+void UseObject(BNM::IL2CPP::Il2CppObject *object)
+{
+    BNM::ScopedIl2CppThread thread; // Scope thread harus lebih panjang daripada handle.
+    if (!thread) return;
+    auto root = BNM::GCHandle::New(object);
+    if (!root) return;
+    auto *target = root.Get(); // Pointer pinjaman selama root masih hidup.
+    // Gunakan target di sini.
+    (void)target;
+} // Root dilepas sebelum thread detach.
+```
+
+- `New(object, pinned = false)` membuat strong handle; `true` meminta pinning.
+- `operator bool()` memeriksa kepemilikan handle; `Get()` membaca target dari runtime.
+- `Reset()` melepas root lebih awal; aman dipanggil berulang.
+- Input null, BNM belum loaded, API tidak tersedia, atau handle hasil nol menghasilkan
+  wrapper kosong. Exception alokasi runtime tetap mengikuti perilaku IL2CPP.
+- Caller harus memakai thread attached, menjaga input hidup sampai root terbentuk,
+  dan melepas semua handle sebelum runtime shutdown atau library unload. Akses
+  wrapper yang sama dari beberapa thread membutuhkan sinkronisasi.
+- Root melindungi objek managed; ia tidak mencegah penghancuran objek native Unity.
+  Jangan menyimpan pointer pinjaman setelah root terakhir dilepas. Weak handle belum tersedia.
+
 > Perubahan kontrak terbaru pada fork ini: [Refactor fitur inti](REFACTOR.md). Baca panduan migrasi `cast()`, coroutine, dan batas modifikasi layout sebelum memakai contoh di bawah.
 
 > BNM adalah library C++20 statik untuk modding game Unity (il2cpp) di Android.

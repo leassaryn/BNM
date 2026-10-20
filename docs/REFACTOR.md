@@ -166,6 +166,13 @@ harus diuji di proyek target sebelum rilis; fixture native tidak meniru GC.
 
 ## Batas verifikasi
 
+`BNM::GCHandle` menyediakan strong root move-only dengan pinning opsional; lihat
+contoh di [DOCS.md](DOCS.md#managed-gc-handle-raii). Ketiga export GC handle bersifat
+opsional saat loading. Factory menolak pembuatan jika kapabilitas belum lengkap.
+Handle menyimpan callback lookup/free miliknya dan wajib dilepas saat runtime masih
+hidup. Regresi native memeriksa kegagalan API/alokasi, move, reset, pinning flag,
+dan exception unwinding; perilaku collector nyata tetap memerlukan uji Unity.
+
 `IsAllocated` pada mode pemeriksaan hanya menguji permission mapping saat itu;
 bukan bukti lifetime objek, sinkronisasi, atau keselamatan dereference kemudian.
 Pemeriksaan mapping memakai `/proc/self/maps`, tidak cocok untuk signal handler.

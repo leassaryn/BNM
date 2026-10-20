@@ -33,3 +33,6 @@
 #define BNM_IL2CPP_API_il2cpp_gc_free_fixed "il2cpp_gc_free_fixed"
 
 #define BNM_IL2CPP_API_il2cpp_gc_wbarrier_set_field "il2cpp_gc_wbarrier_set_field"
+#define BNM_IL2CPP_API_il2cpp_gchandle_new "il2cpp_gchandle_new"
+#define BNM_IL2CPP_API_il2cpp_gchandle_get_target "il2cpp_gchandle_get_target"
+#define BNM_IL2CPP_API_il2cpp_gchandle_free "il2cpp_gchandle_free"

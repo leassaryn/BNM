@@ -10,6 +10,55 @@
 
 using namespace BNM;
 
+GCHandle::~GCHandle() noexcept
+{
+    Reset();
+}
+
+GCHandle::GCHandle(GCHandle &&other) noexcept
+    : _handle(std::exchange(other._handle, NativeHandle{})),
+      _getTarget(std::exchange(other._getTarget, nullptr)),
+      _free(std::exchange(other._free, nullptr))
+{}
+
+GCHandle &GCHandle::operator=(GCHandle &&other) noexcept
+{
+    if (this != &other)
+    {
+        Reset();
+        _handle = std::exchange(other._handle, NativeHandle{});
+        _getTarget = std::exchange(other._getTarget, nullptr);
+        _free = std::exchange(other._free, nullptr);
+    }
+    return *this;
+}
+
+GCHandle GCHandle::New(IL2CPP::Il2CppObject *object, bool pinned)
+{
+    GCHandle result;
+    const auto &api = Internal::il2cppMethods;
+    if (!object || !IsLoaded() || !api.il2cpp_gchandle_new ||
+        !api.il2cpp_gchandle_get_target || !api.il2cpp_gchandle_free)
+        return result;
+    result._getTarget = api.il2cpp_gchandle_get_target;
+    result._free = api.il2cpp_gchandle_free;
+    result._handle = api.il2cpp_gchandle_new(object, pinned);
+    return result;
+}
+
+IL2CPP::Il2CppObject *GCHandle::Get() const noexcept
+{
+    return _handle != NativeHandle{} ? _getTarget(_handle) : nullptr;
+}
+
+void GCHandle::Reset() noexcept
+{
+    const auto handle = std::exchange(_handle, NativeHandle{});
+    const auto freeHandle = std::exchange(_free, nullptr);
+    _getTarget = nullptr;
+    if (handle != NativeHandle{}) freeHandle(handle);
+}
+
 size_t BNM::ReadableBytes(const void *address, size_t maximum) {
     if (!address || !maximum) return 0;
     auto *maps = std::fopen("/proc/self/maps", "r");
